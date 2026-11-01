@@ -1,22 +1,14 @@
-AJSF ONLINE LOGIN - STARTER PROJECT
-
-इस ZIP में पहला login starter है: Supabase Email/Password authentication और profiles role check.
-यह पूरा collection management software नहीं है। Customer, Loan, Payment, Receipt, SOA, Reports,
-Offline Sync, Audit Trail और Backup modules अभी बनने बाकी हैं।
-
-शुरू करने के कदम:
-1. src/config.js खोलें।
-2. PASTE_YOUR_SUPABASE_PUBLISHABLE_KEY_HERE की जगह अपनी Supabase Publishable Key डालें।
-   Supabase Dashboard > Project Settings > API Keys में publishable key मिलेगी।
-3. service_role या secret key कभी भी frontend files में न डालें।
-4. GitHub पर नया repository बनाएं: ajsf-online
-5. ZIP extract करके सभी files repository में upload/commit करें।
-6. Vercel में Add New > Project चुनें और GitHub repository import करें।
-7. Deploy के बाद Admin और Akshay Kumar Collector दोनों से login test करें।
-
-महत्वपूर्ण:
-- profiles table पर authenticated user को अपनी profile SELECT करने की RLS policy जरूरी है।
-- दोनों Auth users की email confirmation आपके Supabase Auth settings के अनुसार पूरी होनी चाहिए।
-- RLS policies और Admin/Collector access अलग-अलग test करें।
-- अभी असली ग्राहक या भुगतान डेटा इस्तेमाल न करें।
-- यह starter deployment package है; इसे production-ready collection system न समझें।
+AJSF ONLINE - Dashboard integration starter
+1. Extract ZIP. Replace repository files: index.html, style.css, and src/app.js.
+2. Keep your existing src/config.js. Add only the Supabase Publishable Key from Project Settings > API Keys.
+3. Never put service_role/secret key in browser code.
+4. Deploy through your existing Vercel GitHub connection.
+5. This version reads profiles/customers/loans and attempts payment insert using:
+   payments(loan_id, customer_id, amount, payment_date, payment_mode, collected_by, remarks)
+6. Your current database must have RLS policies allowing:
+   - signed-in users to read their own profiles;
+   - admin to read/write all customers, loans, payments;
+   - collectors to read assigned customers and their loans, and insert payments for assigned customers.
+7. Payment column names and RLS are not verified against live Supabase in this environment. If payment save returns a column/policy error, share the exact error (never share keys).
+8. Existing imported W1-W24 history remains separate from payments; no old payments are fabricated.
+9. This build does not yet implement offline sync, receipt printing, Excel import/export, or payment edit/void.
