@@ -11,3 +11,27 @@
 .receipt-amount{display:flex;justify-content:space-between;align-items:center;margin:16px 0;padding:12px;background:#edf5f0;border-radius:8px}.receipt-amount strong{font-size:24px;color:#123f35}
 .receipt-remarks{font-size:11px}.receipt-footer{display:flex;justify-content:space-between;margin:34px 0 12px;font-size:11px}.receipt-footer span{border-top:1px solid #687a72;padding-top:6px;min-width:140px;text-align:center}.receipt-note{text-align:center;font-size:9px;color:#687a72}
 @media print{body{background:#fff!important}.shell{width:100%!important;padding:0!important}.brand,#loginCard,.dashhead,#dashboardMessage,.grid,.tabs,[data-panel],footer,.no-print{display:none!important}#dashboardCard{display:block!important}.receiptPanel,#receiptPanel,.receipt{display:block!important;box-shadow:none!important;border:0!important;margin:0!important;max-width:none!important;padding:10mm!important}.receipt{border:1px solid #999!important;border-radius:0!important;break-inside:avoid}.receipt *{color:#111!important}.receipt-amount{background:#eee!important}}
+
+/* AJSF branded login and dashboard layout */
+.brand-logo{width:64px;height:64px;object-fit:contain;background:#fff;border-radius:50%;border:1px solid #dce8e1;flex:0 0 auto}
+#loginCard{max-width:440px;margin:8vh auto 0;padding:28px}
+#loginCard h2{font-size:24px}
+#loginCard form{display:grid;gap:12px}
+#loginCard button{width:100%;margin-top:5px}
+#appShell:not(.logged-in){max-width:520px;padding-top:5vh}
+#appShell:not(.logged-in)>.brand{justify-content:center;margin-bottom:26px}
+#appShell:not(.logged-in)>.brand>div:last-child{text-align:left}
+#appShell.logged-in{width:min(100% - 28px,1500px)}
+.dashboard-layout{display:grid;grid-template-columns:220px minmax(0,1fr);gap:18px;align-items:start}
+.sidebar{position:sticky;top:16px;background:#fff;border:1px solid #dce8e1;border-radius:15px;padding:14px;box-shadow:0 8px 24px #123f350c}
+.sidebar-title{font-size:11px;font-weight:800;color:#688277;letter-spacing:1.2px;padding:6px 9px 12px}
+.sidebar .tabs{display:flex;flex-direction:column;margin:0;gap:7px}
+.sidebar .tabs button{text-align:left;width:100%;padding:12px;background:#f0f6f2;color:#174b3d}
+.sidebar .tabs button.active{background:#123f35;color:white}
+.dashboard-content{min-width:0}
+.ledger-summary{display:flex;gap:18px;flex-wrap:wrap;padding:14px 0;font-size:13px}
+.ledger-summary strong{color:#123f35}
+@media(max-width:850px){.dashboard-layout{grid-template-columns:1fr}.sidebar{position:static}.sidebar .tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.sidebar .tabs button{text-align:center}.brand-logo{width:54px;height:54px}}
+@media(max-width:520px){#loginCard{margin:5vh auto 0;padding:20px}.sidebar .tabs{grid-template-columns:1fr 1fr}.brand{gap:10px}.brand h1{font-size:12px}}
+@media print{.sidebar{display:none!important}.dashboard-layout{display:block!important}}
+\n.receipt-logo{width:56px;height:56px;object-fit:contain}\n
