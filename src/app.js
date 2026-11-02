@@ -38,8 +38,10 @@ function renderShell() {
   $("roleNote").textContent = canAdmin()
     ? "आप सभी ग्राहक, लोन और भुगतान देख सकते हैं।"
     : "आपको केवल आपके assigned ग्राहक दिखेंगे।";
-  $("adminOnly").classList.toggle("hidden", !canAdmin());
-  $("collectorOnly").classList.toggle("hidden", canAdmin());
+  const adminOnly = $("adminOnly");
+  const collectorOnly = $("collectorOnly");
+  if (adminOnly) adminOnly.classList.toggle("hidden", !canAdmin());
+  if (collectorOnly) collectorOnly.classList.toggle("hidden", canAdmin());
 }
 
 function activateTab(tab) {
