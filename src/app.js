@@ -7,7 +7,8 @@ const esc = (v) => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&
 let supabase, currentUser, profile, customers = [], loans = [], payments = [];
 
 function showMessage(message, type = "info") {
-  const el = $("appMessage");
+  const dashboardVisible = !$("dashboardCard").classList.contains("hidden");
+  const el = $(dashboardVisible ? "dashboardMessage" : "loginMessage");
   if (!el) return;
   el.textContent = message;
   el.className = `message ${type}`;
@@ -60,8 +61,8 @@ async function loadAll() {
     supabase.from("loans").select("id, loan_reference, customer_id, loan_type, disbursement_date, loan_amount, emi_amount, total_emis_required, status, source_total_collected, source_osp, source_emis_paid, source_emis_pending").order("created_at", {ascending:false}),
     supabase.from("payments").select("*").order("created_at", {ascending:false}).limit(100)
   ]);
-  if (c.error) throw new Error("Customer डेटा: " + c.error.message);
-  if (l.error) throw new Error("Loan डेटा: " + l.error.message);
+  if (c.error) throw new Error("Customer API (" + c.error.code + "): " + c.error.message);
+  if (l.error) throw new Error("Loan API (" + l.error.code + "): " + l.error.message);
   customers = c.data || []; loans = l.data || [];
   payments = p.error ? [] : (p.data || []);
   renderData();
@@ -73,7 +74,7 @@ function renderData() {
   $("loansCount").textContent = loans.length;
   $("paymentsCount").textContent = payments.length;
   const today = new Date().toISOString().slice(0,10);
-  const todayPayments = payments.filter(p => String(p.payment_date || p.paid_at || p.created_at || "").slice(0,10) === today);
+  const todayPayments = payments.filter(p => String(p.paid_at || p.created_at || "").slice(0,10) === today);
   $("todayTotal").textContent = money(todayPayments.reduce((s,p) => s + Number(p.amount || p.payment_amount || 0), 0));
   $("customerRows").innerHTML = customers.map(c => `<tr><td>${esc(c.customer_code)}</td><td>${esc(c.full_name)}</td><td>${esc(c.center_name)}</td><td>${esc(c.contact_number)}</td><td>${esc(c.collection_day)}</td><td>${esc(c.customer_status)}</td></tr>`).join("") || `<tr><td colspan="6" class="empty">कोई ग्राहक नहीं मिला।</td></tr>`;
   $("loanRows").innerHTML = loans.map(l => {
@@ -82,7 +83,7 @@ function renderData() {
   }).join("") || `<tr><td colspan="7" class="empty">कोई लोन रिकॉर्ड नहीं मिला।</td></tr>`;
   $("payCustomer").innerHTML = `<option value="">ग्राहक चुनें</option>` + customers.map(c => `<option value="${esc(c.id)}">${esc(c.customer_code)} · ${esc(c.full_name)}</option>`).join("");
   $("payLoan").innerHTML = `<option value="">लोन चुनें</option>` + loans.map(l => `<option value="${esc(l.id)}">${esc(l.loan_reference)} · ${money(l.loan_amount)}</option>`).join("");
-  $("paymentRows").innerHTML = payments.map(p => `<tr><td>${esc(p.id)}</td><td>${esc(p.payment_date || p.paid_at || p.created_at)}</td><td>${money(p.amount || p.payment_amount)}</td><td>${esc(p.payment_mode || p.mode || "—")}</td></tr>`).join("") || `<tr><td colspan="4" class="empty">अभी भुगतान उपलब्ध नहीं हैं।</td></tr>`;
+  $("paymentRows").innerHTML = payments.map(p => `<tr><td>${esc(p.id)}</td><td>${esc(p.paid_at || p.created_at)}</td><td>${money(p.amount || p.payment_amount)}</td><td>${esc(p.payment_mode || p.mode || "—")}</td></tr>`).join("") || `<tr><td colspan="4" class="empty">अभी भुगतान उपलब्ध नहीं हैं।</td></tr>`;
 }
 
 async function submitCustomer(event) {
@@ -113,8 +114,9 @@ async function submitPayment(event) {
   if (!loan || !customer || loan.customer_id !== customer.id) return showMessage("सही ग्राहक और उसी ग्राहक का लोन चुनें।", "warn");
   const row = {
     loan_id: loan.id, customer_id: customer.id, amount: Number(d.amount),
-    payment_date: d.payment_date, payment_mode: d.payment_mode,
-    collected_by: currentUser.id, remarks: d.remarks || null
+    paid_at: `${d.payment_date}T12:00:00`,
+    payment_mode: d.payment_mode,
+    collector_id: currentUser.id, remarks: d.remarks || null
   };
   setBusy(btn, true);
   const { error } = await supabase.from("payments").insert(row);
@@ -144,12 +146,22 @@ async function boot() {
     });
     if (error) { setBusy(btn, false); return showMessage("लॉगिन असफल: ईमेल/पासवर्ड जाँचें।", "error"); }
     try {
-      currentUser = data.user; await loadProfile(currentUser); renderShell();
+      currentUser = data.user;
+      await loadProfile(currentUser);
+      renderShell();
       $("customerForm").addEventListener("submit", submitCustomer);
       $("paymentForm").addEventListener("submit", submitPayment);
-      await loadAll();
+      try {
+        await loadAll();
+      } catch (dataError) {
+        console.error("AJSF dashboard data load failed:", dataError);
+        showMessage("डेटा लोड नहीं हुआ: " + (dataError?.message || String(dataError)) + " | स्क्रीनशॉट भेजें।", "error");
+      }
     } catch (err) {
-      await supabase.auth.signOut(); setBusy(btn, false); showMessage(err.message, "error");
+      console.error("AJSF login/profile failed:", err);
+      await supabase.auth.signOut();
+      setBusy(btn, false);
+      showMessage(err.message, "error");
     }
   });
   $("logoutBtn").addEventListener("click", logout);
