@@ -7,8 +7,9 @@ const esc = (v) => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&
 let supabase, currentUser, profile, customers = [], loans = [], payments = [];
 
 function showMessage(message, type = "info") {
-  const dashboardVisible = !$("dashboardCard").classList.contains("hidden");
-  const el = $(dashboardVisible ? "dashboardMessage" : "loginMessage");
+  const dashboardCard = $("dashboardCard");
+  const dashboardVisible = dashboardCard ? !dashboardCard.classList.contains("hidden") : false;
+  const el = $(dashboardVisible ? "dashboardMessage" : "loginMessage") || $("message");
   if (!el) return;
   el.textContent = message;
   el.className = `message ${type}`;
