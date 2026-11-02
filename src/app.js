@@ -4,7 +4,7 @@ import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./config.js";
 const $ = (id) => document.getElementById(id);
 const money = (n) => "₹" + Number(n || 0).toLocaleString("en-IN");
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-let supabase, currentUser, profile, customers = [], loans = [], payments = [];
+let supabase, currentUser, profile, customers = [], loans = [], payments = [], lastReceipt = null;
 
 function showMessage(message, type = "info") {
   const dashboardCard = $("dashboardCard");
@@ -85,8 +85,12 @@ function renderData() {
     return `<tr><td>${esc(l.loan_reference)}</td><td>${esc(c?.full_name || l.customer_id)}</td><td>${esc(l.loan_type)}</td><td>${money(l.loan_amount)}</td><td>${money(l.emi_amount)}</td><td>${esc(l.total_emis_required)}</td><td>${esc(l.status)}</td></tr>`;
   }).join("") || `<tr><td colspan="7" class="empty">कोई लोन रिकॉर्ड नहीं मिला।</td></tr>`;
   $("payCustomer").innerHTML = `<option value="">ग्राहक चुनें</option>` + customers.map(c => `<option value="${esc(c.id)}">${esc(c.customer_code)} · ${esc(c.full_name)}</option>`).join("");
-  $("payLoan").innerHTML = `<option value="">लोन चुनें</option>` + loans.map(l => `<option value="${esc(l.id)}">${esc(l.loan_reference)} · ${money(l.loan_amount)}</option>`).join("");
-  $("paymentRows").innerHTML = payments.map(p => `<tr><td>${esc(p.id)}</td><td>${esc(p.paid_at || p.created_at)}</td><td>${money(p.amount || p.payment_amount)}</td><td>${esc(p.payment_mode || p.mode || "—")}</td></tr>`).join("") || `<tr><td colspan="4" class="empty">अभी भुगतान उपलब्ध नहीं हैं।</td></tr>`;
+  refreshLoanOptions();
+  $("paymentRows").innerHTML = payments.map(p => {
+    const c = customers.find(x => x.id === p.customer_id);
+    const l = loans.find(x => x.id === p.loan_id);
+    return `<tr><td>${esc(p.id)}</td><td>${esc(formatDate(p.paid_at))}</td><td>${esc(c?.full_name || p.customer_id)}</td><td>${esc(l?.loan_reference || "—")}</td><td>${money(p.amount)}</td><td>${esc(p.payment_mode || "—")}</td></tr>`;
+  }).join("") || `<tr><td colspan="6" class="empty">अभी भुगतान उपलब्ध नहीं हैं।</td></tr>`;
 }
 
 async function submitCustomer(event) {
@@ -108,24 +112,79 @@ async function submitCustomer(event) {
   form.reset(); await loadAll(); showMessage("ग्राहक सफलतापूर्वक सेव हुआ।", "success");
 }
 
+function formatDate(value) {
+  if (!value) return "—";
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
+}
+function refreshLoanOptions() {
+  const customerId = $("payCustomer")?.value;
+  const eligible = loans.filter(l => (!customerId || l.customer_id === customerId) && l.status === "active");
+  $("payLoan").innerHTML = `<option value="">लोन चुनें</option>` + eligible.map(l => `<option value="${esc(l.id)}">${esc(l.loan_reference)} · ${money(l.loan_amount)}</option>`).join("");
+}
+function showReceipt(payment, customer, loan) {
+  lastReceipt = { payment, customer, loan };
+  const receiptNo = payment.id ? payment.id.slice(0, 8).toUpperCase() : payment.client_tx_id.slice(0, 8).toUpperCase();
+  $("receiptContent").innerHTML = `
+    <div class="receipt-brand"><div class="receipt-mark">AJSF</div><div><h2>ARK JAN SAMRIDDHI FOUNDATION</h2><p>SAPNE AAPKE SATH HAMARA</p></div></div>
+    <div class="receipt-title">PAYMENT RECEIPT <span>रसीद</span></div>
+    <div class="receipt-meta"><span>Receipt No.: <b>${esc(receiptNo)}</b></span><span>Date: <b>${esc(formatDate(payment.paid_at))}</b></span></div>
+    <div class="receipt-grid">
+      <div><small>Customer ID</small><b>${esc(customer.customer_code)}</b></div>
+      <div><small>Customer Name</small><b>${esc(customer.full_name)}</b></div>
+      <div><small>Center</small><b>${esc(customer.center_name || "—")}</b></div>
+      <div><small>Mobile</small><b>${esc(customer.contact_number || "—")}</b></div>
+      <div><small>Loan Reference</small><b>${esc(loan.loan_reference)}</b></div>
+      <div><small>Payment Mode</small><b>${esc(payment.payment_mode.toUpperCase().replace("_", " "))}</b></div>
+    </div>
+    <div class="receipt-amount"><small>Amount Received / प्राप्त राशि</small><strong>${money(payment.amount)}</strong></div>
+    <p class="receipt-remarks">Remarks: ${esc(payment.remarks || "—")}</p>
+    <div class="receipt-footer"><span>Customer Signature</span><span>Authorized Collector</span></div>
+    <p class="receipt-note">यह कंप्यूटर जनरेटेड रसीद है। भुगतान रिकॉर्ड AJSF ONLINE में सेव है।</p>`;
+  $("receiptPanel").classList.remove("hidden");
+  $("receiptPanel").scrollIntoView({ behavior: "smooth", block: "start" });
+}
 async function submitPayment(event) {
   event.preventDefault();
   const form = event.currentTarget, btn = form.querySelector('[type="submit"]');
   const d = Object.fromEntries(new FormData(form));
-  const loan = loans.find(x => x.id === d.loan_id);
+  const loan = loans.find(x => x.id === d.loan_id && x.status === "active");
   const customer = customers.find(x => x.id === d.customer_id);
-  if (!loan || !customer || loan.customer_id !== customer.id) return showMessage("सही ग्राहक और उसी ग्राहक का लोन चुनें।", "warn");
+  const amount = Number(d.amount);
+  if (!loan || !customer || loan.customer_id !== customer.id) return showMessage("सही ग्राहक और उसी ग्राहक का Active Loan चुनें।", "warn");
+  if (!Number.isFinite(amount) || amount <= 0) return showMessage("भुगतान राशि शून्य से अधिक दर्ज करें।", "warn");
+  if (!d.payment_date) return showMessage("भुगतान की तारीख चुनें।", "warn");
+  const paidAt = new Date(`${d.payment_date}T12:00:00`).toISOString();
   const row = {
-    loan_id: loan.id, customer_id: customer.id, amount: Number(d.amount),
-    paid_at: `${d.payment_date}T12:00:00`,
+    client_tx_id: crypto.randomUUID(),
+    loan_id: loan.id,
+    customer_id: customer.id,
+    amount,
+    paid_at: paidAt,
     payment_mode: d.payment_mode,
-    collector_id: currentUser.id, remarks: d.remarks || null
+    collector_id: currentUser.id,
+    remarks: d.remarks?.trim() || null
   };
-  setBusy(btn, true);
-  const { error } = await supabase.from("payments").insert(row);
+  setBusy(btn, true, "भुगतान सेव हो रहा है…");
+  const { data, error } = await supabase.from("payments").insert(row).select("id, client_tx_id, customer_id, loan_id, collector_id, amount, paid_at, payment_mode, remarks").single();
   setBusy(btn, false);
-  if (error) return showMessage("भुगतान सेव नहीं हुआ: " + error.message + " — payments table के column names/policies मिलाने होंगे।", "error");
-  form.reset(); await loadAll(); showMessage("भुगतान सेव हुआ।", "success");
+  if (error) return showMessage("भुगतान सेव नहीं हुआ: " + error.message, "error");
+  payments.unshift(data);
+  renderData();
+  form.reset();
+  $("paymentDate").value = localDateValue();
+  refreshLoanOptions();
+  showReceipt(data, customer, loan);
+  showMessage("भुगतान सफलतापूर्वक सेव हुआ। रसीद नीचे उपलब्ध है।", "success");
+}
+function localDateValue() {
+  const d = new Date();
+  const offset = d.getTimezoneOffset();
+  return new Date(d.getTime() - offset * 60000).toISOString().slice(0, 10);
+}
+function printReceipt() {
+  if (!lastReceipt) return showMessage("पहले भुगतान सेव करें।", "warn");
+  window.print();
 }
 
 async function logout() {
@@ -168,5 +227,9 @@ async function boot() {
     }
   });
   $("logoutBtn").addEventListener("click", logout);
+  $("payCustomer").addEventListener("change", refreshLoanOptions);
+  $("printReceiptBtn").addEventListener("click", printReceipt);
+  $("closeReceiptBtn").addEventListener("click", () => $("receiptPanel").classList.add("hidden"));
 }
+if ($("paymentDate")) $("paymentDate").value = localDateValue();
 boot();
