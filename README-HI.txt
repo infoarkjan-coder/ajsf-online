@@ -1,14 +1,23 @@
-AJSF ONLINE - Dashboard integration starter
-1. Extract ZIP. Replace repository files: index.html, style.css, and src/app.js.
-2. Keep your existing src/config.js. Add only the Supabase Publishable Key from Project Settings > API Keys.
-3. Never put service_role/secret key in browser code.
-4. Deploy through your existing Vercel GitHub connection.
-5. This version reads profiles/customers/loans and attempts payment insert using:
-   payments(loan_id, customer_id, amount, payment_date, payment_mode, collected_by, remarks)
-6. Your current database must have RLS policies allowing:
-   - signed-in users to read their own profiles;
-   - admin to read/write all customers, loans, payments;
-   - collectors to read assigned customers and their loans, and insert payments for assigned customers.
-7. Payment column names and RLS are not verified against live Supabase in this environment. If payment save returns a column/policy error, share the exact error (never share keys).
-8. Existing imported W1-W24 history remains separate from payments; no old payments are fabricated.
-9. This build does not yet implement offline sync, receipt printing, Excel import/export, or payment edit/void.
+AJSF ONLINE - अपडेटेड पैकेज
+
+इस अपडेट में:
+1. Login header में AJSF logo बड़ा किया गया है। Foundation का नाम और slogan बड़ा तथा bold किया गया है।
+2. Dashboard में कुल जमा राशि और कुल बकाया (OSP) के कार्ड जोड़े गए हैं।
+3. Loan Register में प्रत्येक loan के सामने कुल जमा और बकाया OSP दिखेगा।
+4. Payment list अब 100 रिकॉर्ड तक सीमित नहीं है; pagination से सभी उपलब्ध payment rows लोड करने की कोशिश होती है।
+
+गणना का आधार:
+- कुल जमा = imported source_total_collected + इस सिस्टम में दर्ज वास्तविक payments.
+- बकाया = imported source_osp - इस सिस्टम में दर्ज नए वास्तविक payments.
+- यदि source_osp खाली है, तो बकाया = loan_amount - source_total_collected - नए payments.
+- Reversal entries जमा राशि में नहीं जोड़ी जातीं।
+- W1-W24 के पुराने markers को वास्तविक payment transaction नहीं माना गया है।
+
+GitHub पर अपडेट:
+- index.html -> repository root में replace
+- style.css -> repository root में replace
+- src/app.js -> src folder में replace
+- assets/ajsf-logo.png -> assets folder में रखें/replace
+- src/config.js को replace न करें। Supabase settings सुरक्षित रखें।
+
+नोट: बकाया की गणना आपके imported source_osp को शुरुआती बकाया मानती है। यदि imported OSP गलत/पुराना है, तो पहले source OSP data ठीक करना होगा।
