@@ -143,7 +143,8 @@ async function loadCustomerLedger() {
     return `<tr><td>${esc(formatDate(p.paid_at))}</td><td>${esc((p.id || p.client_tx_id || "").slice(0,8).toUpperCase())}</td><td>${esc(loan?.loan_reference || "—")}</td><td>${esc((p.payment_mode || "—").toUpperCase().replace("_"," "))}</td><td>${money(p.amount)}</td></tr>`;
   }).join("") || `<tr><td colspan="5" class="empty">इस ग्राहक का कोई भुगतान रिकॉर्ड नहीं है।</td></tr>`;
 }
-\nasync function submitCustomer(event) {
+
+async function submitCustomer(event) {
   event.preventDefault();
   if (!canAdmin()) return showMessage("नया ग्राहक जोड़ने का अधिकार केवल Admin को है।", "warn");
   const form = event.currentTarget, btn = form.querySelector('[type="submit"]');
@@ -277,7 +278,8 @@ async function boot() {
     }
   });
   $("logoutBtn").addEventListener("click", logout);
-  $("payCustomer").addEventListener("change", refreshLoanOptions);\n  $("ledgerCustomer").addEventListener("change", loadCustomerLedger);
+  $("payCustomer").addEventListener("change", refreshLoanOptions);
+  $("ledgerCustomer").addEventListener("change", loadCustomerLedger);
   $("printReceiptBtn").addEventListener("click", printReceipt);
   $("closeReceiptBtn").addEventListener("click", () => $("receiptPanel").classList.add("hidden"));
 }
