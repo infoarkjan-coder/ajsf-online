@@ -5,6 +5,14 @@ const $ = (id) => document.getElementById(id);
 const money = (n) => "₹" + Number(n || 0).toLocaleString("en-IN");
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 let supabase, currentUser, profile, customers = [], loans = [], payments = [], lastReceipt = null;
+const paymentsByLoan = () => payments.filter(p => !p.is_reversal).reduce((m, p) => { const k = p.loan_id; if (k) m[k] = (m[k] || 0) + Number(p.amount || 0); return m; }, {});
+function loanFigures(loan, paymentTotals) {
+  const newPaid = paymentTotals[loan.id] || 0;
+  const importedPaid = Number(loan.source_total_collected || 0);
+  const collected = importedPaid + newPaid;
+  const baselineOsp = loan.source_osp == null ? Math.max(0, Number(loan.loan_amount || 0) - importedPaid) : Number(loan.source_osp);
+  return { collected, outstanding: Math.max(0, baselineOsp - newPaid) };
+}
 
 function showMessage(message, type = "info") {
   const dashboardCard = $("dashboardCard");
@@ -59,17 +67,22 @@ async function loadAll() {
     .select("id, customer_code, full_name, center_name, contact_number, area, address, collection_day, assigned_collector, customer_status, recovery_status, is_active")
     .order("full_name");
   if (!canAdmin()) customerQuery = customerQuery.eq("assigned_collector", currentUser.id);
-  const [c, l, p] = await Promise.all([
+  const [c, l] = await Promise.all([
     customerQuery,
-    supabase.from("loans").select("id, loan_reference, customer_id, loan_type, disbursement_date, loan_amount, emi_amount, total_emis_required, status, source_total_collected, source_osp, source_emis_paid, source_emis_pending").order("created_at", {ascending:false}),
-    supabase.from("payments").select("*").order("created_at", {ascending:false}).limit(100)
+    supabase.from("loans").select("id, loan_reference, customer_id, loan_type, disbursement_date, loan_amount, emi_amount, total_emis_required, status, source_total_collected, source_osp, source_emis_paid, source_emis_pending").order("created_at", {ascending:false})
   ]);
   if (c.error) throw new Error("Customer API (" + c.error.code + "): " + c.error.message);
   if (l.error) throw new Error("Loan API (" + l.error.code + "): " + l.error.message);
   customers = c.data || []; loans = l.data || [];
-  payments = p.error ? [] : (p.data || []);
+  payments = [];
+  for (let start = 0; ; start += 1000) {
+    const { data, error } = await supabase.from("payments").select("*").order("created_at", {ascending:false}).range(start, start + 999);
+    if (error) { payments = []; break; }
+    payments.push(...(data || []));
+    if (!data || data.length < 1000) break;
+  }
   renderData();
-  showMessage(p.error ? "ग्राहक और लोन लोड हुए। Payment History के लिए payments table की read policy जाँचें।" : "डेटा सफलतापूर्वक लोड हुआ।", p.error ? "warn" : "success");
+  showMessage("डेटा सफलतापूर्वक लोड हुआ। जमा राशि में आयातित पुरानी वसूली और नए भुगतान शामिल हैं; बकाया में नए भुगतान घटाए गए हैं।", "success");
 }
 
 function renderData() {
@@ -77,13 +90,18 @@ function renderData() {
   $("loansCount").textContent = loans.length;
   $("paymentsCount").textContent = payments.length;
   const today = new Date().toISOString().slice(0,10);
-  const todayPayments = payments.filter(p => String(p.paid_at || p.created_at || "").slice(0,10) === today);
+  const todayPayments = payments.filter(p => !p.is_reversal && String(p.paid_at || p.created_at || "").slice(0,10) === today);
   $("todayTotal").textContent = money(todayPayments.reduce((s,p) => s + Number(p.amount || p.payment_amount || 0), 0));
+  const totalsByLoan = paymentsByLoan();
+  const figures = loans.map(l => loanFigures(l, totalsByLoan));
+  $("collectedTotal").textContent = money(figures.reduce((s, f) => s + f.collected, 0));
+  $("outstandingTotal").textContent = money(figures.reduce((s, f) => s + f.outstanding, 0));
   $("customerRows").innerHTML = customers.map(c => `<tr><td>${esc(c.customer_code)}</td><td>${esc(c.full_name)}</td><td>${esc(c.center_name)}</td><td>${esc(c.contact_number)}</td><td>${esc(c.collection_day)}</td><td>${esc(c.customer_status)}</td></tr>`).join("") || `<tr><td colspan="6" class="empty">कोई ग्राहक नहीं मिला।</td></tr>`;
   $("loanRows").innerHTML = loans.map(l => {
     const c = customers.find(x => x.id === l.customer_id);
-    return `<tr><td>${esc(l.loan_reference)}</td><td>${esc(c?.full_name || l.customer_id)}</td><td>${esc(l.loan_type)}</td><td>${money(l.loan_amount)}</td><td>${money(l.emi_amount)}</td><td>${esc(l.total_emis_required)}</td><td>${esc(l.status)}</td></tr>`;
-  }).join("") || `<tr><td colspan="7" class="empty">कोई लोन रिकॉर्ड नहीं मिला।</td></tr>`;
+    const f = loanFigures(l, totalsByLoan);
+    return `<tr><td>${esc(l.loan_reference)}</td><td>${esc(c?.full_name || l.customer_id)}</td><td>${esc(l.loan_type)}</td><td>${money(l.loan_amount)}</td><td>${money(l.emi_amount)}</td><td>${esc(l.total_emis_required)}</td><td>${money(f.collected)}</td><td>${money(f.outstanding)}</td><td>${esc(l.status)}</td></tr>`;
+  }).join("") || `<tr><td colspan="9" class="empty">कोई लोन रिकॉर्ड नहीं मिला।</td></tr>`;
   const customerOptions = `<option value="">ग्राहक चुनें</option>` + customers.map(c => `<option value="${esc(c.id)}">${esc(c.customer_code)} · ${esc(c.full_name)}</option>`).join("");
   $("payCustomer").innerHTML = customerOptions;
   $("ledgerCustomer").innerHTML = customerOptions;
