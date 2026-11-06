@@ -96,3 +96,31 @@
     flex:0 0 18mm !important;
   }
 }
+
+/* Weekly repayment schedule */
+.schedule-paper{background:#fff;color:#172923;border:1px solid #dce8e1;border-radius:12px;padding:18px;margin-top:14px;overflow:auto}
+.schedule-brand{display:flex;align-items:center;justify-content:center;gap:12px;border-bottom:2px solid #123f35;padding-bottom:10px}
+.schedule-brand img{display:block;width:64px;height:64px;max-width:64px;max-height:64px;object-fit:contain;flex:0 0 64px}
+.schedule-brand h2{font-size:18px;margin:0;color:#123f35}.schedule-brand p{font-size:10px;letter-spacing:.7px;margin:3px 0 7px;color:#527367}.schedule-brand strong{font-size:12px}
+.schedule-meta,.schedule-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:12px 0}
+.schedule-meta small,.schedule-summary small{display:block;color:#60756b;font-size:10px;margin-bottom:4px}
+.schedule-meta b,.schedule-summary b{font-size:12px}
+.schedule-summary{background:#edf5f0;padding:12px;border-radius:7px}
+.schedule-paper h3{font-size:13px;margin:16px 0 7px;color:#123f35}
+.schedule-paper table{width:100%;border-collapse:collapse;font-size:11px}
+.schedule-paper th,.schedule-paper td{border:1px solid #d9e2dc;padding:7px;text-align:left;white-space:normal}
+.schedule-status{display:inline-block;padding:3px 7px;border-radius:12px;background:#f2f2f2;font-size:10px;font-weight:700}
+.schedule-status.paid{background:#dff4e8;color:#17623a}.schedule-status.overdue{background:#fde7e7;color:#9b2424}.schedule-status.partial{background:#fff0d8;color:#815000}
+.schedule-note{font-size:9px;color:#687a72;margin-top:12px}.schedule-generated{text-align:right;font-size:9px;margin-top:10px}
+@media(max-width:600px){.schedule-meta,.schedule-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media print{#repaymentSchedulePrint .schedule-brand img{width:18mm!important;height:18mm!important;max-width:18mm!important;max-height:18mm!important;flex:0 0 18mm!important}}
+
+/* A4 landscape split layout for repayment schedule + customer details */
+.schedule-print-sheet{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(220px,1fr);gap:16px;align-items:start}
+.schedule-left{min-width:0;padding-right:12px;border-right:1px solid #d6e1da}
+.schedule-right{min-width:0;padding:10px 4px}
+.schedule-right h2{font-size:15px;color:#123f35;border-bottom:2px solid #123f35;padding-bottom:8px;margin:0 0 10px}
+.customer-detail{padding:7px 4px;border-bottom:1px solid #e1e8e3}
+.customer-detail small{display:block;color:#60756b;font-size:10px;margin-bottom:3px}
+.customer-detail b{font-size:12px;overflow-wrap:anywhere}
+@media(max-width:700px){.schedule-print-sheet{grid-template-columns:1fr}.schedule-left{border-right:0;border-bottom:1px solid #d6e1da;padding:0 0 12px}.schedule-right{padding:12px 0}}
