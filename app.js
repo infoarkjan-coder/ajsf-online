@@ -105,7 +105,11 @@ function renderData() {
   const customerOptions = `<option value="">ग्राहक चुनें</option>` + customers.map(c => `<option value="${esc(c.id)}">${esc(c.customer_code)} · ${esc(c.full_name)}</option>`).join("");
   $("payCustomer").innerHTML = customerOptions;
   $("ledgerCustomer").innerHTML = customerOptions;
+  filterLedgerCustomers();
+  $("statementCustomer").innerHTML = customerOptions;
   refreshLoanOptions();
+  filterCustomerRows();
+  filterStatementCustomers();
   $("paymentRows").innerHTML = payments.map(p => {
     const c = customers.find(x => x.id === p.customer_id);
     const l = loans.find(x => x.id === p.loan_id);
@@ -118,7 +122,7 @@ async function loadCustomerLedger() {
   const customerId = $("ledgerCustomer").value;
   const summary = $("ledgerSummary"), rows = $("ledgerRows");
   if (!customerId) {
-    summary.textContent = "ग्राहक चुनने पर Loan और Payment विवरण दिखेंगे।";
+    summary.textContent = "ग्राहक खोजकर चुनें।";
     rows.innerHTML = `<tr><td colspan="5" class="empty">कोई ग्राहक चयनित नहीं है।</td></tr>`;
     return;
   }
@@ -134,14 +138,112 @@ async function loadCustomerLedger() {
     rows.innerHTML = `<tr><td colspan="5" class="empty">डेटा उपलब्ध नहीं है।</td></tr>`;
     return;
   }
-  const paid = (data || []).reduce((s,p) => s + Number(p.amount || 0), 0);
+  const paymentRows = data || [];
+  const paid = paymentRows.reduce((s,p) => s + Number(p.amount || 0), 0);
   const loanAmount = customerLoans.reduce((s,l) => s + Number(l.loan_amount || 0), 0);
   const sourceOsp = customerLoans.reduce((s,l) => s + Number(l.source_osp || 0), 0);
-  summary.innerHTML = `<span><strong>ग्राहक:</strong> ${esc(customer?.full_name || "—")}</span><span><strong>Loan Amount:</strong> ${money(loanAmount)}</span><span><strong>इस सिस्टम में जमा:</strong> ${money(paid)}</span><span><strong>Imported OSP:</strong> ${money(sourceOsp)}</span>`;
-  rows.innerHTML = (data || []).map(p => {
+  const collectedIncludingImported = customerLoans.reduce((s,l) => s + Number(l.total_collected || 0), 0) + paid;
+  const loanDetails = customerLoans.map(l => `<tr><td>${esc(l.loan_reference || "—")}</td><td>${money(l.loan_amount)}</td><td>${money(l.emi_amount)}</td><td>${esc(l.total_emis_required || "—")}</td><td>${money(l.source_osp)}</td></tr>`).join("") || `<tr><td colspan="5">कोई Loan record उपलब्ध नहीं है।</td></tr>`;
+  summary.innerHTML = `<div id="ledgerPrintArea">
+    <div class="ledger-print-brand"><img src="./assets/ajsf-logo.png" alt="AJSF Logo"><div><h2>ARK JAN SAMRIDDHI FOUNDATION</h2><p>SAPNE AAPKE SATH HAMARA</p><strong>CUSTOMER LEDGER / LOAN STATEMENT</strong></div></div>
+    <div class="ledger-print-customer"><span><small>Customer ID</small><b>${esc(customer?.customer_code || "—")}</b></span><span><small>Customer Name</small><b>${esc(customer?.full_name || "—")}</b></span><span><small>Center</small><b>${esc(customer?.center_name || "—")}</b></span><span><small>Mobile</small><b>${esc(customer?.contact_number || "—")}</b></span></div>
+    <div class="ledger-print-totals"><span><small>Total Loan Amount</small><b>${money(loanAmount)}</b></span><span><small>Recorded Payments</small><b>${money(paid)}</b></span><span><small>Imported OSP</small><b>${money(sourceOsp)}</b></span></div>
+    <h3>Loan Details</h3><div class="tablewrap"><table><thead><tr><th>Loan Reference</th><th>Loan Amount</th><th>Weekly EMI</th><th>Terms</th><th>Imported OSP</th></tr></thead><tbody>${loanDetails}</tbody></table></div>
+    <h3>Payment History</h3>
+  </div>`;
+  rows.innerHTML = paymentRows.map(p => {
     const loan = customerLoans.find(l => l.id === p.loan_id);
     return `<tr><td>${esc(formatDate(p.paid_at))}</td><td>${esc((p.id || p.client_tx_id || "").slice(0,8).toUpperCase())}</td><td>${esc(loan?.loan_reference || "—")}</td><td>${esc((p.payment_mode || "—").toUpperCase().replace("_"," "))}</td><td>${money(p.amount)}</td></tr>`;
-  }).join("") || `<tr><td colspan="5" class="empty">इस ग्राहक का कोई भुगतान रिकॉर्ड नहीं है।</td></tr>`;
+  }).join("") || `<tr><td colspan="5" class="empty">इस ग्राहक का कोई नया payment transaction उपलब्ध नहीं है।</td></tr>`;
+  const table = document.querySelector('[data-panel="ledger"] #ledgerRows').closest("table");
+  table.id = "ledgerPaymentTable";
+  const generated = document.createElement("p");
+  generated.className = "ledger-generated";
+  generated.textContent = "Statement Generated: " + new Date().toLocaleString("en-IN");
+  $("ledgerPrintArea").appendChild(table.cloneNode(true));
+  $("ledgerPrintArea").appendChild(generated);
+}
+
+
+function filterLedgerCustomers() {
+  const q = ($("ledgerSearch")?.value || "").trim().toLocaleLowerCase();
+  const select = $("ledgerCustomer");
+  if (!select) return;
+  const current = select.value;
+  select.innerHTML = `<option value="">ग्राहक चुनें</option>` + customers
+    .filter(c => !q || [c.customer_code,c.full_name,c.contact_number,c.center_name].some(v => String(v || "").toLocaleLowerCase().includes(q)))
+    .map(c => `<option value="${esc(c.id)}">${esc(c.customer_code || "")} · ${esc(c.full_name || "")} · ${esc(c.contact_number || "")}</option>`).join("");
+  if (Array.from(select.options).some(o => o.value === current)) select.value = current;
+}
+function printCustomerLedger() {
+  if (!$("ledgerCustomer").value) return showMessage("पहले ग्राहक खोजकर चुनें।", "warn");
+  const area = $("ledgerPrintArea");
+  if (!area) return showMessage("पहले Ledger लोड होने दें।", "warn");
+  const w = window.open("", "_blank");
+  if (!w) return showMessage("Print popup block है। Browser में pop-ups allow करें।", "warn");
+  w.document.write(`<!doctype html><html><head><title>AJSF Customer Ledger</title><style>
+  @page{size:A4 portrait;margin:12mm}body{font-family:Arial,sans-serif;color:#172923;font-size:11px}
+  .ledger-print-brand{display:flex;align-items:center;justify-content:center;gap:14px;border-bottom:2px solid #123f35;padding-bottom:10px;text-align:left}
+  .ledger-print-brand img{width:58px;height:58px;object-fit:contain}.ledger-print-brand h2{font-size:17px;margin:0;color:#123f35}.ledger-print-brand p{font-size:9px;margin:3px 0 8px}.ledger-print-brand strong{font-size:12px}
+  .ledger-print-customer,.ledger-print-totals{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:12px 0}.ledger-print-customer small,.ledger-print-totals small{display:block;color:#60756b;font-size:9px;margin-bottom:3px}.ledger-print-customer b,.ledger-print-totals b{font-size:11px}
+  .ledger-print-totals{background:#edf5f0;padding:10px;border-radius:6px}h3{font-size:12px;margin:14px 0 6px;color:#123f35}
+  table{width:100%;border-collapse:collapse;font-size:9px;margin:7px 0 12px}th,td{border:1px solid #cbd8d0;padding:6px;text-align:left}th{background:#edf5f0}
+  .ledger-generated{text-align:right;font-size:9px;margin-top:14px}
+  </style></head><body>${area.innerHTML}</body></html>`);
+  w.document.close();w.focus();w.print();
+}
+
+function filterCustomerRows() {
+  const q = ($("customerFilter")?.value || "").trim().toLocaleLowerCase();
+  document.querySelectorAll("#customerRows tr").forEach(row => {
+    row.hidden = !!q && !row.textContent.toLocaleLowerCase().includes(q);
+  });
+}
+function filterStatementCustomers() {
+  const q = ($("statementSearch")?.value || "").trim().toLocaleLowerCase();
+  const select = $("statementCustomer");
+  if (!select) return;
+  const current = select.value;
+  select.innerHTML = `<option value="">ग्राहक चुनें</option>` + customers
+    .filter(c => !q || [c.customer_code,c.full_name,c.contact_number,c.center_name].some(v => String(v || "").toLocaleLowerCase().includes(q)))
+    .map(c => `<option value="${esc(c.id)}">${esc(c.customer_code)} · ${esc(c.full_name)} · ${esc(c.contact_number || "")}</option>`).join("");
+  if (customers.some(c => c.id === current) && Array.from(select.options).some(o => o.value === current)) select.value = current;
+}
+function renderCustomerStatement() {
+  const id = $("statementCustomer").value;
+  const root = $("statementOutput");
+  if (!id) { root.innerHTML = `<p class="muted">ग्राहक चुनने पर Loan Statement दिखाई देगा।</p>`; return; }
+  const customer = customers.find(c => c.id === id);
+  const customerLoans = loans.filter(l => l.customer_id === id);
+  const customerPayments = payments.filter(p => p.customer_id === id && !p.is_reversal)
+    .slice().sort((x,y) => new Date(x.paid_at) - new Date(y.paid_at));
+  const totals = paymentsByLoan();
+  const totalLoan = customerLoans.reduce((s,l) => s + Number(l.loan_amount || 0), 0);
+  const totalCollected = customerLoans.reduce((s,l) => s + loanFigures(l, totals).collected, 0);
+  const totalOutstanding = customerLoans.reduce((s,l) => s + loanFigures(l, totals).outstanding, 0);
+  const loanRows = customerLoans.map(l => {
+    const f = loanFigures(l, totals);
+    return `<tr><td>${esc(l.loan_reference)}</td><td>${formatDate(l.disbursement_date)}</td><td>${money(l.loan_amount)}</td><td>${money(l.emi_amount)}</td><td>${esc(l.total_emis_required)}</td><td>${money(f.collected)}</td><td>${money(f.outstanding)}</td><td>${esc(l.status)}</td></tr>`;
+  }).join("") || `<tr><td colspan="8">कोई Loan record उपलब्ध नहीं है।</td></tr>`;
+  const paymentRows = customerPayments.map(p => {
+    const loan = customerLoans.find(l => l.id === p.loan_id);
+    return `<tr><td>${formatDate(p.paid_at)}</td><td>${esc((p.id || p.client_tx_id || "").slice(0,8).toUpperCase())}</td><td>${esc(loan?.loan_reference || "—")}</td><td>${esc((p.payment_mode || "—").toUpperCase().replace("_"," "))}</td><td>${money(p.amount)}</td><td>${esc(p.remarks || "—")}</td></tr>`;
+  }).join("") || `<tr><td colspan="6">इस सिस्टम में कोई नया Payment record नहीं है।</td></tr>`;
+  root.innerHTML = `<div id="statementPrintArea">
+    <div class="statement-brand"><img src="./assets/ajsf-logo.png" alt="AJSF Logo"><div><h1>ARK JAN SAMRIDDHI FOUNDATION</h1><p>SAPNE AAPKE SATH HAMARA</p></div></div>
+    <h2 class="statement-title">CUSTOMER LOAN STATEMENT / ग्राहक ऋण विवरण</h2>
+    <div class="statement-customer"><div><small>Customer ID</small><b>${esc(customer?.customer_code)}</b></div><div><small>Customer Name</small><b>${esc(customer?.full_name)}</b></div><div><small>Center</small><b>${esc(customer?.center_name || "—")}</b></div><div><small>Mobile</small><b>${esc(customer?.contact_number || "—")}</b></div><div><small>Collection Day</small><b>${esc(customer?.collection_day || "—")}</b></div></div>
+    <div class="statement-totals"><div><small>Total Loan Amount</small><b>${money(totalLoan)}</b></div><div><small>Total Collected</small><b>${money(totalCollected)}</b></div><div><small>Outstanding (OSP)</small><b>${money(totalOutstanding)}</b></div></div>
+    <h3>Loan Details</h3><div class="tablewrap"><table><thead><tr><th>Loan Ref</th><th>Disbursement</th><th>Loan Amount</th><th>Weekly EMI</th><th>Terms</th><th>Total Collected</th><th>Outstanding</th><th>Status</th></tr></thead><tbody>${loanRows}</tbody></table></div>
+    <h3>Payment History</h3><div class="tablewrap"><table><thead><tr><th>Payment Date</th><th>Receipt No.</th><th>Loan Ref</th><th>Mode</th><th>Amount</th><th>Remarks</th></tr></thead><tbody>${paymentRows}</tbody></table></div>
+    <p class="statement-generated">Statement Generated: ${new Date().toLocaleString("en-IN")}</p>
+    <p class="statement-note">Note: Total Collected includes imported historical collection total plus actual payment transactions recorded in AJSF ONLINE. Historical W1–W24 markers are not treated as individual dated payment receipts.</p>
+  </div>`;
+}
+function printCustomerStatement() {
+  if (!$("statementCustomer").value) return showMessage("पहले ग्राहक चुनें।", "warn");
+  renderCustomerStatement();
+  window.print();
 }
 
 async function submitCustomer(event) {
@@ -280,6 +382,12 @@ async function boot() {
   $("logoutBtn").addEventListener("click", logout);
   $("payCustomer").addEventListener("change", refreshLoanOptions);
   $("ledgerCustomer").addEventListener("change", loadCustomerLedger);
+  $("ledgerSearch").addEventListener("input", filterLedgerCustomers);
+  $("printLedgerBtn").addEventListener("click", printCustomerLedger);
+  $("customerFilter").addEventListener("input", filterCustomerRows);
+  $("statementSearch").addEventListener("input", filterStatementCustomers);
+  $("statementCustomer").addEventListener("change", renderCustomerStatement);
+  $("printStatementBtn").addEventListener("click", printCustomerStatement);
   $("printReceiptBtn").addEventListener("click", printReceipt);
   $("closeReceiptBtn").addEventListener("click", () => $("receiptPanel").classList.add("hidden"));
 }
