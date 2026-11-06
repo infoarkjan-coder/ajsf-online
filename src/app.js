@@ -145,7 +145,7 @@ async function loadCustomerLedger() {
   const collectedIncludingImported = customerLoans.reduce((s,l) => s + Number(l.total_collected || 0), 0) + paid;
   const loanDetails = customerLoans.map(l => `<tr><td>${esc(l.loan_reference || "—")}</td><td>${money(l.loan_amount)}</td><td>${money(l.emi_amount)}</td><td>${esc(l.total_emis_required || "—")}</td><td>${money(l.source_osp)}</td></tr>`).join("") || `<tr><td colspan="5">कोई Loan record उपलब्ध नहीं है।</td></tr>`;
   summary.innerHTML = `<div id="ledgerPrintArea">
-    <div class="ledger-print-brand"><img src="./assets/ajsf-logo.png" alt="AJSF Logo"><div><h2>ARK JAN SAMRIDDHI FOUNDATION</h2><p>SAPNE AAPKE SATH HAMARA</p><strong>CUSTOMER LEDGER / LOAN STATEMENT</strong></div></div>
+    <div class="ledger-print-brand"><img src="./assets/ajsf-logo.png" alt="AJSF Logo" width="72" height="72" style="width:72px;height:72px;max-width:72px;max-height:72px;object-fit:contain;flex:0 0 72px"><div><h2>ARK JAN SAMRIDDHI FOUNDATION</h2><p>SAPNE AAPKE SATH HAMARA</p><strong>CUSTOMER LEDGER / LOAN STATEMENT</strong></div></div>
     <div class="ledger-print-customer"><span><small>Customer ID</small><b>${esc(customer?.customer_code || "—")}</b></span><span><small>Customer Name</small><b>${esc(customer?.full_name || "—")}</b></span><span><small>Center</small><b>${esc(customer?.center_name || "—")}</b></span><span><small>Mobile</small><b>${esc(customer?.contact_number || "—")}</b></span></div>
     <div class="ledger-print-totals"><span><small>Total Loan Amount</small><b>${money(loanAmount)}</b></span><span><small>Recorded Payments</small><b>${money(paid)}</b></span><span><small>Imported OSP</small><b>${money(sourceOsp)}</b></span></div>
     <h3>Loan Details</h3><div class="tablewrap"><table><thead><tr><th>Loan Reference</th><th>Loan Amount</th><th>Weekly EMI</th><th>Terms</th><th>Imported OSP</th></tr></thead><tbody>${loanDetails}</tbody></table></div>
@@ -184,7 +184,7 @@ function printCustomerLedger() {
   w.document.write(`<!doctype html><html><head><title>AJSF Customer Ledger</title><style>
   @page{size:A4 portrait;margin:12mm}body{font-family:Arial,sans-serif;color:#172923;font-size:11px}
   .ledger-print-brand{display:flex;align-items:center;justify-content:center;gap:14px;border-bottom:2px solid #123f35;padding-bottom:10px;text-align:left}
-  .ledger-print-brand img{width:58px;height:58px;object-fit:contain}.ledger-print-brand h2{font-size:17px;margin:0;color:#123f35}.ledger-print-brand p{font-size:9px;margin:3px 0 8px}.ledger-print-brand strong{font-size:12px}
+  .ledger-print-brand img{display:block!important;width:72px!important;height:72px!important;max-width:72px!important;max-height:72px!important;min-width:72px!important;min-height:72px!important;flex:0 0 72px!important;object-fit:contain!important}.ledger-print-brand h2{font-size:17px;margin:0;color:#123f35}.ledger-print-brand p{font-size:9px;margin:3px 0 8px}.ledger-print-brand strong{font-size:12px}
   .ledger-print-customer,.ledger-print-totals{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:12px 0}.ledger-print-customer small,.ledger-print-totals small{display:block;color:#60756b;font-size:9px;margin-bottom:3px}.ledger-print-customer b,.ledger-print-totals b{font-size:11px}
   .ledger-print-totals{background:#edf5f0;padding:10px;border-radius:6px}h3{font-size:12px;margin:14px 0 6px;color:#123f35}
   table{width:100%;border-collapse:collapse;font-size:9px;margin:7px 0 12px}th,td{border:1px solid #cbd8d0;padding:6px;text-align:left}th{background:#edf5f0}
@@ -230,7 +230,7 @@ function renderCustomerStatement() {
     return `<tr><td>${formatDate(p.paid_at)}</td><td>${esc((p.id || p.client_tx_id || "").slice(0,8).toUpperCase())}</td><td>${esc(loan?.loan_reference || "—")}</td><td>${esc((p.payment_mode || "—").toUpperCase().replace("_"," "))}</td><td>${money(p.amount)}</td><td>${esc(p.remarks || "—")}</td></tr>`;
   }).join("") || `<tr><td colspan="6">इस सिस्टम में कोई नया Payment record नहीं है।</td></tr>`;
   root.innerHTML = `<div id="statementPrintArea">
-    <div class="statement-brand"><img src="./assets/ajsf-logo.png" alt="AJSF Logo"><div><h1>ARK JAN SAMRIDDHI FOUNDATION</h1><p>SAPNE AAPKE SATH HAMARA</p></div></div>
+    <div class="statement-brand"><img src="./assets/ajsf-logo.png" alt="AJSF Logo" width="72" height="72" style="width:72px;height:72px;max-width:72px;max-height:72px;object-fit:contain;flex:0 0 72px"><div><h1>ARK JAN SAMRIDDHI FOUNDATION</h1><p>SAPNE AAPKE SATH HAMARA</p></div></div>
     <h2 class="statement-title">CUSTOMER LOAN STATEMENT / ग्राहक ऋण विवरण</h2>
     <div class="statement-customer"><div><small>Customer ID</small><b>${esc(customer?.customer_code)}</b></div><div><small>Customer Name</small><b>${esc(customer?.full_name)}</b></div><div><small>Center</small><b>${esc(customer?.center_name || "—")}</b></div><div><small>Mobile</small><b>${esc(customer?.contact_number || "—")}</b></div><div><small>Collection Day</small><b>${esc(customer?.collection_day || "—")}</b></div></div>
     <div class="statement-totals"><div><small>Total Loan Amount</small><b>${money(totalLoan)}</b></div><div><small>Total Collected</small><b>${money(totalCollected)}</b></div><div><small>Outstanding (OSP)</small><b>${money(totalOutstanding)}</b></div></div>
