@@ -137,7 +137,3 @@
   .schedule-left{border-right:0;border-bottom:2px dashed #82958b}
   .schedule-print-sheet:after{display:none}
 }
-
-/* Collector/staff signature box for every weekly installment */
-.schedule-paper .staff-sign-cell{min-width:90px;height:34px}
-.schedule-paper .staff-sign-line{display:block;width:100%;height:22px;border-bottom:1px solid #52665c}
