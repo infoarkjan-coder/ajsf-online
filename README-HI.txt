@@ -47,3 +47,29 @@ Mobile Dashboard Layout Fix:
 - Desktop layout unchanged.
 - GitHub mein style.css replace karein; is package mein Customer Ledger print/search changes bhi saath hain.
 - src/config.js ko replace na karein.
+
+
+Logo Print Size Fix:
+- Customer Ledger aur Loan Statement mein logo ko compact 72px preview aur 18mm print size par lock kiya hai.
+- Image width/height attributes aur max/min dimensions force kiye hain taaki original large logo print page ko cover na kare.
+- GitHub mein style.css aur src/app.js replace karein; config.js ko na chheden.
+
+
+Weekly Repayment Schedule Feature:
+- Sidebar mein Repayment Schedule tab add hua.
+- Customer ko name/ID/mobile se search karke select karein, phir uska loan select karein.
+- Customer ke saved collection_day aur loan disbursement_date se weekly due dates calculate hoti hain.
+- Same weekday par disbursement hone par first installment agle hafte same weekday hogi.
+- Installment count loans.total_emis_required se aata hai (24 ho to 24 weeks).
+- Actual payments ke amount se Paid/Partial/Pending/Overdue status derive hota hai. Imported W1-W24 markers ko dated payment nahi maana gaya.
+- Schedule Print / Save PDF included.
+- Sunday customer collection day option bhi included.
+- src/config.js ko replace na karein.
+
+
+Repayment Schedule Print Layout Update:
+- Schedule print page A4 Landscape orientation mein hoga.
+- Page ko do vertical sections mein divide kiya: left side Repayment Schedule, right side Customer + Loan Details.
+- Left side mein weekly installments table aur summary; right side mein customer ID, name, mobile, center, area, address, loan reference, type, disbursement date, loan amount, EMI, collection day, term and OSP.
+- Print button opens A4 landscape print preview.
+- src/config.js safe rakhein.
