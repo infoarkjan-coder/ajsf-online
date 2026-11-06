@@ -212,42 +212,42 @@ function renderRepaymentSchedule() {
   const emi = Number(loan.emi_amount || 0);
   const actualPayments = payments.filter(p => p.loan_id === loan.id && !p.is_reversal)
     .slice().sort((a,b) => new Date(a.paid_at)-new Date(b.paid_at));
-  let remainingPaid = actualPayments.reduce((s,p)=>s+Number(p.amount||0),0);
-  const today = new Date(); today.setHours(0,0,0,0);
+  const datedPayments = actualPayments.map(p => ({date:new Date(p.paid_at),amount:Number(p.amount||0)}))
+    .filter(p => !Number.isNaN(p.date.getTime())).sort((a,b)=>a.date-b.date);
+  const today = new Date(); today.setHours(23,59,59,999);
   const rows = [];
   for(let i=0;i<count;i++){
-    const due = new Date(first); due.setDate(first.getDate()+i*7);
+    const due = new Date(first); due.setDate(first.getDate()+i*7); due.setHours(23,59,59,999);
+    const cumulativePaid = datedPayments.filter(p=>p.date<=due).reduce((s,p)=>s+p.amount,0);
+    const installmentTarget = emi*(i+1);
+    const previousTarget = emi*i;
     let status = "Pending";
-    if (remainingPaid >= emi && emi > 0) { status = "Paid"; remainingPaid -= emi; }
-    else if (remainingPaid > 0) { status = "Partial"; remainingPaid = 0; }
+    if (cumulativePaid >= installmentTarget && emi > 0) status = "Paid";
+    else if (cumulativePaid > previousTarget) status = "Partial";
     else if (due < today) status = "Overdue";
-    rows.push(`<tr><td>${i+1}</td><td>${weekday}</td><td>${displayDueDate(due)}</td><td>${money(emi)}</td><td><span class="schedule-status ${status.toLowerCase()}">${status}</span></td></tr>`);
+    rows.push(`<tr><td>${i+1}</td><td>${weekday}</td><td>${displayDueDate(due)}</td><td>${money(emi)}</td><td><span class="schedule-status ${status.toLowerCase()}">${status}</span></td><td class="staff-sign-cell"><span class="staff-sign-line"></span></td></tr>`);
   }
   output.innerHTML = `<div id="repaymentSchedulePrint" class="schedule-print-sheet">
+    <header class="schedule-brand schedule-brand-center"><img src="./assets/ajsf-logo.png" alt="AJSF Logo"><div><h2>ARK JAN SAMRIDDHI FOUNDATION</h2><p>SAPNE AAPKE SATH HAMARA</p><strong>WEEKLY REPAYMENT SCHEDULE</strong></div></header>
     <section class="schedule-left">
-      <div class="schedule-brand"><img src="./assets/ajsf-logo.png" alt="AJSF Logo"><div><h2>ARK JAN SAMRIDDHI FOUNDATION</h2><p>SAPNE AAPKE SATH HAMARA</p><strong>WEEKLY REPAYMENT SCHEDULE</strong></div></div>
       <div class="schedule-summary"><span><small>Total Installments</small><b>${count}</b></span><span><small>Total Scheduled Amount</small><b>${money(count*emi)}</b></span><span><small>First Due Date</small><b>${displayDueDate(first)}</b></span><span><small>Last Due Date</small><b>${displayDueDate(new Date(first.getFullYear(),first.getMonth(),first.getDate()+(count-1)*7))}</b></span></div>
-      <h3>INSTALLMENT DETAILS</h3><div class="tablewrap"><table><thead><tr><th>Week</th><th>Day</th><th>Due Date</th><th>EMI</th><th>Status</th></tr></thead><tbody>${rows.join("")}</tbody></table></div>
-      <p class="schedule-note">Status is based on actual payment transactions. Historical W1–W24 markers are not treated as dated receipts.</p>
+      <h3>INSTALLMENT DETAILS</h3><div class="tablewrap"><table><colgroup><col style="width:7%"><col style="width:14%"><col style="width:20%"><col style="width:11%"><col style="width:14%"><col style="width:34%"></colgroup><thead><tr><th>Week</th><th>Day</th><th>Due Date</th><th>EMI</th><th>Status</th><th>Staff Signature</th></tr></thead><tbody>${rows.join("")}</tbody></table></div>
+      <p class="schedule-note">Status is calculated from actual dated payment transactions, applied to installments in due-date order. Imported W1–W24 markers are not treated as dated receipts.</p>
     </section>
     <aside class="schedule-right">
-      <h2>CUSTOMER DETAILS</h2>
+      <h2>CUSTOMER & LOAN DETAILS</h2>
       <div class="customer-detail"><small>Customer Name</small><b>${esc(customer?.full_name || "—")}</b></div>
       <div class="customer-detail"><small>Customer ID</small><b>${esc(customer?.customer_code || "—")}</b></div>
       <div class="customer-detail"><small>Mobile Number</small><b>${esc(customer?.contact_number || "—")}</b></div>
       <div class="customer-detail"><small>Center Name</small><b>${esc(customer?.center_name || "—")}</b></div>
       <div class="customer-detail"><small>Area</small><b>${esc(customer?.area || "—")}</b></div>
       <div class="customer-detail"><small>Address</small><b>${esc(customer?.address || "—")}</b></div>
-      <hr>
-      <div class="customer-detail"><small>Loan Reference</small><b>${esc(loan.loan_reference || "—")}</b></div>
-      <div class="customer-detail"><small>Loan Type</small><b>${esc(loan.loan_type || "—")}</b></div>
+      <div class="customer-detail"><small>Loan Reference / Type</small><b>${esc(loan.loan_reference || "—")} · ${esc(loan.loan_type || "—")}</b></div>
       <div class="customer-detail"><small>Disbursement Date</small><b>${displayDueDate(disb)}</b></div>
-      <div class="customer-detail"><small>Loan Amount</small><b>${money(loan.loan_amount)}</b></div>
-      <div class="customer-detail"><small>Weekly EMI</small><b>${money(emi)}</b></div>
-      <div class="customer-detail"><small>Collection Day</small><b>${weekday}</b></div>
-      <div class="customer-detail"><small>Total Installments</small><b>${count} Weeks</b></div>
+      <div class="customer-detail"><small>Loan Amount / Weekly EMI</small><b>${money(loan.loan_amount)} / ${money(emi)}</b></div>
+      <div class="customer-detail"><small>Collection Day / Total Installments</small><b>${weekday} / ${count} Weeks</b></div>
       <div class="customer-detail"><small>Imported Outstanding (OSP)</small><b>${money(loan.source_osp)}</b></div>
-      <div class="customer-detail"><small>Contact / Collector Signature</small><b>________________________</b></div>
+      <div class="customer-signatures"><div><small>Borrower Signature / Thumb Impression</small><span></span></div><div><small>Collector Name & Staff Code</small><b>${esc(profile?.full_name || "—")} · ${esc(profile?.staff_code || "—")}</b></div><div><small>Collector Signature</small><span></span></div></div>
       <p class="schedule-generated">Generated: ${new Date().toLocaleDateString("en-IN")}</p>
     </aside>
   </div>`;
@@ -260,24 +260,34 @@ function printRepaymentSchedule() {
   if (!w) return showMessage("Print popup block है। Browser में pop-ups allow करें।","warn");
   w.document.write(`<!doctype html><html><head><title>AJSF Repayment Schedule</title><style>
   @page{size:A4 landscape;margin:5mm}
-  *{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#172923;font-size:8px;margin:0}
-  .schedule-print-sheet{display:grid;grid-template-columns:1fr 1fr;gap:0;width:100%;height:198mm;max-height:198mm;overflow:hidden;border:1.2px solid #243c33;position:relative}
-  .schedule-left{padding:3mm 5mm 2mm 3mm;border-right:1.2px dashed #536b60;min-width:0;overflow:hidden}
-  .schedule-right{padding:4mm 3mm 3mm 5mm;min-width:0;border-left:0;position:relative;overflow:hidden}.schedule-print-sheet:after{content:"FOLD HERE";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-90deg);font-size:6px;letter-spacing:1px;color:#718278;background:#fff;padding:2px 5px}
-  .schedule-brand{display:flex;align-items:center;gap:2mm;border-bottom:1px solid #123f35;padding-bottom:1mm}
-  .schedule-brand img{display:block;width:11mm!important;height:11mm!important;max-width:11mm!important;max-height:11mm!important;object-fit:contain;flex:0 0 11mm}
-  .schedule-brand h2{font-size:10px;margin:0;color:#123f35}.schedule-brand p{font-size:6px;margin:1px 0 2px}.schedule-brand strong{font-size:7px}
-  .schedule-summary{display:grid;grid-template-columns:repeat(2,1fr);gap:2px;padding:3px 0}
-  .schedule-summary span{border:1px solid #d5e0d9;padding:2px}.schedule-summary small,.customer-detail small{display:block;color:#60756b;font-size:7px;margin-bottom:2px}.schedule-summary b,.customer-detail b{font-size:8px}
-  h3{font-size:8px;margin:3px 0;color:#123f35}
-  table{width:100%;border-collapse:collapse;font-size:8.5px}th,td{border:1px solid #cbd8d0;padding:4px 5px;text-align:left;line-height:1.2}th{background:#edf5f0}
-  .schedule-status{font-size:7px;font-weight:bold}
+  *{box-sizing:border-box}html,body{margin:0;padding:0;font-family:Arial,sans-serif;color:#172923}
+  body{font-size:8px}
+  .schedule-print-sheet{display:grid;grid-template-columns:55% 45%;grid-template-rows:17mm 1fr;width:100%;height:198mm;max-height:198mm;border:1px solid #243c33;position:relative;overflow:hidden}
+  .schedule-brand-center{grid-column:1/3;grid-row:1;display:flex;justify-content:center;align-items:center;text-align:center;gap:3mm;border-bottom:1px solid #123f35;padding:1mm}
+  .schedule-brand img{width:14mm;height:14mm;max-width:14mm;max-height:14mm;object-fit:contain}
+  .schedule-brand h2{font-size:13px;margin:0;color:#123f35;letter-spacing:.2px}.schedule-brand p{font-size:7px;margin:1px 0 2px;font-weight:bold;letter-spacing:1px}.schedule-brand strong{font-size:8px}
+  .schedule-left{grid-column:1;grid-row:2;padding:2mm 4mm 2mm 2.5mm;border-right:1px dashed #536b60;min-width:0;overflow:hidden}
+  .schedule-right{grid-column:2;grid-row:2;padding:3mm 3mm 2mm 5mm;min-width:0;overflow:hidden}
+  .schedule-print-sheet:after{content:"FOLD HERE";position:absolute;left:55%;top:55%;transform:translate(-50%,-50%) rotate(-90deg);font-size:5.5px;letter-spacing:1px;color:#718278;background:#fff;padding:2px 4px}
+  .schedule-summary{display:grid;grid-template-columns:repeat(2,1fr);gap:2px;padding:2px 0 3px}
+  .schedule-summary span{border:1px solid #d5e0d9;padding:2px 3px}
+  .schedule-summary small,.customer-detail small,.customer-signatures small{display:block;color:#60756b;font-size:6.5px;margin-bottom:1px}
+  .schedule-summary b,.customer-detail b{font-size:7.5px}
+  h3{font-size:8px;margin:2px 0;color:#123f35}
+  .schedule-left table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:7.2px}
+  .schedule-left th,.schedule-left td{border:1px solid #cbd8d0;padding:2px 2.5px;text-align:left;line-height:1.05;height:6.1mm}
+  .schedule-left th{background:#edf5f0;font-size:7px}
+  .schedule-status{font-size:6.5px;font-weight:bold}
+  .staff-sign-cell{height:6.1mm}.staff-sign-line{display:block;width:100%;height:4mm;border-bottom:1px solid #52665c}
   .schedule-note{font-size:5.5px;color:#53665d;margin-top:2px}
-  .schedule-right h2{font-size:10px;color:#123f35;border-bottom:1.5px solid #123f35;padding-bottom:5px;margin:0 0 7px}
-  .customer-detail{padding:3px 2px;border-bottom:1px solid #e1e8e3;min-height:7mm}
+  .schedule-right h2{font-size:10px;color:#123f35;border-bottom:1px solid #123f35;padding-bottom:2mm;margin:0 0 2mm}
+  .customer-detail{padding:2.1mm 1mm;border-bottom:1px solid #e1e8e3;min-height:8mm}
   .customer-detail b{overflow-wrap:anywhere}
-  .schedule-right hr{border:0;border-top:1px solid #aabbb1;margin:6px 0}
-  .schedule-generated{font-size:5.5px;text-align:right;margin-top:4px;color:#53665d}
+  .customer-signatures{margin-top:3mm;border-top:1px solid #aabbb1;padding-top:2mm}
+  .customer-signatures div{margin:2.5mm 0 3mm}
+  .customer-signatures span{display:block;height:8mm;border-bottom:1px solid #52665c;width:85%}
+  .customer-signatures b{font-size:7px}
+  .schedule-generated{font-size:6px;text-align:right;margin-top:2mm;color:#53665d}
   </style></head><body>${area.outerHTML}</body></html>`);
   w.document.close();w.focus();w.print();
 }
