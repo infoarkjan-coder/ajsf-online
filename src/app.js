@@ -1,52 +1,287 @@
-:root{font-family:Arial,system-ui,sans-serif;color:#172923;background:#f1f6f3}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:linear-gradient(145deg,#edf5f0,#f8faf9)}.shell{width:min(100% - 32px,480px);margin:auto;padding:35px 0}.shell.wide{width:min(100% - 28px,1400px);padding:25px 0}.brand{display:flex;align-items:center;gap:14px;margin-bottom:24px;color:#123f35}.mark{width:58px;height:58px;border-radius:15px;background:#123f35;color:white;display:grid;place-items:center;font-size:20px;font-weight:900}.brand h1{font-size:21px;font-weight:900;line-height:1.25;margin:0}.brand p{font-size:15px;letter-spacing:1.1px;font-weight:900;margin:5px 0;color:#527367}.card{background:white;border:1px solid #dce8e1;border-radius:16px;padding:20px;box-shadow:0 8px 28px #123f3510;margin-bottom:14px}.eyebrow,.label{font-size:11px;color:#477665;font-weight:700}.muted{color:#687a72;font-size:13px;line-height:1.5}h2{font-size:20px;margin:8px 0;color:#123f35}.dashhead,.panel-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.dashhead{margin-bottom:18px}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.metric{font-size:25px;font-weight:800;margin-top:8px;color:#123f35}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0}.tabs button{background:#e2eee8;color:#123f35}button{border:0;border-radius:9px;background:#123f35;color:white;padding:11px 15px;font-weight:700;cursor:pointer}button:disabled{opacity:.6}button.secondary{background:#e2eee8;color:#123f35}form{display:grid;gap:10px;margin:18px 0}.formgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.field label{display:block;font-size:12px;margin-bottom:6px}input,select{width:100%;border:1px solid #cbdad1;border-radius:9px;padding:11px;font:inherit;background:white}.tablewrap{overflow:auto}table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:11px 9px;border-bottom:1px solid #e5ece8;white-space:nowrap}th{font-size:11px;color:#687a72}.hidden{display:none!important}.message{min-height:18px;font-size:13px;color:#a23b2b}.message.success{color:#17623a}.message.warn{color:#815000}.message.error{color:#a23b2b}.small,footer{font-size:11px;color:#809088}footer{text-align:center;padding:18px}.empty{text-align:center;padding:20px;color:#687a72}@media(max-width:850px){.grid{grid-template-columns:repeat(2,1fr)}.formgrid{grid-template-columns:repeat(2,1fr)}.brand-logo{width:76px;height:76px}.brand h1{font-size:18px}.brand p{font-size:13px}}@media(max-width:520px){.formgrid{grid-template-columns:1fr}.dashhead{align-items:flex-start}.metric{font-size:21px}.card{padding:14px}.brand-logo{width:68px;height:68px}.brand h1{font-size:16px}.brand p{font-size:12px}}
-.actions{display:flex;gap:8px;flex-wrap:wrap}
-.receipt{max-width:760px;margin:12px auto;padding:24px;border:1px solid #cbdad1;border-radius:12px;background:#fff;color:#172923}
-.receipt-brand{display:flex;align-items:center;gap:12px;border-bottom:2px solid #123f35;padding-bottom:12px}
-.receipt-mark{width:52px;height:52px;border-radius:12px;background:#123f35;color:#fff;display:grid;place-items:center;font-weight:900;font-size:18px}
-.receipt-brand h2{font-size:16px;margin:0}.receipt-brand p{font-size:10px;letter-spacing:1px;margin:4px 0;color:#527367;font-weight:700}
-.receipt-title{font-weight:800;text-align:center;margin:16px 0;color:#123f35}.receipt-title span{margin-left:8px}
-.receipt-meta{display:flex;justify-content:space-between;gap:12px;font-size:12px;margin-bottom:14px}
-.receipt-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;border-top:1px solid #e5ece8;border-bottom:1px solid #e5ece8;padding:14px 0}
-.receipt-grid div{display:grid;gap:4px}.receipt-grid small,.receipt-amount small{font-size:10px;color:#687a72}.receipt-grid b{font-size:12px}
-.receipt-amount{display:flex;justify-content:space-between;align-items:center;margin:16px 0;padding:12px;background:#edf5f0;border-radius:8px}.receipt-amount strong{font-size:24px;color:#123f35}
-.receipt-remarks{font-size:11px}.receipt-footer{display:flex;justify-content:space-between;margin:34px 0 12px;font-size:11px}.receipt-footer span{border-top:1px solid #687a72;padding-top:6px;min-width:140px;text-align:center}.receipt-note{text-align:center;font-size:9px;color:#687a72}
-@media print{body{background:#fff!important}.shell{width:100%!important;padding:0!important}.brand,#loginCard,.dashhead,#dashboardMessage,.grid,.tabs,[data-panel],footer,.no-print{display:none!important}#dashboardCard{display:block!important}.receiptPanel,#receiptPanel,.receipt{display:block!important;box-shadow:none!important;border:0!important;margin:0!important;max-width:none!important;padding:10mm!important}.receipt{border:1px solid #999!important;border-radius:0!important;break-inside:avoid}.receipt *{color:#111!important}.receipt-amount{background:#eee!important}}
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./config.js";
 
-/* AJSF branded login and dashboard layout */
-.brand-logo{width:88px;height:88px;object-fit:contain;background:#fff;border-radius:50%;border:1px solid #dce8e1;flex:0 0 auto}
-#loginCard{max-width:440px;margin:8vh auto 0;padding:28px}
-#loginCard h2{font-size:24px}
-#loginCard form{display:grid;gap:12px}
-#loginCard button{width:100%;margin-top:5px}
-#appShell:not(.logged-in){max-width:520px;padding-top:5vh}
-#appShell:not(.logged-in)>.brand{justify-content:center;margin-bottom:26px}
-#appShell:not(.logged-in)>.brand>div:last-child{text-align:left}
-#appShell.logged-in{width:min(100% - 28px,1500px)}
-.dashboard-layout{display:grid;grid-template-columns:220px minmax(0,1fr);gap:18px;align-items:start}
-.sidebar{position:sticky;top:16px;background:#fff;border:1px solid #dce8e1;border-radius:15px;padding:14px;box-shadow:0 8px 24px #123f350c}
-.sidebar-title{font-size:11px;font-weight:800;color:#688277;letter-spacing:1.2px;padding:6px 9px 12px}
-.sidebar .tabs{display:flex;flex-direction:column;margin:0;gap:7px}
-.sidebar .tabs button{text-align:left;width:100%;padding:12px;background:#f0f6f2;color:#174b3d}
-.sidebar .tabs button.active{background:#123f35;color:white}
-.dashboard-content{min-width:0}
-.ledger-summary{display:flex;gap:18px;flex-wrap:wrap;padding:14px 0;font-size:13px}
-.ledger-summary strong{color:#123f35}
-@media(max-width:850px){.dashboard-layout{grid-template-columns:1fr}.sidebar{position:static}.sidebar .tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.sidebar .tabs button{text-align:center}.brand-logo{width:76px;height:76px}.brand h1{font-size:18px}.brand p{font-size:13px}}
-@media(max-width:520px){#loginCard{margin:5vh auto 0;padding:20px}.sidebar .tabs{grid-template-columns:1fr 1fr}.brand{gap:10px}.brand-logo{width:68px;height:68px}.brand h1{font-size:16px}.brand p{font-size:12px}}
-@media print{.sidebar{display:none!important}.dashboard-layout{display:block!important}}
-\n.receipt-logo{width:56px;height:56px;object-fit:contain}\n
-
-/* AJSF half-A4 receipt print layout */
-@page { size: A4 portrait; margin: 8mm; }
-@media print {
- html, body { width:210mm!important; min-height:297mm!important; margin:0!important; padding:0!important; background:#fff!important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
- #receiptPanel, .receiptPanel { display:block!important; width:194mm!important; height:137mm!important; max-height:137mm!important; margin:0 auto!important; padding:0!important; overflow:hidden!important; break-inside:avoid!important; page-break-inside:avoid!important; }
- #receiptPanel .receipt, .receiptPanel .receipt, .receipt { display:block!important; width:194mm!important; height:137mm!important; max-width:none!important; max-height:137mm!important; margin:0!important; padding:6mm 8mm!important; border:1px solid #9aa9a1!important; border-radius:0!important; box-shadow:none!important; overflow:hidden!important; break-inside:avoid!important; page-break-inside:avoid!important; }
- .receipt-brand { gap:5mm!important; padding-bottom:3mm!important; border-bottom-width:1px!important; }
- .receipt-logo { width:23mm!important; height:23mm!important; object-fit:contain!important; flex:0 0 23mm!important; }
- .receipt-brand h2 { font-size:14pt!important; margin:0!important; } .receipt-brand p { font-size:8pt!important; margin:2mm 0 0!important; }
- .receipt-title { font-size:13pt!important; margin:3mm 0!important; } .receipt-meta { font-size:8.5pt!important; margin-bottom:3mm!important; }
- .receipt-grid { gap:3mm 8mm!important; padding:3mm 0!important; } .receipt-grid small,.receipt-amount small { font-size:7.5pt!important; } .receipt-grid b { font-size:9pt!important; }
- .receipt-amount { margin:3mm 0!important; padding:3mm 4mm!important; } .receipt-amount strong { font-size:19pt!important; } .receipt-remarks { font-size:8pt!important; margin:2mm 0!important; }
- .receipt-footer { margin:9mm 0 3mm!important; font-size:8pt!important; } .receipt-footer span { min-width:55mm!important; } .receipt-note { font-size:7pt!important; margin:2mm 0 0!important; }
+const $ = (id) => document.getElementById(id);
+const money = (n) => "₹" + Number(n || 0).toLocaleString("en-IN");
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let supabase, currentUser, profile, customers = [], loans = [], payments = [], lastReceipt = null;
+const paymentsByLoan = () => payments.filter(p => !p.is_reversal).reduce((m, p) => { const k = p.loan_id; if (k) m[k] = (m[k] || 0) + Number(p.amount || 0); return m; }, {});
+function loanFigures(loan, paymentTotals) {
+  const newPaid = paymentTotals[loan.id] || 0;
+  const importedPaid = Number(loan.source_total_collected || 0);
+  const collected = importedPaid + newPaid;
+  const baselineOsp = loan.source_osp == null ? Math.max(0, Number(loan.loan_amount || 0) - importedPaid) : Number(loan.source_osp);
+  return { collected, outstanding: Math.max(0, baselineOsp - newPaid) };
 }
+
+function showMessage(message, type = "info") {
+  const dashboardCard = $("dashboardCard");
+  const dashboardVisible = dashboardCard ? !dashboardCard.classList.contains("hidden") : false;
+  const el = $(dashboardVisible ? "dashboardMessage" : "loginMessage") || $("message");
+  if (!el) return;
+  el.textContent = message;
+  el.className = `message ${type}`;
+}
+function setBusy(button, busy, label = "कृपया प्रतीक्षा करें…") {
+  if (!button) return;
+  if (busy) { button.dataset.oldText = button.textContent; button.textContent = label; button.disabled = true; }
+  else { button.textContent = button.dataset.oldText || button.textContent; button.disabled = false; }
+}
+function canAdmin() { return profile?.role === "admin"; }
+
+async function loadProfile(user) {
+  const { data, error } = await supabase.from("profiles")
+    .select("full_name, role, staff_code, is_active")
+    .eq("id", user.id).single();
+  if (error || !data || !data.is_active) throw new Error("सक्रिय प्रोफाइल नहीं मिली। Admin से संपर्क करें।");
+  profile = data;
+}
+
+function renderShell() {
+  $("loginCard").classList.add("hidden");
+  $("dashboardCard").classList.remove("hidden");
+  $("staffName").textContent = profile.full_name || "Staff";
+  $("staffCode").textContent = profile.staff_code || "—";
+  $("staffRole").textContent = canAdmin() ? "Admin" : "Collector";
+  $("roleNote").textContent = canAdmin()
+    ? "आप सभी ग्राहक, लोन और भुगतान देख सकते हैं।"
+    : "आपको केवल आपके assigned ग्राहक दिखेंगे।";
+  const adminOnly = $("adminOnly");
+  const collectorOnly = $("collectorOnly");
+  if (adminOnly) adminOnly.classList.toggle("hidden", !canAdmin());
+  if (collectorOnly) collectorOnly.classList.toggle("hidden", canAdmin());
+}
+
+function activateTab(tab) {
+  document.querySelectorAll("[data-tab]").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
+  document.querySelectorAll("[data-panel]").forEach(p => p.classList.toggle("hidden", p.dataset.panel !== tab));
+}
+document.addEventListener("click", e => {
+  const tab = e.target.closest("[data-tab]");
+  if (tab) activateTab(tab.dataset.tab);
+});
+
+async function loadAll() {
+  showMessage("डेटा लोड हो रहा है…");
+  let customerQuery = supabase.from("customers")
+    .select("id, customer_code, full_name, center_name, contact_number, area, address, collection_day, assigned_collector, customer_status, recovery_status, is_active")
+    .order("full_name");
+  if (!canAdmin()) customerQuery = customerQuery.eq("assigned_collector", currentUser.id);
+  const [c, l] = await Promise.all([
+    customerQuery,
+    supabase.from("loans").select("id, loan_reference, customer_id, loan_type, disbursement_date, loan_amount, emi_amount, total_emis_required, status, source_total_collected, source_osp, source_emis_paid, source_emis_pending").order("created_at", {ascending:false})
+  ]);
+  if (c.error) throw new Error("Customer API (" + c.error.code + "): " + c.error.message);
+  if (l.error) throw new Error("Loan API (" + l.error.code + "): " + l.error.message);
+  customers = c.data || []; loans = l.data || [];
+  payments = [];
+  for (let start = 0; ; start += 1000) {
+    const { data, error } = await supabase.from("payments").select("*").order("created_at", {ascending:false}).range(start, start + 999);
+    if (error) { payments = []; break; }
+    payments.push(...(data || []));
+    if (!data || data.length < 1000) break;
+  }
+  renderData();
+  showMessage("डेटा सफलतापूर्वक लोड हुआ। जमा राशि में आयातित पुरानी वसूली और नए भुगतान शामिल हैं; बकाया में नए भुगतान घटाए गए हैं।", "success");
+}
+
+function renderData() {
+  $("customersCount").textContent = customers.length;
+  $("loansCount").textContent = loans.length;
+  $("paymentsCount").textContent = payments.length;
+  const today = new Date().toISOString().slice(0,10);
+  const todayPayments = payments.filter(p => !p.is_reversal && String(p.paid_at || p.created_at || "").slice(0,10) === today);
+  $("todayTotal").textContent = money(todayPayments.reduce((s,p) => s + Number(p.amount || p.payment_amount || 0), 0));
+  const totalsByLoan = paymentsByLoan();
+  const figures = loans.map(l => loanFigures(l, totalsByLoan));
+  $("collectedTotal").textContent = money(figures.reduce((s, f) => s + f.collected, 0));
+  $("outstandingTotal").textContent = money(figures.reduce((s, f) => s + f.outstanding, 0));
+  $("customerRows").innerHTML = customers.map(c => `<tr><td>${esc(c.customer_code)}</td><td>${esc(c.full_name)}</td><td>${esc(c.center_name)}</td><td>${esc(c.contact_number)}</td><td>${esc(c.collection_day)}</td><td>${esc(c.customer_status)}</td></tr>`).join("") || `<tr><td colspan="6" class="empty">कोई ग्राहक नहीं मिला।</td></tr>`;
+  $("loanRows").innerHTML = loans.map(l => {
+    const c = customers.find(x => x.id === l.customer_id);
+    const f = loanFigures(l, totalsByLoan);
+    return `<tr><td>${esc(l.loan_reference)}</td><td>${esc(c?.full_name || l.customer_id)}</td><td>${esc(l.loan_type)}</td><td>${money(l.loan_amount)}</td><td>${money(l.emi_amount)}</td><td>${esc(l.total_emis_required)}</td><td>${money(f.collected)}</td><td>${money(f.outstanding)}</td><td>${esc(l.status)}</td></tr>`;
+  }).join("") || `<tr><td colspan="9" class="empty">कोई लोन रिकॉर्ड नहीं मिला।</td></tr>`;
+  const customerOptions = `<option value="">ग्राहक चुनें</option>` + customers.map(c => `<option value="${esc(c.id)}">${esc(c.customer_code)} · ${esc(c.full_name)}</option>`).join("");
+  $("payCustomer").innerHTML = customerOptions;
+  $("ledgerCustomer").innerHTML = customerOptions;
+  refreshLoanOptions();
+  $("paymentRows").innerHTML = payments.map(p => {
+    const c = customers.find(x => x.id === p.customer_id);
+    const l = loans.find(x => x.id === p.loan_id);
+    return `<tr><td>${esc(p.id)}</td><td>${esc(formatDate(p.paid_at))}</td><td>${esc(c?.full_name || p.customer_id)}</td><td>${esc(l?.loan_reference || "—")}</td><td>${money(p.amount)}</td><td>${esc(p.payment_mode || "—")}</td></tr>`;
+  }).join("") || `<tr><td colspan="6" class="empty">अभी भुगतान उपलब्ध नहीं हैं।</td></tr>`;
+}
+
+
+async function loadCustomerLedger() {
+  const customerId = $("ledgerCustomer").value;
+  const summary = $("ledgerSummary"), rows = $("ledgerRows");
+  if (!customerId) {
+    summary.textContent = "ग्राहक चुनने पर Loan और Payment विवरण दिखेंगे।";
+    rows.innerHTML = `<tr><td colspan="5" class="empty">कोई ग्राहक चयनित नहीं है।</td></tr>`;
+    return;
+  }
+  const customer = customers.find(c => c.id === customerId);
+  const customerLoans = loans.filter(l => l.customer_id === customerId);
+  summary.textContent = "Ledger लोड हो रहा है…";
+  const { data, error } = await supabase.from("payments")
+    .select("id, client_tx_id, loan_id, amount, paid_at, payment_mode, remarks")
+    .eq("customer_id", customerId).eq("is_reversal", false)
+    .order("paid_at", {ascending:false});
+  if (error) {
+    summary.textContent = "Ledger लोड नहीं हुआ: " + error.message;
+    rows.innerHTML = `<tr><td colspan="5" class="empty">डेटा उपलब्ध नहीं है।</td></tr>`;
+    return;
+  }
+  const paid = (data || []).reduce((s,p) => s + Number(p.amount || 0), 0);
+  const loanAmount = customerLoans.reduce((s,l) => s + Number(l.loan_amount || 0), 0);
+  const sourceOsp = customerLoans.reduce((s,l) => s + Number(l.source_osp || 0), 0);
+  summary.innerHTML = `<span><strong>ग्राहक:</strong> ${esc(customer?.full_name || "—")}</span><span><strong>Loan Amount:</strong> ${money(loanAmount)}</span><span><strong>इस सिस्टम में जमा:</strong> ${money(paid)}</span><span><strong>Imported OSP:</strong> ${money(sourceOsp)}</span>`;
+  rows.innerHTML = (data || []).map(p => {
+    const loan = customerLoans.find(l => l.id === p.loan_id);
+    return `<tr><td>${esc(formatDate(p.paid_at))}</td><td>${esc((p.id || p.client_tx_id || "").slice(0,8).toUpperCase())}</td><td>${esc(loan?.loan_reference || "—")}</td><td>${esc((p.payment_mode || "—").toUpperCase().replace("_"," "))}</td><td>${money(p.amount)}</td></tr>`;
+  }).join("") || `<tr><td colspan="5" class="empty">इस ग्राहक का कोई भुगतान रिकॉर्ड नहीं है।</td></tr>`;
+}
+
+async function submitCustomer(event) {
+  event.preventDefault();
+  if (!canAdmin()) return showMessage("नया ग्राहक जोड़ने का अधिकार केवल Admin को है।", "warn");
+  const form = event.currentTarget, btn = form.querySelector('[type="submit"]');
+  const d = Object.fromEntries(new FormData(form));
+  const row = {
+    customer_code: d.customer_code.trim(), full_name: d.full_name.trim(),
+    center_name: d.center_name || null, contact_number: d.contact_number || null,
+    area: d.area || null, address: d.address || null, collection_day: d.collection_day,
+    assigned_collector: d.assigned_collector || currentUser.id,
+    created_by: currentUser.id, customer_status: "ACTIVE", recovery_status: "NOT_REQUIRED", is_active: true
+  };
+  setBusy(btn, true);
+  const { error } = await supabase.from("customers").insert(row);
+  setBusy(btn, false);
+  if (error) return showMessage("ग्राहक सेव नहीं हुआ: " + error.message, "error");
+  form.reset(); await loadAll(); showMessage("ग्राहक सफलतापूर्वक सेव हुआ।", "success");
+}
+
+function formatDate(value) {
+  if (!value) return "—";
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
+}
+function refreshLoanOptions() {
+  const customerId = $("payCustomer")?.value;
+  const eligible = loans.filter(l => (!customerId || l.customer_id === customerId) && l.status === "active");
+  $("payLoan").innerHTML = `<option value="">लोन चुनें</option>` + eligible.map(l => `<option value="${esc(l.id)}">${esc(l.loan_reference)} · ${money(l.loan_amount)}</option>`).join("");
+}
+function showReceipt(payment, customer, loan) {
+  lastReceipt = { payment, customer, loan };
+  const receiptNo = payment.id ? payment.id.slice(0, 8).toUpperCase() : payment.client_tx_id.slice(0, 8).toUpperCase();
+  $("receiptContent").innerHTML = `
+    <div class="receipt-brand"><img src="./assets/ajsf-logo.png" alt="AJSF Logo" class="receipt-logo"><div><h2>ARK JAN SAMRIDDHI FOUNDATION</h2><p>SAPNE AAPKE SATH HAMARA</p></div></div>
+    <div class="receipt-title">PAYMENT RECEIPT <span>रसीद</span></div>
+    <div class="receipt-meta"><span>Receipt No.: <b>${esc(receiptNo)}</b></span><span>Date: <b>${esc(formatDate(payment.paid_at))}</b></span></div>
+    <div class="receipt-grid">
+      <div><small>Customer ID</small><b>${esc(customer.customer_code)}</b></div>
+      <div><small>Customer Name</small><b>${esc(customer.full_name)}</b></div>
+      <div><small>Center</small><b>${esc(customer.center_name || "—")}</b></div>
+      <div><small>Mobile</small><b>${esc(customer.contact_number || "—")}</b></div>
+      <div><small>Loan Reference</small><b>${esc(loan.loan_reference)}</b></div>
+      <div><small>Payment Mode</small><b>${esc(payment.payment_mode.toUpperCase().replace("_", " "))}</b></div>
+    </div>
+    <div class="receipt-amount"><small>Amount Received / प्राप्त राशि</small><strong>${money(payment.amount)}</strong></div>
+    <p class="receipt-remarks">Remarks: ${esc(payment.remarks || "—")}</p>
+    <div class="receipt-footer"><span>Customer Signature</span><span>Authorized Collector</span></div>
+    <p class="receipt-note">यह कंप्यूटर जनरेटेड रसीद है। भुगतान रिकॉर्ड AJSF ONLINE में सेव है।</p>`;
+  $("receiptPanel").classList.remove("hidden");
+  $("receiptPanel").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+async function submitPayment(event) {
+  event.preventDefault();
+  const form = event.currentTarget, btn = form.querySelector('[type="submit"]');
+  const d = Object.fromEntries(new FormData(form));
+  const loan = loans.find(x => x.id === d.loan_id && x.status === "active");
+  const customer = customers.find(x => x.id === d.customer_id);
+  const amount = Number(d.amount);
+  if (!loan || !customer || loan.customer_id !== customer.id) return showMessage("सही ग्राहक और उसी ग्राहक का Active Loan चुनें।", "warn");
+  if (!Number.isFinite(amount) || amount <= 0) return showMessage("भुगतान राशि शून्य से अधिक दर्ज करें।", "warn");
+  if (!d.payment_date) return showMessage("भुगतान की तारीख चुनें।", "warn");
+  const paidAt = new Date(`${d.payment_date}T12:00:00`).toISOString();
+  const row = {
+    client_tx_id: crypto.randomUUID(),
+    loan_id: loan.id,
+    customer_id: customer.id,
+    amount,
+    paid_at: paidAt,
+    payment_mode: d.payment_mode,
+    collector_id: currentUser.id,
+    remarks: d.remarks?.trim() || null
+  };
+  setBusy(btn, true, "भुगतान सेव हो रहा है…");
+  const { data, error } = await supabase.from("payments").insert(row).select("id, client_tx_id, customer_id, loan_id, collector_id, amount, paid_at, payment_mode, remarks").single();
+  setBusy(btn, false);
+  if (error) return showMessage("भुगतान सेव नहीं हुआ: " + error.message, "error");
+  payments.unshift(data);
+  renderData();
+  form.reset();
+  $("paymentDate").value = localDateValue();
+  refreshLoanOptions();
+  showReceipt(data, customer, loan);
+  showMessage("भुगतान सफलतापूर्वक सेव हुआ। रसीद नीचे उपलब्ध है।", "success");
+}
+function localDateValue() {
+  const d = new Date();
+  const offset = d.getTimezoneOffset();
+  return new Date(d.getTime() - offset * 60000).toISOString().slice(0, 10);
+}
+function printReceipt() {
+  if (!lastReceipt) return showMessage("पहले भुगतान सेव करें।", "warn");
+  window.print();
+}
+
+async function logout() {
+  await supabase.auth.signOut();
+  currentUser = null; profile = null;
+  $("dashboardCard").classList.add("hidden"); $("loginCard").classList.remove("hidden"); $("appShell").classList.remove("logged-in");
+  $("loginForm").reset(); showMessage("आप लॉगआउट हो गए हैं।");
+}
+
+async function boot() {
+  if (!SUPABASE_PUBLISHABLE_KEY || SUPABASE_PUBLISHABLE_KEY.includes("PASTE_YOUR")) {
+    showMessage("src/config.js में Supabase Publishable Key डालें।", "error");
+    $("loginBtn").disabled = true; return;
+  }
+  supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+  $("loginForm").addEventListener("submit", async event => {
+    event.preventDefault(); showMessage("");
+    const btn = $("loginBtn"); setBusy(btn, true, "लॉगिन हो रहा है…");
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: $("email").value.trim(), password: $("password").value
+    });
+    if (error) { setBusy(btn, false); return showMessage("लॉगिन असफल: ईमेल/पासवर्ड जाँचें।", "error"); }
+    try {
+      currentUser = data.user;
+      await loadProfile(currentUser);
+      renderShell();
+      $("customerForm").addEventListener("submit", submitCustomer);
+      $("paymentForm").addEventListener("submit", submitPayment);
+      try {
+        await loadAll();
+      } catch (dataError) {
+        console.error("AJSF dashboard data load failed:", dataError);
+        showMessage("डेटा लोड नहीं हुआ: " + (dataError?.message || String(dataError)) + " | स्क्रीनशॉट भेजें।", "error");
+      }
+    } catch (err) {
+      console.error("AJSF login/profile failed:", err);
+      await supabase.auth.signOut();
+      setBusy(btn, false);
+      showMessage(err.message, "error");
+    }
+  });
+  $("logoutBtn").addEventListener("click", logout);
+  $("payCustomer").addEventListener("change", refreshLoanOptions);
+  $("ledgerCustomer").addEventListener("change", loadCustomerLedger);
+  $("printReceiptBtn").addEventListener("click", printReceipt);
+  $("closeReceiptBtn").addEventListener("click", () => $("receiptPanel").classList.add("hidden"));
+}
+if ($("paymentDate")) $("paymentDate").value = localDateValue();
+boot();
