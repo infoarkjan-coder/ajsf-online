@@ -107,6 +107,7 @@ function renderData() {
   $("ledgerCustomer").innerHTML = customerOptions;
   filterLedgerCustomers();
   $("statementCustomer").innerHTML = customerOptions;
+  filterScheduleCustomers();
   refreshLoanOptions();
   filterCustomerRows();
   filterStatementCustomers();
@@ -164,6 +165,122 @@ async function loadCustomerLedger() {
   $("ledgerPrintArea").appendChild(generated);
 }
 
+
+
+const WEEKDAY_INDEX = {Sunday:0,Monday:1,Tuesday:2,Wednesday:3,Thursday:4,Friday:5,Saturday:6};
+function localISODate(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+function displayDueDate(d) {
+  return d.toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"});
+}
+function filterScheduleCustomers() {
+  const q = ($("scheduleSearch")?.value || "").trim().toLocaleLowerCase();
+  const select = $("scheduleCustomer");
+  if (!select) return;
+  const current = select.value;
+  select.innerHTML = `<option value="">ग्राहक चुनें</option>` + customers
+    .filter(c => !q || [c.customer_code,c.full_name,c.contact_number,c.center_name].some(v => String(v || "").toLocaleLowerCase().includes(q)))
+    .map(c => `<option value="${esc(c.id)}">${esc(c.customer_code || "")} · ${esc(c.full_name || "")} · ${esc(c.contact_number || "")}</option>`).join("");
+  if (Array.from(select.options).some(o => o.value === current)) select.value = current;
+}
+function populateScheduleLoans() {
+  const id = $("scheduleCustomer").value;
+  const list = loans.filter(l => l.customer_id === id);
+  $("scheduleLoan").innerHTML = `<option value="">लोन चुनें</option>` + list.map(l => `<option value="${esc(l.id)}">${esc(l.loan_reference || "Loan")} · ${money(l.loan_amount)}</option>`).join("");
+  $("scheduleOutput").innerHTML = "लोन चुनें।";
+}
+function renderRepaymentSchedule() {
+  const loanId = $("scheduleLoan").value;
+  const loan = loans.find(l => l.id === loanId);
+  const output = $("scheduleOutput");
+  if (!loan) { output.innerHTML = "ग्राहक और लोन चुनने पर Schedule दिखाई देगा।"; return; }
+  const customer = customers.find(c => c.id === loan.customer_id);
+  const weekday = customer?.collection_day;
+  const targetDay = WEEKDAY_INDEX[weekday];
+  if (!loan.disbursement_date || targetDay === undefined) {
+    output.innerHTML = `<p>इस ग्राहक के लिए सही Collection Day या Disbursement Date उपलब्ध नहीं है। Customer Register में Monday से Sunday में से दिन चुनें और Loan Disbursement Date जाँचें।</p>`;
+    return;
+  }
+  const [yy,mm,dd] = String(loan.disbursement_date).slice(0,10).split("-").map(Number);
+  const disb = new Date(yy,mm-1,dd);
+  const first = new Date(disb);
+  let delta = (targetDay - disb.getDay() + 7) % 7;
+  if (delta === 0) delta = 7; // same-day disbursement: first installment is next week's selected day
+  first.setDate(first.getDate()+delta);
+  const count = Math.max(1,Math.min(60,Number(loan.total_emis_required || 24)));
+  const emi = Number(loan.emi_amount || 0);
+  const actualPayments = payments.filter(p => p.loan_id === loan.id && !p.is_reversal)
+    .slice().sort((a,b) => new Date(a.paid_at)-new Date(b.paid_at));
+  let remainingPaid = actualPayments.reduce((s,p)=>s+Number(p.amount||0),0);
+  const today = new Date(); today.setHours(0,0,0,0);
+  const rows = [];
+  for(let i=0;i<count;i++){
+    const due = new Date(first); due.setDate(first.getDate()+i*7);
+    let status = "Pending";
+    if (remainingPaid >= emi && emi > 0) { status = "Paid"; remainingPaid -= emi; }
+    else if (remainingPaid > 0) { status = "Partial"; remainingPaid = 0; }
+    else if (due < today) status = "Overdue";
+    rows.push(`<tr><td>${i+1}</td><td>${weekday}</td><td>${displayDueDate(due)}</td><td>${money(emi)}</td><td><span class="schedule-status ${status.toLowerCase()}">${status}</span></td></tr>`);
+  }
+  output.innerHTML = `<div id="repaymentSchedulePrint" class="schedule-print-sheet">
+    <section class="schedule-left">
+      <div class="schedule-brand"><img src="./assets/ajsf-logo.png" alt="AJSF Logo"><div><h2>ARK JAN SAMRIDDHI FOUNDATION</h2><p>SAPNE AAPKE SATH HAMARA</p><strong>WEEKLY REPAYMENT SCHEDULE</strong></div></div>
+      <div class="schedule-summary"><span><small>Total Installments</small><b>${count}</b></span><span><small>Total Scheduled Amount</small><b>${money(count*emi)}</b></span><span><small>First Due Date</small><b>${displayDueDate(first)}</b></span><span><small>Last Due Date</small><b>${displayDueDate(new Date(first.getFullYear(),first.getMonth(),first.getDate()+(count-1)*7))}</b></span></div>
+      <h3>INSTALLMENT DETAILS</h3><div class="tablewrap"><table><thead><tr><th>Week</th><th>Day</th><th>Due Date</th><th>EMI</th><th>Status</th></tr></thead><tbody>${rows.join("")}</tbody></table></div>
+      <p class="schedule-note">Status is based on actual payment transactions. Historical W1–W24 markers are not treated as dated receipts.</p>
+    </section>
+    <aside class="schedule-right">
+      <h2>CUSTOMER DETAILS</h2>
+      <div class="customer-detail"><small>Customer Name</small><b>${esc(customer?.full_name || "—")}</b></div>
+      <div class="customer-detail"><small>Customer ID</small><b>${esc(customer?.customer_code || "—")}</b></div>
+      <div class="customer-detail"><small>Mobile Number</small><b>${esc(customer?.contact_number || "—")}</b></div>
+      <div class="customer-detail"><small>Center Name</small><b>${esc(customer?.center_name || "—")}</b></div>
+      <div class="customer-detail"><small>Area</small><b>${esc(customer?.area || "—")}</b></div>
+      <div class="customer-detail"><small>Address</small><b>${esc(customer?.address || "—")}</b></div>
+      <hr>
+      <div class="customer-detail"><small>Loan Reference</small><b>${esc(loan.loan_reference || "—")}</b></div>
+      <div class="customer-detail"><small>Loan Type</small><b>${esc(loan.loan_type || "—")}</b></div>
+      <div class="customer-detail"><small>Disbursement Date</small><b>${displayDueDate(disb)}</b></div>
+      <div class="customer-detail"><small>Loan Amount</small><b>${money(loan.loan_amount)}</b></div>
+      <div class="customer-detail"><small>Weekly EMI</small><b>${money(emi)}</b></div>
+      <div class="customer-detail"><small>Collection Day</small><b>${weekday}</b></div>
+      <div class="customer-detail"><small>Total Installments</small><b>${count} Weeks</b></div>
+      <div class="customer-detail"><small>Imported Outstanding (OSP)</small><b>${money(loan.source_osp)}</b></div>
+      <div class="customer-detail"><small>Contact / Collector Signature</small><b>________________________</b></div>
+      <p class="schedule-generated">Generated: ${new Date().toLocaleDateString("en-IN")}</p>
+    </aside>
+  </div>`;
+}
+function printRepaymentSchedule() {
+  if (!$("scheduleLoan").value) return showMessage("पहले ग्राहक और लोन चुनें।","warn");
+  const area = $("repaymentSchedulePrint");
+  if (!area) return showMessage("पहले Schedule लोड होने दें।","warn");
+  const w = window.open("","_blank");
+  if (!w) return showMessage("Print popup block है। Browser में pop-ups allow करें।","warn");
+  w.document.write(`<!doctype html><html><head><title>AJSF Repayment Schedule</title><style>
+  @page{size:A4 landscape;margin:8mm}
+  *{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#172923;font-size:8px;margin:0}
+  .schedule-print-sheet{display:grid;grid-template-columns:62% 38%;gap:5mm;width:100%;min-height:190mm}
+  .schedule-left{padding-right:4mm;border-right:1px solid #aabbb1}
+  .schedule-right{padding:3mm 2mm}
+  .schedule-brand{display:flex;align-items:center;gap:3mm;border-bottom:1.5px solid #123f35;padding-bottom:2mm}
+  .schedule-brand img{display:block;width:16mm!important;height:16mm!important;max-width:16mm!important;max-height:16mm!important;object-fit:contain;flex:0 0 16mm}
+  .schedule-brand h2{font-size:13px;margin:0;color:#123f35}.schedule-brand p{font-size:7px;margin:2px 0 4px}.schedule-brand strong{font-size:9px}
+  .schedule-summary{display:grid;grid-template-columns:repeat(2,1fr);gap:4px;padding:6px 0}
+  .schedule-summary span{border:1px solid #d5e0d9;padding:4px}.schedule-summary small,.customer-detail small{display:block;color:#60756b;font-size:7px;margin-bottom:2px}.schedule-summary b,.customer-detail b{font-size:8px}
+  h3{font-size:9px;margin:5px 0;color:#123f35}
+  table{width:100%;border-collapse:collapse;font-size:7.5px}th,td{border:1px solid #cbd8d0;padding:3.2px 4px;text-align:left;line-height:1.15}th{background:#edf5f0}
+  .schedule-status{font-size:7px;font-weight:bold}
+  .schedule-note{font-size:6.5px;color:#53665d;margin-top:4px}
+  .schedule-right h2{font-size:12px;color:#123f35;border-bottom:1.5px solid #123f35;padding-bottom:5px;margin:0 0 7px}
+  .customer-detail{padding:4px 2px;border-bottom:1px solid #e1e8e3;min-height:9mm}
+  .customer-detail b{overflow-wrap:anywhere}
+  .schedule-right hr{border:0;border-top:1px solid #aabbb1;margin:6px 0}
+  .schedule-generated{font-size:6.5px;text-align:right;margin-top:8px;color:#53665d}
+  </style></head><body>${area.outerHTML}</body></html>`);
+  w.document.close();w.focus();w.print();
+}
 
 function filterLedgerCustomers() {
   const q = ($("ledgerSearch")?.value || "").trim().toLocaleLowerCase();
@@ -384,6 +501,10 @@ async function boot() {
   $("ledgerCustomer").addEventListener("change", loadCustomerLedger);
   $("ledgerSearch").addEventListener("input", filterLedgerCustomers);
   $("printLedgerBtn").addEventListener("click", printCustomerLedger);
+  $("scheduleSearch").addEventListener("input", filterScheduleCustomers);
+  $("scheduleCustomer").addEventListener("change", populateScheduleLoans);
+  $("scheduleLoan").addEventListener("change", renderRepaymentSchedule);
+  $("printScheduleBtn").addEventListener("click", printRepaymentSchedule);
   $("customerFilter").addEventListener("input", filterCustomerRows);
   $("statementSearch").addEventListener("input", filterStatementCustomers);
   $("statementCustomer").addEventListener("change", renderCustomerStatement);
