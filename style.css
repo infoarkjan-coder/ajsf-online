@@ -68,3 +68,31 @@
   #statementPrintArea .statement-note{font-size:7pt!important}
   .no-print{display:none!important}
 }
+
+/* Keep AJSF logo compact in on-page statement preview and print */
+#statementPrintArea .statement-brand img,
+.statement-paper .statement-brand img,
+#ledgerPrintArea .ledger-print-brand img {
+  display:block !important;
+  width:72px !important;
+  height:72px !important;
+  max-width:72px !important;
+  max-height:72px !important;
+  min-width:72px !important;
+  min-height:72px !important;
+  flex:0 0 72px !important;
+  object-fit:contain !important;
+}
+@media print {
+  #statementPrintArea .statement-brand img,
+  .statement-paper .statement-brand img,
+  #ledgerPrintArea .ledger-print-brand img {
+    width:18mm !important;
+    height:18mm !important;
+    max-width:18mm !important;
+    max-height:18mm !important;
+    min-width:18mm !important;
+    min-height:18mm !important;
+    flex:0 0 18mm !important;
+  }
+}
