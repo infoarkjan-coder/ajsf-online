@@ -30,3 +30,20 @@ GitHub पर अपडेट:
 - Statement Print / Save PDF बटन केवल चुने हुए statement को प्रिंट करता है।
 - पुराने W1-W24 marker को अलग payment receipt नहीं माना गया है।
 - GitHub में index.html, style.css और src/app.js replace करें। src/config.js सुरक्षित रखें।
+
+
+Customer Ledger Print Update:
+- Customer Ledger mein ab naam, Customer ID, Mobile aur Center se search field hai.
+- Search karne par matching customers dropdown mein aayenge; dropdown se customer select karein.
+- Ledger mein Loan Details, recorded payments aur imported OSP summary aayegi.
+- Ledger Print / Save PDF button selected customer ka ledger print karega.
+- src/config.js ko replace na karein. GitHub mein index.html, style.css, src/app.js aur assets folder update karein.
+
+
+Mobile Dashboard Layout Fix:
+- Mobile screen par sidebar aur dashboard ab vertical stack honge.
+- Menu 2-column buttons mein aayega; content full width rahega.
+- Dashboard cards 2-column; forms single-column; tables horizontal scroll.
+- Desktop layout unchanged.
+- GitHub mein style.css replace karein; is package mein Customer Ledger print/search changes bhi saath hain.
+- src/config.js ko replace na karein.
