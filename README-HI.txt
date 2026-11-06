@@ -21,3 +21,12 @@ GitHub पर अपडेट:
 - src/config.js को replace न करें। Supabase settings सुरक्षित रखें।
 
 नोट: बकाया की गणना आपके imported source_osp को शुरुआती बकाया मानती है। यदि imported OSP गलत/पुराना है, तो पहले source OSP data ठीक करना होगा।
+
+
+नया अपडेट (Customer Filter + Customer Loan Statement):
+- Customer Register में नाम/ID/Center/Mobile से खोजें।
+- Loan Statement में ग्राहक खोजकर चुनें।
+- Loan details, imported collected, live payment history और OSP summary दिखाई देगी।
+- Statement Print / Save PDF बटन केवल चुने हुए statement को प्रिंट करता है।
+- पुराने W1-W24 marker को अलग payment receipt नहीं माना गया है।
+- GitHub में index.html, style.css और src/app.js replace करें। src/config.js सुरक्षित रखें।
