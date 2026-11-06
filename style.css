@@ -35,3 +35,18 @@
 @media(max-width:520px){#loginCard{margin:5vh auto 0;padding:20px}.sidebar .tabs{grid-template-columns:1fr 1fr}.brand{gap:10px}.brand-logo{width:68px;height:68px}.brand h1{font-size:16px}.brand p{font-size:12px}}
 @media print{.sidebar{display:none!important}.dashboard-layout{display:block!important}}
 \n.receipt-logo{width:56px;height:56px;object-fit:contain}\n
+
+/* AJSF half-A4 receipt print layout */
+@page { size: A4 portrait; margin: 8mm; }
+@media print {
+ html, body { width:210mm!important; min-height:297mm!important; margin:0!important; padding:0!important; background:#fff!important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+ #receiptPanel, .receiptPanel { display:block!important; width:194mm!important; height:137mm!important; max-height:137mm!important; margin:0 auto!important; padding:0!important; overflow:hidden!important; break-inside:avoid!important; page-break-inside:avoid!important; }
+ #receiptPanel .receipt, .receiptPanel .receipt, .receipt { display:block!important; width:194mm!important; height:137mm!important; max-width:none!important; max-height:137mm!important; margin:0!important; padding:6mm 8mm!important; border:1px solid #9aa9a1!important; border-radius:0!important; box-shadow:none!important; overflow:hidden!important; break-inside:avoid!important; page-break-inside:avoid!important; }
+ .receipt-brand { gap:5mm!important; padding-bottom:3mm!important; border-bottom-width:1px!important; }
+ .receipt-logo { width:23mm!important; height:23mm!important; object-fit:contain!important; flex:0 0 23mm!important; }
+ .receipt-brand h2 { font-size:14pt!important; margin:0!important; } .receipt-brand p { font-size:8pt!important; margin:2mm 0 0!important; }
+ .receipt-title { font-size:13pt!important; margin:3mm 0!important; } .receipt-meta { font-size:8.5pt!important; margin-bottom:3mm!important; }
+ .receipt-grid { gap:3mm 8mm!important; padding:3mm 0!important; } .receipt-grid small,.receipt-amount small { font-size:7.5pt!important; } .receipt-grid b { font-size:9pt!important; }
+ .receipt-amount { margin:3mm 0!important; padding:3mm 4mm!important; } .receipt-amount strong { font-size:19pt!important; } .receipt-remarks { font-size:8pt!important; margin:2mm 0!important; }
+ .receipt-footer { margin:9mm 0 3mm!important; font-size:8pt!important; } .receipt-footer span { min-width:55mm!important; } .receipt-note { font-size:7pt!important; margin:2mm 0 0!important; }
+}
