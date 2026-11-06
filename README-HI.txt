@@ -73,3 +73,21 @@ Repayment Schedule Print Layout Update:
 - Left side mein weekly installments table aur summary; right side mein customer ID, name, mobile, center, area, address, loan reference, type, disbursement date, loan amount, EMI, collection day, term and OSP.
 - Print button opens A4 landscape print preview.
 - src/config.js safe rakhein.
+
+
+Foldable A4 Landscape Print Layout:
+- A4 landscape page with two equal-width bordered panels (50:50).
+- Left panel: all weekly repayment schedule rows.
+- Right panel: customer and loan details.
+- Center dashed vertical line marked FOLD HERE for folding.
+- Outer border around the full sheet; separate panel edges.
+- Print margin 6mm and table text slightly enlarged to reduce clipping.
+- On mobile preview panels stack vertically; print remains side-by-side.
+- Keep src/config.js unchanged.
+
+
+Per-Installment Staff Signature:
+- Repayment schedule table mein har weekly installment ke end par Staff Signature ka separate blank box/line hai.
+- Collector/staff har payment collection ke baad us week ke saamne sign kar sakta hai.
+- Print remains A4 landscape with two equal foldable bordered panels.
+- Keep src/config.js unchanged.
