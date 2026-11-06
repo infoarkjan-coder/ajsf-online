@@ -93,3 +93,14 @@ One-Page Compact Print Fix:
 - Kept equal two-panel foldable layout with center dashed fold line.
 - Please print A4 Landscape, scale 100% or Fit to printable area, margins default/none as browser shows; disable headers/footers.
 - src/config.js unchanged.
+
+
+Final Customer Repayment Card Layout:
+- Logo and foundation name centered across the full top header.
+- A4 landscape single-page foldable card; schedule side widened to 55%, customer details side 45%.
+- All 24 weekly installments include a Staff Signature line at the end of each row.
+- Right panel includes borrower signature/thumb impression, collector name/staff code from signed-in profile, and collector signature.
+- Customer/loan information grouped more compactly to use blank space.
+- Payment status now checks actual dated payment transactions cumulatively by each due date (oldest installment first); historical weekly markers are not treated as receipts.
+- Print is configured for one A4 landscape page. Browser print settings: A4, Landscape, scale 100% or fit, headers/footers off.
+- src/config.js must remain unchanged.
