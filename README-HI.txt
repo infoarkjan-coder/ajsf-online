@@ -86,8 +86,10 @@ Foldable A4 Landscape Print Layout:
 - Keep src/config.js unchanged.
 
 
-Per-Installment Staff Signature:
-- Repayment schedule table mein har weekly installment ke end par Staff Signature ka separate blank box/line hai.
-- Collector/staff har payment collection ke baad us week ke saamne sign kar sakta hai.
-- Print remains A4 landscape with two equal foldable bordered panels.
-- Keep src/config.js unchanged.
+One-Page Compact Print Fix:
+- Fixed A4 Landscape print height and compacted schedule rows so all 24 installments fit on one sheet.
+- Reduced logo/header/summary vertical space and table cell padding.
+- Kept staff signature line at end of each installment row.
+- Kept equal two-panel foldable layout with center dashed fold line.
+- Please print A4 Landscape, scale 100% or Fit to printable area, margins default/none as browser shows; disable headers/footers.
+- src/config.js unchanged.
