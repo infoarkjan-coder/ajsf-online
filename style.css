@@ -124,3 +124,20 @@
 .customer-detail small{display:block;color:#60756b;font-size:10px;margin-bottom:3px}
 .customer-detail b{font-size:12px;overflow-wrap:anywhere}
 @media(max-width:700px){.schedule-print-sheet{grid-template-columns:1fr}.schedule-left{border-right:0;border-bottom:1px solid #d6e1da;padding:0 0 12px}.schedule-right{padding:12px 0}}
+
+/* Foldable A4 landscape preview: two equal bordered halves */
+@media screen {
+  .schedule-print-sheet{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1.5px solid #29483c;position:relative;background:#fff}
+  .schedule-left{padding:14px;border-right:2px dashed #82958b;min-width:0}
+  .schedule-right{padding:14px;border-left:0;min-width:0}
+  .schedule-print-sheet:after{content:'FOLD HERE';position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-90deg);font-size:8px;letter-spacing:1px;color:#718278;background:#fff;padding:3px 6px}
+}
+@media screen and (max-width:700px){
+  .schedule-print-sheet{grid-template-columns:1fr}
+  .schedule-left{border-right:0;border-bottom:2px dashed #82958b}
+  .schedule-print-sheet:after{display:none}
+}
+
+/* Collector/staff signature box for every weekly installment */
+.schedule-paper .staff-sign-cell{min-width:90px;height:34px}
+.schedule-paper .staff-sign-line{display:block;width:100%;height:22px;border-bottom:1px solid #52665c}
