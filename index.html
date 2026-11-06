@@ -1,28 +1,75 @@
-<!doctype html>
-<html lang="hi">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AJSF Online</title><link rel="stylesheet" href="./style.css"></head>
-<body><main class="shell wide" id="appShell">
-<header class="brand"><img class="brand-logo" src="./assets/ajsf-logo.png" alt="AJSF Logo"><div><h1>ARK JAN SAMRIDDHI FOUNDATION</h1><p>SAPNE AAPKE SATH HAMARA</p></div></header>
-<section class="card" id="loginCard"><span class="eyebrow">SECURE STAFF ACCESS</span><h2>लॉगिन करें</h2><p class="muted">Admin और अधिकृत Collector के लिए</p><form id="loginForm"><label for="email">ईमेल</label><input id="email" type="email" autocomplete="username" required><label for="password">पासवर्ड</label><input id="password" type="password" autocomplete="current-password" required><button id="loginBtn" type="submit">लॉगिन करें</button></form><p id="loginMessage" class="message" role="status"></p><p class="small">अपना पासवर्ड किसी के साथ साझा न करें।</p></section>
-<section class="hidden" id="dashboardCard">
-<div class="dashhead"><div><span class="eyebrow">AJSF ONLINE</span><h2>नमस्ते, <span id="staffName">Staff</span></h2><p class="muted"><span id="staffCode"></span> · <span id="staffRole"></span> — <span id="roleNote"></span></p></div><button class="secondary" id="logoutBtn">लॉगआउट</button></div>
-<p id="dashboardMessage" class="message" role="status"></p>
-<div class="grid"><div class="card"><div class="label">कुल ग्राहक</div><div class="metric" id="customersCount">0</div></div><div class="card"><div class="label">कुल लोन</div><div class="metric" id="loansCount">0</div></div><div class="card"><div class="label">कुल जमा राशि</div><div class="metric" id="collectedTotal">₹0</div></div><div class="card"><div class="label">कुल बकाया (OSP)</div><div class="metric" id="outstandingTotal">₹0</div></div><div class="card"><div class="label">आज की वसूली</div><div class="metric" id="todayTotal">₹0</div></div><div class="card"><div class="label">भुगतान रिकॉर्ड</div><div class="metric" id="paymentsCount">0</div></div></div>
-<div class="dashboard-layout">
-<aside class="sidebar"><div class="sidebar-title">AJSF MENU</div><nav class="tabs"><button data-tab="customers" class="active">ग्राहक</button><button data-tab="loans">लोन</button><button data-tab="payment">Payment Entry</button><button data-tab="payments">Payment History</button><button data-tab="ledger">Customer Ledger</button><button data-tab="statement">Loan Statement</button></nav></aside>
-<div class="dashboard-content">
-<section class="card panel" data-panel="customers"><div class="panel-head"><h2>Customer Register</h2><button id="adminOnly" type="button" onclick="document.getElementById('customerForm').classList.toggle('hidden')">+ नया ग्राहक</button></div>
-<form id="customerForm" class="hidden"><div class="formgrid"><div class="field"><label>Customer ID *</label><input name="customer_code" required></div><div class="field"><label>ग्राहक का नाम *</label><input name="full_name" required></div><div class="field"><label>Center Name</label><input name="center_name"></div><div class="field"><label>मोबाइल</label><input name="contact_number"></div><div class="field"><label>Area</label><input name="area"></div><div class="field"><label>Address</label><input name="address"></div><div class="field"><label>Collection Day</label><select name="collection_day"><option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option><option>MONTHLY</option></select></div><div class="field"><label>Collector Auth UUID</label><input name="assigned_collector" placeholder="खाली = स्वयं"></div></div><button type="submit">ग्राहक सेव करें</button></form>
-<div class="field customer-search"><label for="customerFilter">ग्राहक खोजें — नाम, Customer ID, Center या Mobile</label><input id="customerFilter" type="search" placeholder="नाम / ID / मोबाइल नंबर लिखें…"></div>
-<div class="tablewrap"><table><thead><tr><th>Customer ID</th><th>नाम</th><th>Center</th><th>मोबाइल</th><th>Collection Day</th><th>Status</th></tr></thead><tbody id="customerRows"><tr><td colspan="6">लोड हो रहा है…</td></tr></tbody></table></div></section>
-<section class="card panel hidden" data-panel="loans"><h2>Loan Register</h2><div class="tablewrap"><table><thead><tr><th>Loan Ref</th><th>ग्राहक</th><th>Type</th><th>Loan Amount</th><th>EMI</th><th>Terms</th><th>कुल जमा</th><th>बकाया OSP</th><th>Status</th></tr></thead><tbody id="loanRows"></tbody></table></div></section>
-<section class="card panel hidden" data-panel="payment"><h2>Weekly Payment Entry</h2><form id="paymentForm"><div class="formgrid"><div class="field"><label>ग्राहक *</label><select id="payCustomer" name="customer_id" required></select></div><div class="field"><label>लोन *</label><select id="payLoan" name="loan_id" required></select></div><div class="field"><label>राशि ₹ *</label><input name="amount" type="number" min="1" required></div><div class="field"><label>तारीख *</label><input id="paymentDate" name="payment_date" type="date" required></div><div class="field"><label>Mode</label><select name="payment_mode"><option value="cash">Cash</option><option value="upi">UPI</option><option value="bank_transfer">Bank Transfer</option></select></div><div class="field"><label>Remarks</label><input name="remarks"></div></div><button type="submit">Payment सेव करें</button></form></section>
-<section class="card panel hidden" id="receiptPanel"><div class="panel-head no-print"><h2>Payment Receipt</h2><div class="actions"><button id="printReceiptBtn" type="button">रसीद प्रिंट करें</button><button id="closeReceiptBtn" type="button" class="secondary">बंद करें</button></div></div><div id="receiptContent" class="receipt"></div></section>
-<section class="card panel hidden" data-panel="ledger"><div class="panel-head"><h2>Customer Ledger</h2><button id="printLedgerBtn" type="button" class="no-print">Ledger Print / Save PDF</button></div><div class="formgrid ledger-filter"><div class="field"><label>ग्राहक खोजें (नाम / ID / मोबाइल / Center)</label><input id="ledgerSearch" type="search" placeholder="नाम या Customer ID लिखें…"></div><div class="field"><label>ग्राहक चुनें</label><select id="ledgerCustomer"><option value="">ग्राहक चुनें</option></select></div></div><div id="ledgerSummary" class="ledger-summary muted">ग्राहक चुनने पर Loan और Payment विवरण दिखेंगे।</div><div class="tablewrap"><table><thead><tr><th>Date</th><th>Receipt / Transaction</th><th>Loan Ref</th><th>Mode</th><th>Amount</th></tr></thead><tbody id="ledgerRows"><tr><td colspan="5" class="empty">कोई ग्राहक चयनित नहीं है।</td></tr></tbody></table></div></section>
-<section class="card panel hidden" data-panel="statement">
-<div class="panel-head"><h2>Customer Loan Statement</h2><div class="actions no-print"><button id="printStatementBtn" type="button">Statement Print / Save PDF</button></div></div>
-<div class="formgrid statement-filter no-print"><div class="field"><label for="statementCustomer">ग्राहक खोजें / चुनें</label><input id="statementSearch" type="search" placeholder="नाम, Customer ID या मोबाइल लिखें…"></div><div class="field"><label for="statementCustomer">ग्राहक चुनें</label><select id="statementCustomer"><option value="">पहले ग्राहक खोजें</option></select></div></div>
-<div id="statementOutput" class="statement-paper"><p class="muted">ग्राहक चुनने पर Loan Statement दिखाई देगा।</p></div>
-</section>
-<section class="card panel hidden" data-panel="payments"><h2>Payment History</h2><div class="tablewrap"><table><thead><tr><th>Payment ID</th><th>Date</th><th>Customer</th><th>Loan Ref</th><th>Amount</th><th>Mode</th></tr></thead><tbody id="paymentRows"></tbody></table></div></section>
-</div></div></section><footer>AJSF ONLINE · Collection Management System</footer></main><script type="module" src="./src/app.js"></script></body></html>
+AJSF ONLINE - अपडेटेड पैकेज
+
+इस अपडेट में:
+1. Login header में AJSF logo बड़ा किया गया है। Foundation का नाम और slogan बड़ा तथा bold किया गया है।
+2. Dashboard में कुल जमा राशि और कुल बकाया (OSP) के कार्ड जोड़े गए हैं।
+3. Loan Register में प्रत्येक loan के सामने कुल जमा और बकाया OSP दिखेगा।
+4. Payment list अब 100 रिकॉर्ड तक सीमित नहीं है; pagination से सभी उपलब्ध payment rows लोड करने की कोशिश होती है।
+
+गणना का आधार:
+- कुल जमा = imported source_total_collected + इस सिस्टम में दर्ज वास्तविक payments.
+- बकाया = imported source_osp - इस सिस्टम में दर्ज नए वास्तविक payments.
+- यदि source_osp खाली है, तो बकाया = loan_amount - source_total_collected - नए payments.
+- Reversal entries जमा राशि में नहीं जोड़ी जातीं।
+- W1-W24 के पुराने markers को वास्तविक payment transaction नहीं माना गया है।
+
+GitHub पर अपडेट:
+- index.html -> repository root में replace
+- style.css -> repository root में replace
+- src/app.js -> src folder में replace
+- assets/ajsf-logo.png -> assets folder में रखें/replace
+- src/config.js को replace न करें। Supabase settings सुरक्षित रखें।
+
+नोट: बकाया की गणना आपके imported source_osp को शुरुआती बकाया मानती है। यदि imported OSP गलत/पुराना है, तो पहले source OSP data ठीक करना होगा।
+
+
+नया अपडेट (Customer Filter + Customer Loan Statement):
+- Customer Register में नाम/ID/Center/Mobile से खोजें।
+- Loan Statement में ग्राहक खोजकर चुनें।
+- Loan details, imported collected, live payment history और OSP summary दिखाई देगी।
+- Statement Print / Save PDF बटन केवल चुने हुए statement को प्रिंट करता है।
+- पुराने W1-W24 marker को अलग payment receipt नहीं माना गया है।
+- GitHub में index.html, style.css और src/app.js replace करें। src/config.js सुरक्षित रखें।
+
+
+Customer Ledger Print Update:
+- Customer Ledger mein ab naam, Customer ID, Mobile aur Center se search field hai.
+- Search karne par matching customers dropdown mein aayenge; dropdown se customer select karein.
+- Ledger mein Loan Details, recorded payments aur imported OSP summary aayegi.
+- Ledger Print / Save PDF button selected customer ka ledger print karega.
+- src/config.js ko replace na karein. GitHub mein index.html, style.css, src/app.js aur assets folder update karein.
+
+
+Mobile Dashboard Layout Fix:
+- Mobile screen par sidebar aur dashboard ab vertical stack honge.
+- Menu 2-column buttons mein aayega; content full width rahega.
+- Dashboard cards 2-column; forms single-column; tables horizontal scroll.
+- Desktop layout unchanged.
+- GitHub mein style.css replace karein; is package mein Customer Ledger print/search changes bhi saath hain.
+- src/config.js ko replace na karein.
+
+
+Logo Print Size Fix:
+- Customer Ledger aur Loan Statement mein logo ko compact 72px preview aur 18mm print size par lock kiya hai.
+- Image width/height attributes aur max/min dimensions force kiye hain taaki original large logo print page ko cover na kare.
+- GitHub mein style.css aur src/app.js replace karein; config.js ko na chheden.
+
+
+Weekly Repayment Schedule Feature:
+- Sidebar mein Repayment Schedule tab add hua.
+- Customer ko name/ID/mobile se search karke select karein, phir uska loan select karein.
+- Customer ke saved collection_day aur loan disbursement_date se weekly due dates calculate hoti hain.
+- Same weekday par disbursement hone par first installment agle hafte same weekday hogi.
+- Installment count loans.total_emis_required se aata hai (24 ho to 24 weeks).
+- Actual payments ke amount se Paid/Partial/Pending/Overdue status derive hota hai. Imported W1-W24 markers ko dated payment nahi maana gaya.
+- Schedule Print / Save PDF included.
+- Sunday customer collection day option bhi included.
+- src/config.js ko replace na karein.
+
+
+Repayment Schedule Print Layout Update:
+- Schedule print page A4 Landscape orientation mein hoga.
+- Page ko do vertical sections mein divide kiya: left side Repayment Schedule, right side Customer + Loan Details.
+- Left side mein weekly installments table aur summary; right side mein customer ID, name, mobile, center, area, address, loan reference, type, disbursement date, loan amount, EMI, collection day, term and OSP.
+- Print button opens A4 landscape print preview.
+- src/config.js safe rakhein.
