@@ -187,8 +187,6 @@ function renderShell() {
   if (collectorOnly) collectorOnly.classList.toggle("hidden", canAdmin());
   const customerActionHeader = $("customerActionHeader");
   if (customerActionHeader) customerActionHeader.classList.toggle("hidden", !canAdmin());
-  const misRemovalHeader = $("misRemovalHeader");
-  if (misRemovalHeader) misRemovalHeader.classList.toggle("hidden", !canAdmin());
 }
 
 function activateTab(tab) {
