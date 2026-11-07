@@ -247,7 +247,8 @@ function renderData() {
   const figures = loans.map(l => loanFigures(l, totalsByLoan));
   $("collectedTotal").textContent = money(figures.reduce((s, f) => s + f.collected, 0));
   $("outstandingTotal").textContent = money(figures.reduce((s, f) => s + f.outstanding, 0));
-  const customerRegisterRows = [...customers].sort((a,b) =>
+  const operationalCustomers = customers.filter(c => c.is_active !== false && (c.customer_status || "ACTIVE") === "ACTIVE");
+  const customerRegisterRows = [...operationalCustomers].sort((a,b) =>
     String(a.center_name || "").localeCompare(String(b.center_name || "")) ||
     String(a.full_name || "").localeCompare(String(b.full_name || ""))
   );
@@ -255,14 +256,14 @@ function renderData() {
   const centerFilter = $("customerCenterFilter");
   if (centerFilter) {
     const selectedCenter = centerFilter.value;
-    const centers = [...new Set(customers.map(c => String(c.center_name || "").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+    const centers = [...new Set(operationalCustomers.map(c => String(c.center_name || "").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
     centerFilter.innerHTML = "<option value=\"\">सभी Center / House</option>" + centers.map(name => "<option value=\"" + esc(name) + "\">" + esc(name) + "</option>").join("");
     if (centers.includes(selectedCenter)) centerFilter.value = selectedCenter;
   }
   const loanFilter = $("loanCustomerFilter");
   if (loanFilter) {
     const selectedLoanCustomer = loanFilter.value;
-    loanFilter.innerHTML = '<option value="">सभी ग्राहक</option>' + customers.map(c => `<option value="${esc(c.id)}">${esc(c.customer_code || "")} · ${esc(c.full_name || "")}</option>`).join("");
+    loanFilter.innerHTML = '<option value="">सभी ग्राहक</option>' + operationalCustomers.map(c => `<option value="${esc(c.id)}">${esc(c.customer_code || "")} · ${esc(c.full_name || "")}</option>`).join("");
     if (customers.some(c => c.id === selectedLoanCustomer)) loanFilter.value = selectedLoanCustomer;
   }
   const loanCustomerId = loanFilter?.value || "";
@@ -271,7 +272,7 @@ function renderData() {
     const f = loanFigures(l, totalsByLoan);
     return `<tr><td>${esc(l.loan_reference)}</td><td>${esc(c?.full_name || l.customer_id)}</td><td>${esc(l.loan_type)}</td><td>${money(l.loan_amount)}</td><td>${money(l.emi_amount)}</td><td>${esc(l.total_emis_required)}</td><td>${money(f.collected)}</td><td>${money(f.outstanding)}</td><td>${esc(l.status)}</td></tr>`;
   }).join("") || `<tr><td colspan="9" class="empty">कोई लोन रिकॉर्ड नहीं मिला।</td></tr>`;
-  const customerOptions = `<option value="">ग्राहक चुनें</option>` + customers.map(c => `<option value="${esc(c.id)}">${esc(c.customer_code)} · ${esc(c.full_name)}</option>`).join("");
+  const customerOptions = `<option value="">ग्राहक चुनें</option>` + operationalCustomers.map(c => `<option value="${esc(c.id)}">${esc(c.customer_code)} · ${esc(c.full_name)}</option>`).join("");
   $("reminderCustomer").innerHTML = customerOptions;
   updateReminderLoanOptions();
   $("payCustomer").innerHTML = customerOptions;
