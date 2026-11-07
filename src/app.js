@@ -153,14 +153,19 @@ async function loadCustomerLedger() {
   const paymentRows = data || [];
   const paid = paymentRows.reduce((s,p) => s + Number(p.amount || 0), 0);
   const loanAmount = customerLoans.reduce((s,l) => s + Number(l.loan_amount || 0), 0);
-  const sourceOsp = customerLoans.reduce((s,l) => s + Number(l.source_osp || 0), 0);
-  const collectedIncludingImported = customerLoans.reduce((s,l) => s + Number(l.total_collected || 0), 0) + paid;
-  const loanDetails = customerLoans.map(l => `<tr><td>${esc(l.loan_reference || "—")}</td><td>${money(l.loan_amount)}</td><td>${money(l.emi_amount)}</td><td>${esc(l.total_emis_required || "—")}</td><td>${money(l.source_osp)}</td></tr>`).join("") || `<tr><td colspan="5">कोई Loan record उपलब्ध नहीं है।</td></tr>`;
+  const importedCollected = customerLoans.reduce((s,l) => s + Number(l.source_total_collected || 0), 0);
+  const paymentTotals = paymentsByLoan();
+  const currentOsp = customerLoans.reduce((s,l) => s + loanFigures(l, paymentTotals).outstanding, 0);
+  const totalCollected = importedCollected + paid;
+  const loanDetails = customerLoans.map(l => {
+    const figures = loanFigures(l, paymentTotals);
+    return `<tr><td>${esc(l.loan_reference || "—")}</td><td>${money(l.loan_amount)}</td><td>${money(l.emi_amount)}</td><td>${esc(l.total_emis_required || "—")}</td><td>${money(Number(l.source_total_collected || 0))}</td><td>${money(figures.outstanding)}</td></tr>`;
+  }).join("") || `<tr><td colspan="6">कोई Loan record उपलब्ध नहीं है।</td></tr>`;
   summary.innerHTML = `<div id="ledgerPrintArea">
     <div class="ledger-print-brand"><img src="./assets/ajsf-logo.png" alt="AJSF Logo" width="72" height="72" style="width:72px;height:72px;max-width:72px;max-height:72px;object-fit:contain;flex:0 0 72px"><div><h2>ARK JAN SAMRIDDHI FOUNDATION</h2><p>SAPNE AAPKE SATH HAMARA</p><strong>CUSTOMER LEDGER / LOAN STATEMENT</strong></div></div>
     <div class="ledger-print-customer"><span><small>Customer ID</small><b>${esc(customer?.customer_code || "—")}</b></span><span><small>Customer Name</small><b>${esc(customer?.full_name || "—")}</b></span><span><small>Center</small><b>${esc(customer?.center_name || "—")}</b></span><span><small>Mobile</small><b>${esc(customer?.contact_number || "—")}</b></span></div>
-    <div class="ledger-print-totals"><span><small>Total Loan Amount</small><b>${money(loanAmount)}</b></span><span><small>Recorded Payments</small><b>${money(paid)}</b></span><span><small>Imported OSP</small><b>${money(sourceOsp)}</b></span></div>
-    <h3>Loan Details</h3><div class="tablewrap"><table><thead><tr><th>Loan Reference</th><th>Loan Amount</th><th>Weekly EMI</th><th>Terms</th><th>Imported OSP</th></tr></thead><tbody>${loanDetails}</tbody></table></div>
+    <div class="ledger-print-totals"><span><small>Total Loan Amount</small><b>${money(loanAmount)}</b></span><span><small>Total Collected (Imported + Recorded)</small><b>${money(totalCollected)}</b></span><span><small>Recorded Payments</small><b>${money(paid)}</b></span><span><small>Current OSP</small><b>${money(currentOsp)}</b></span></div>
+    <h3>Loan Details</h3><div class="tablewrap"><table><thead><tr><th>Loan Reference</th><th>Loan Amount</th><th>Weekly EMI</th><th>Terms</th><th>Imported Collection</th><th>Current OSP</th></tr></thead><tbody>${loanDetails}</tbody></table></div>
     <h3>Payment History</h3>
   </div>`;
   rows.innerHTML = paymentRows.map(p => {
@@ -452,7 +457,6 @@ async function submitPayment(event) {
   if (!d.payment_date) return showMessage("भुगतान की तारीख चुनें।", "warn");
   const paidAt = new Date(`${d.payment_date}T12:00:00`).toISOString();
   const row = {
-    client_tx_id: crypto.randomUUID(),
     loan_id: loan.id,
     customer_id: customer.id,
     amount,
@@ -461,10 +465,29 @@ async function submitPayment(event) {
     collector_id: currentUser.id,
     remarks: d.remarks?.trim() || null
   };
+  const storageKey = `ajsf.pending-payment.${currentUser.id}`;
+  const fingerprint = JSON.stringify(row);
+  let pending = null;
+  try { pending = JSON.parse(localStorage.getItem(storageKey) || "null"); } catch {}
+  if (!pending || pending.fingerprint !== fingerprint || !pending.client_tx_id) {
+    pending = { fingerprint, client_tx_id: crypto.randomUUID() };
+    try { localStorage.setItem(storageKey, JSON.stringify(pending)); } catch {}
+  }
+  row.client_tx_id = pending.client_tx_id;
   setBusy(btn, true, "भुगतान सेव हो रहा है…");
-  const { data, error } = await supabase.from("payments").insert(row).select("id, client_tx_id, customer_id, loan_id, collector_id, amount, paid_at, payment_mode, remarks").single();
+  let { data, error } = await supabase.from("payments").insert(row)
+    .select("id, client_tx_id, customer_id, loan_id, collector_id, amount, paid_at, payment_mode, remarks").single();
+  if (error) {
+    // A previous request may have reached the database even if the browser lost its response.
+    const existing = await supabase.from("payments")
+      .select("id, client_tx_id, customer_id, loan_id, collector_id, amount, paid_at, payment_mode, remarks")
+      .eq("client_tx_id", row.client_tx_id).maybeSingle();
+    if (!existing.error && existing.data) { data = existing.data; error = null; }
+  }
   setBusy(btn, false);
-  if (error) return showMessage("भुगतान सेव नहीं हुआ: " + error.message, "error");
+  if (error) return showMessage("भुगतान की पुष्टि नहीं हो सकी: " + error.message + "। उसी फॉर्म विवरण के साथ दोबारा प्रयास करें; duplicate रोकने के लिए वही transaction ID रखी गई है।", "error");
+  try { localStorage.removeItem(storageKey); } catch {}
+  payments = payments.filter(p => p.client_tx_id !== data.client_tx_id);
   payments.unshift(data);
   renderData();
   form.reset();
