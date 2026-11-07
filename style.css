@@ -399,3 +399,8 @@ input,select,button{min-height:42px}
 .reminder-actions button{min-width:150px}
 [data-panel="reminder"] textarea{width:100%;min-height:150px;resize:vertical;line-height:1.55}
 .loan-register-filter{min-width:min(100%,280px)}
+/* Customer MIS status controls: keep the selected status clearly visible in the table. */
+#customerMisRows .mis-status{min-width:150px;width:150px;font-weight:700;letter-spacing:.2px;}
+#customerMisRows td:nth-child(5){min-width:170px;}
+#customerMisRows .mis-date{min-width:145px;}
+#customerMisRows .mis-reason,#customerMisRows .mis-notes{min-width:150px;}
