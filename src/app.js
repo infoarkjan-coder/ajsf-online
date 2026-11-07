@@ -311,7 +311,7 @@ function buildReminderMessage() {
   const f = loan ? loanFigures(loan, totals) : null;
   const emi = loan ? money(loan.emi_amount) : "";
   const osp = loan ? money(f.outstanding) : "";
-  const message = `नमस्ते ${customer.full_name} जी,\\n\\nARK JAN SAMRIDDHI FOUNDATION (AJSF) की ओर से आपकी निर्धारित लोन किस्त के संबंध में विनम्र स्मरण।${loan ? `\\nLoan Ref: ${loan.loan_reference}\\nकिस्त राशि: ${emi}\\nशेष बकाया: ${osp}` : ""}\\n\\nकृपया अपनी निर्धारित किस्त समय पर जमा करें। भुगतान के बाद रसीद अवश्य प्राप्त करें। किसी जानकारी के लिए अपने कलेक्टर से संपर्क करें।\\n\\nधन्यवाद,\\nAJSF Team`;
+  const message = `नमस्ते ${customer.full_name} जी,\n\nARK JAN SAMRIDDHI FOUNDATION (AJSF) की ओर से आपकी निर्धारित लोन किस्त के संबंध में विनम्र स्मरण।${loan ? `\nLoan Ref: ${loan.loan_reference}\nकिस्त राशि: ${emi}\nशेष बकाया: ${osp}` : ""}\n\nकृपया अपनी निर्धारित किस्त समय पर जमा करें। भुगतान के बाद रसीद अवश्य प्राप्त करें। किसी जानकारी के लिए अपने कलेक्टर से संपर्क करें।\n\nधन्यवाद,\nAJSF Team`;
   $("reminderMessage").value = message;
   if (info) info.textContent = `ग्राहक: ${customer.full_name} · मोबाइल: ${phone(customer.contact_number) || "नंबर उपलब्ध नहीं"}`;
 }
