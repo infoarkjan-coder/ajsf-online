@@ -720,8 +720,8 @@ function printReceipt() {
     .receipt-meta{display:flex;justify-content:space-between;gap:2mm;font-size:7pt;margin-bottom:2mm;padding-bottom:1.5mm;border-bottom:1px solid #dce5df}
     .receipt-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.5mm 3mm;border-top:0;border-bottom:1px solid #dce5df;padding:1.5mm 0}
     .receipt-grid div{display:grid;gap:.3mm}.receipt-grid small{font-size:6pt;color:#60756b}.receipt-grid b{font-size:7pt;overflow-wrap:anywhere}
-    .receipt-amount{display:flex;justify-content:space-between;align-items:center;margin:2mm 0;padding:1.5mm 2mm;background:#edf5f0}
-    .receipt-amount small{font-size:7pt}.receipt-amount strong{font-size:13pt;color:#123f35}
+    .receipt-amount{display:grid;grid-template-columns:1fr auto;align-items:center;gap:1mm 3mm;margin:2mm 0;padding:1.5mm 2mm;background:#edf5f0}
+    .receipt-amount small{font-size:7pt}.receipt-amount strong{font-size:13pt;color:#123f35}.receipt-amount-words{grid-column:1/-1;font-size:6.5pt;line-height:1.35;overflow-wrap:anywhere}.receipt-amount-words b{color:#23483c}
     .receipt-remarks{font-size:7pt;margin:1mm 0}
     .receipt-footer{display:flex;justify-content:space-between;gap:8mm;margin:6mm 0 2mm;font-size:6pt}
     .receipt-footer span{border-top:1px solid #687a72;padding-top:1mm;min-width:30mm;text-align:center}
