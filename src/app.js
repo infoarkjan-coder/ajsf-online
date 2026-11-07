@@ -286,7 +286,7 @@ function renderRepaymentSchedule() {
       <div class="customer-detail"><small>Disbursement Date</small><b>${displayDueDate(disb)}</b></div>
       <div class="customer-detail"><small>Loan Amount / Weekly EMI</small><b>${money(loan.loan_amount)} / ${money(emi)}</b></div>
       <div class="customer-detail"><small>Collection Day / Total Installments</small><b>${weekday} / ${count} Weeks</b></div>
-      <div class="customer-detail"><small>Imported Outstanding (OSP)</small><b>${money(loan.source_osp)}</b></div>
+      <div class="customer-detail"><small>Current Outstanding (OSP)</small><b>${money(loanFigures(loan, paymentsByLoan()).outstanding)}</b></div>
       <div class="customer-signatures"><div><small>Borrower Signature / Thumb Impression</small><span></span></div><div><small>Collector Name & Staff Code</small><b>${esc(profile?.full_name || "—")} · ${esc(profile?.staff_code || "—")}</b></div><div><small>Collector Signature</small><span></span></div></div>
       <p class="schedule-generated">Generated: ${new Date().toLocaleDateString("en-IN")}</p>
     </aside>
