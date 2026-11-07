@@ -14,6 +14,30 @@ function loanFigures(loan, paymentTotals) {
   return { collected, outstanding: Math.max(0, baselineOsp - newPaid) };
 }
 
+function openAjsfPrint(title, content, pageCss) {
+  const w = window.open("", "_blank");
+  if (!w) { showMessage("Print popup block है। Browser में pop-ups allow करें।", "warn"); return null; }
+  w.document.open();
+  w.document.write(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base href="${esc(document.baseURI)}"><title>${esc(title)}</title><style>
+    *{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff;color:#172923;font-family:Arial,system-ui,sans-serif}
+    body{padding:7mm;font-size:10pt;line-height:1.35}
+    img{max-width:100%;object-fit:contain}table{width:100%;border-collapse:collapse}thead{display:table-header-group}tr{break-inside:avoid}
+    th,td{border:1px solid #cbd8d0;padding:6px;text-align:left;vertical-align:top}th{background:#edf5f0;color:#23483c}
+    h1,h2,h3{color:#123f35}small{color:#60756b}
+    ${pageCss}
+    @media print{body{padding:0}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+  </style></head><body>${content}</body></html>`);
+  w.document.close();
+  const printWhenReady = () => {
+    const images = Array.from(w.document.images);
+    Promise.all(images.map(img => img.complete ? Promise.resolve() : new Promise(resolve => { img.onload=resolve; img.onerror=resolve; })))
+      .then(() => { w.focus(); w.print(); });
+  };
+  if (w.document.readyState === "complete") printWhenReady();
+  else w.addEventListener("load", printWhenReady, { once:true });
+  return w;
+}
+
 function showMessage(message, type = "info") {
   const dashboardCard = $("dashboardCard");
   const dashboardVisible = dashboardCard ? !dashboardCard.classList.contains("hidden") : false;
@@ -272,40 +296,34 @@ function printRepaymentSchedule() {
   if (!$("scheduleLoan").value) return showMessage("पहले ग्राहक और लोन चुनें।","warn");
   const area = $("repaymentSchedulePrint");
   if (!area) return showMessage("पहले Schedule लोड होने दें।","warn");
-  const w = window.open("","_blank");
-  if (!w) return showMessage("Print popup block है। Browser में pop-ups allow करें।","warn");
-  w.document.write(`<!doctype html><html><head><title>AJSF Repayment Schedule</title><style>
-  @page{size:A4 landscape;margin:5mm}
-  *{box-sizing:border-box}html,body{margin:0;padding:0;font-family:Arial,sans-serif;color:#172923}
-  body{font-size:8px}
-  .schedule-print-sheet{display:grid;grid-template-columns:55% 45%;grid-template-rows:17mm 1fr;width:100%;height:198mm;max-height:198mm;border:1px solid #243c33;position:relative;overflow:hidden}
-  .schedule-brand-center{grid-column:1/3;grid-row:1;display:flex;justify-content:center;align-items:center;text-align:center;gap:3mm;border-bottom:1px solid #123f35;padding:1mm}
-  .schedule-brand img{width:14mm;height:14mm;max-width:14mm;max-height:14mm;object-fit:contain}
-  .schedule-brand h2{font-size:13px;margin:0;color:#123f35;letter-spacing:.2px}.schedule-brand p{font-size:7px;margin:1px 0 2px;font-weight:bold;letter-spacing:1px}.schedule-brand strong{font-size:8px}
-  .schedule-left{grid-column:1;grid-row:2;padding:2mm 4mm 2mm 2.5mm;border-right:1px dashed #536b60;min-width:0;overflow:hidden}
-  .schedule-right{grid-column:2;grid-row:2;padding:3mm 3mm 2mm 5mm;min-width:0;overflow:hidden}
-  .schedule-print-sheet:after{content:"FOLD HERE";position:absolute;left:55%;top:55%;transform:translate(-50%,-50%) rotate(-90deg);font-size:5.5px;letter-spacing:1px;color:#718278;background:#fff;padding:2px 4px}
-  .schedule-summary{display:grid;grid-template-columns:repeat(2,1fr);gap:2px;padding:2px 0 3px}
-  .schedule-summary span{border:1px solid #d5e0d9;padding:2px 3px}
-  .schedule-summary small,.customer-detail small,.customer-signatures small{display:block;color:#60756b;font-size:6.5px;margin-bottom:1px}
-  .schedule-summary b,.customer-detail b{font-size:7.5px}
-  h3{font-size:8px;margin:2px 0;color:#123f35}
-  .schedule-left table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:7.2px}
-  .schedule-left th,.schedule-left td{border:1px solid #cbd8d0;padding:2px 2.5px;text-align:left;line-height:1.05;height:6.1mm}
-  .schedule-left th{background:#edf5f0;font-size:7px}
-  .schedule-status{font-size:6.5px;font-weight:bold}
-  .staff-sign-cell{height:6.1mm}.staff-sign-line{display:block;width:100%;height:4mm;border-bottom:1px solid #52665c}
-  .schedule-note{font-size:5.5px;color:#53665d;margin-top:2px}
-  .schedule-right h2{font-size:10px;color:#123f35;border-bottom:1px solid #123f35;padding-bottom:2mm;margin:0 0 2mm}
-  .customer-detail{padding:2.1mm 1mm;border-bottom:1px solid #e1e8e3;min-height:8mm}
-  .customer-detail b{overflow-wrap:anywhere}
-  .customer-signatures{margin-top:3mm;border-top:1px solid #aabbb1;padding-top:2mm}
-  .customer-signatures div{margin:2.5mm 0 3mm}
-  .customer-signatures span{display:block;height:8mm;border-bottom:1px solid #52665c;width:85%}
-  .customer-signatures b{font-size:7px}
-  .schedule-generated{font-size:6px;text-align:right;margin-top:2mm;color:#53665d}
-  </style></head><body>${area.outerHTML}</body></html>`);
-  w.document.close();w.focus();w.print();
+  openAjsfPrint("AJSF Repayment Schedule", area.outerHTML, `
+    @page{size:A4 landscape;margin:5mm}
+    body{padding:0;font-size:8pt}
+    .schedule-print-sheet{display:grid;grid-template-columns:55% 45%;grid-template-rows:17mm 1fr;width:100%;min-height:198mm;border:1px solid #243c33;position:relative;overflow:hidden}
+    .schedule-brand-center{grid-column:1/3;grid-row:1;display:flex;justify-content:center;align-items:center;text-align:center;gap:3mm;border-bottom:1px solid #123f35;padding:1mm}
+    .schedule-brand img{width:14mm;height:14mm;max-width:14mm;max-height:14mm;object-fit:contain}
+    .schedule-brand h2{font-size:13px;margin:0;color:#123f35}.schedule-brand p{font-size:7px;margin:1px 0 2px;font-weight:bold;letter-spacing:1px}.schedule-brand strong{font-size:8px}
+    .schedule-left{grid-column:1;grid-row:2;padding:2mm 4mm 2mm 2.5mm;border-right:1px dashed #536b60;min-width:0}
+    .schedule-right{grid-column:2;grid-row:2;padding:3mm 3mm 2mm 5mm;min-width:0}
+    .schedule-summary{display:grid;grid-template-columns:repeat(2,1fr);gap:2px;padding:2px 0 3px}
+    .schedule-summary span{border:1px solid #d5e0d9;padding:2px 3px}
+    .schedule-summary small,.customer-detail small,.customer-signatures small{display:block;font-size:7px;margin-bottom:1px}
+    .schedule-summary b,.customer-detail b{font-size:8px}
+    .schedule-left table{width:100%;table-layout:fixed;font-size:8px}
+    .schedule-left th,.schedule-left td{padding:2px 2.5px;line-height:1.05;height:6.1mm}
+    .schedule-left th{font-size:7.5px}
+    .schedule-status{font-size:7px;font-weight:bold}
+    .staff-sign-cell{height:6.1mm}.staff-sign-line{display:block;width:100%;height:4mm;border-bottom:1px solid #52665c}
+    .schedule-note{font-size:6px;margin-top:2px}
+    .schedule-right h2{font-size:10px;border-bottom:1px solid #123f35;padding-bottom:2mm;margin:0 0 2mm}
+    .customer-detail{padding:2.1mm 1mm;border-bottom:1px solid #e1e8e3;min-height:8mm}
+    .customer-detail b{overflow-wrap:anywhere}
+    .customer-signatures{margin-top:3mm;border-top:1px solid #aabbb1;padding-top:2mm}
+    .customer-signatures div{margin:2.5mm 0 3mm}
+    .customer-signatures span{display:block;height:8mm;border-bottom:1px solid #52665c;width:85%}
+    .customer-signatures b{font-size:8px}
+    .schedule-generated{font-size:7px;text-align:right;margin-top:2mm}
+  `);
 }
 
 function filterLedgerCustomers() {
@@ -322,18 +340,21 @@ function printCustomerLedger() {
   if (!$("ledgerCustomer").value) return showMessage("पहले ग्राहक खोजकर चुनें।", "warn");
   const area = $("ledgerPrintArea");
   if (!area) return showMessage("पहले Ledger लोड होने दें।", "warn");
-  const w = window.open("", "_blank");
-  if (!w) return showMessage("Print popup block है। Browser में pop-ups allow करें।", "warn");
-  w.document.write(`<!doctype html><html><head><title>AJSF Customer Ledger</title><style>
-  @page{size:A4 portrait;margin:12mm}body{font-family:Arial,sans-serif;color:#172923;font-size:11px}
-  .ledger-print-brand{display:flex;align-items:center;justify-content:center;gap:14px;border-bottom:2px solid #123f35;padding-bottom:10px;text-align:left}
-  .ledger-print-brand img{display:block!important;width:72px!important;height:72px!important;max-width:72px!important;max-height:72px!important;min-width:72px!important;min-height:72px!important;flex:0 0 72px!important;object-fit:contain!important}.ledger-print-brand h2{font-size:17px;margin:0;color:#123f35}.ledger-print-brand p{font-size:9px;margin:3px 0 8px}.ledger-print-brand strong{font-size:12px}
-  .ledger-print-customer,.ledger-print-totals{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:12px 0}.ledger-print-customer small,.ledger-print-totals small{display:block;color:#60756b;font-size:9px;margin-bottom:3px}.ledger-print-customer b,.ledger-print-totals b{font-size:11px}
-  .ledger-print-totals{background:#edf5f0;padding:10px;border-radius:6px}h3{font-size:12px;margin:14px 0 6px;color:#123f35}
-  table{width:100%;border-collapse:collapse;font-size:9px;margin:7px 0 12px}th,td{border:1px solid #cbd8d0;padding:6px;text-align:left}th{background:#edf5f0}
-  .ledger-generated{text-align:right;font-size:9px;margin-top:14px}
-  </style></head><body>${area.innerHTML}</body></html>`);
-  w.document.close();w.focus();w.print();
+  openAjsfPrint("AJSF Customer Ledger", area.innerHTML, `
+    @page{size:A4 landscape;margin:9mm}
+    body{font-size:9pt}
+    .ledger-print-brand{display:flex;align-items:center;justify-content:center;gap:12px;border-bottom:2px solid #123f35;padding-bottom:8px;text-align:left}
+    .ledger-print-brand img{display:block!important;width:18mm!important;height:18mm!important;max-width:18mm!important;max-height:18mm!important;min-width:18mm!important;min-height:18mm!important;flex:0 0 18mm!important;object-fit:contain!important}
+    .ledger-print-brand h2{font-size:15pt;margin:0;color:#123f35}.ledger-print-brand p{font-size:8pt;margin:2px 0 5px}.ledger-print-brand strong{font-size:10pt}
+    .ledger-print-customer{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:9px 0}
+    .ledger-print-totals{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:9px;background:#edf5f0}
+    .ledger-print-customer small,.ledger-print-totals small{display:block;font-size:8pt;margin-bottom:2px}
+    .ledger-print-customer b,.ledger-print-totals b{font-size:9pt}
+    h3{font-size:10pt;margin:10px 0 4px;color:#123f35}
+    table{width:100%;border-collapse:collapse;font-size:8pt;margin:5px 0 9px}
+    th,td{border:1px solid #cbd8d0;padding:5px;text-align:left}th{background:#edf5f0}
+    .ledger-generated{text-align:right;font-size:8pt;margin-top:8px}
+  `);
 }
 
 function filterCustomerRows() {
@@ -391,7 +412,25 @@ function renderCustomerStatement() {
 function printCustomerStatement() {
   if (!$("statementCustomer").value) return showMessage("पहले ग्राहक चुनें।", "warn");
   renderCustomerStatement();
-  window.print();
+  const area = $("statementPrintArea");
+  if (!area) return showMessage("Statement तैयार नहीं हुआ।","warn");
+  openAjsfPrint("AJSF Customer Loan Statement", area.outerHTML, `
+    @page{size:A4 landscape;margin:8mm}
+    body{font-size:8pt}
+    .statement-brand{display:flex;align-items:center;justify-content:center;gap:10px;border-bottom:2px solid #123f35;padding-bottom:7px}
+    .statement-brand img{width:17mm!important;height:17mm!important;max-width:17mm!important;max-height:17mm!important;flex:0 0 17mm!important}
+    .statement-brand h1{font-size:14pt;margin:0}.statement-brand p{font-size:8pt;margin:2px 0}
+    .statement-title{text-align:center;font-size:12pt;margin:8px 0}
+    .statement-customer{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;padding:7px 0}
+    .statement-totals{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:8px;background:#edf5f0}
+    .statement-customer small,.statement-totals small{display:block;font-size:7pt;margin-bottom:2px}
+    .statement-customer b,.statement-totals b{font-size:8pt}
+    h3{font-size:9pt;margin:9px 0 4px}
+    table{width:100%;border-collapse:collapse;font-size:7.5pt;margin:4px 0 8px}
+    th,td{border:1px solid #cbd8d0;padding:4px;text-align:left;white-space:normal}
+    .statement-generated{text-align:right;font-size:7pt;margin-top:8px}
+    .statement-note{font-size:6.5pt;margin-top:6px}
+  `);
 }
 
 async function submitCustomer(event) {
@@ -503,7 +542,26 @@ function localDateValue() {
 }
 function printReceipt() {
   if (!lastReceipt) return showMessage("पहले भुगतान सेव करें।", "warn");
-  window.print();
+  const area = $("receiptContent");
+  if (!area || !area.innerHTML.trim()) return showMessage("पहले Payment Receipt तैयार होने दें।","warn");
+  openAjsfPrint("AJSF Payment Receipt", area.innerHTML, `
+    @page{size:A5 portrait;margin:8mm}
+    body{padding:0;font-size:9pt}
+    .receipt{width:100%;max-width:none;margin:0;padding:5mm;border:1px solid #9aa9a0;border-radius:0}
+    .receipt-brand{display:flex;align-items:center;gap:3mm;border-bottom:1.5px solid #123f35;padding-bottom:3mm}
+    .receipt-brand img.receipt-logo{display:block!important;width:17mm!important;height:17mm!important;min-width:17mm!important;min-height:17mm!important;max-width:17mm!important;max-height:17mm!important;flex:0 0 17mm!important;object-fit:contain!important}
+    .receipt-brand h2{font-size:12pt;margin:0}.receipt-brand p{font-size:7pt;letter-spacing:.5px;margin:2px 0}
+    .receipt-title{text-align:center;font-size:11pt;font-weight:800;margin:5mm 0 3mm;color:#123f35}
+    .receipt-meta{display:flex;justify-content:space-between;gap:4mm;font-size:8pt;margin-bottom:4mm}
+    .receipt-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:3mm;border-top:1px solid #dce5df;border-bottom:1px solid #dce5df;padding:4mm 0}
+    .receipt-grid div{display:grid;gap:1mm}.receipt-grid small{font-size:7pt;color:#60756b}.receipt-grid b{font-size:8pt;overflow-wrap:anywhere}
+    .receipt-amount{display:flex;justify-content:space-between;align-items:center;margin:4mm 0;padding:3mm;background:#edf5f0}
+    .receipt-amount small{font-size:8pt}.receipt-amount strong{font-size:17pt;color:#123f35}
+    .receipt-remarks{font-size:8pt}
+    .receipt-footer{display:flex;justify-content:space-between;gap:8mm;margin:13mm 0 4mm;font-size:7pt}
+    .receipt-footer span{border-top:1px solid #687a72;padding-top:2mm;min-width:35mm;text-align:center}
+    .receipt-note{text-align:center;font-size:6.5pt;color:#687a72;margin-top:3mm}
+  `);
 }
 
 async function logout() {
