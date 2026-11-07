@@ -18,7 +18,7 @@ self.addEventListener("fetch", event => {
     }).catch(() => caches.match("./index.html")));
     return;
   }
-  if (url.origin === self.location.origin) {
+  if (url.origin === self.location.origin || url.hostname === "esm.sh") {
     event.respondWith(caches.match(request).then(cached => {
       const network = fetch(request).then(response => {
         if (response && response.ok) caches.open(CACHE_NAME).then(cache => cache.put(request, response.clone()));
