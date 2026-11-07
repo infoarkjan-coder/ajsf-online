@@ -272,6 +272,8 @@ function renderData() {
     return `<tr><td>${esc(l.loan_reference)}</td><td>${esc(c?.full_name || l.customer_id)}</td><td>${esc(l.loan_type)}</td><td>${money(l.loan_amount)}</td><td>${money(l.emi_amount)}</td><td>${esc(l.total_emis_required)}</td><td>${money(f.collected)}</td><td>${money(f.outstanding)}</td><td>${esc(l.status)}</td></tr>`;
   }).join("") || `<tr><td colspan="9" class="empty">कोई लोन रिकॉर्ड नहीं मिला।</td></tr>`;
   const customerOptions = `<option value="">ग्राहक चुनें</option>` + customers.map(c => `<option value="${esc(c.id)}">${esc(c.customer_code)} · ${esc(c.full_name)}</option>`).join("");
+  $("reminderCustomer").innerHTML = customerOptions;
+  updateReminderLoanOptions();
   $("payCustomer").innerHTML = customerOptions;
   $("ledgerCustomer").innerHTML = customerOptions;
   filterLedgerCustomers();
@@ -288,7 +290,50 @@ function renderData() {
 }
 
 
-async function loadCustomerLedger() {
+
+function updateReminderLoanOptions() {
+  const customerId = $("reminderCustomer")?.value || "";
+  const eligible = loans.filter(l => l.customer_id === customerId && l.status === "active");
+  $("reminderLoan").innerHTML = '<option value="">लोन चुनें</option>' + eligible.map(l => `<option value="${esc(l.id)}">${esc(l.loan_reference)} · ${money(l.loan_amount)}</option>`).join("");
+  if (eligible.length === 1) $("reminderLoan").value = eligible[0].id;
+  buildReminderMessage();
+}
+function buildReminderMessage() {
+  const customer = customers.find(c => c.id === $("reminderCustomer")?.value);
+  const loan = loans.find(l => l.id === $("reminderLoan")?.value);
+  const info = $("reminderInfo");
+  if (!customer) {
+    $("reminderMessage").value = "";
+    if (info) info.textContent = "पहले ग्राहक चुनें।";
+    return;
+  }
+  const totals = paymentsByLoan();
+  const f = loan ? loanFigures(loan, totals) : null;
+  const emi = loan ? money(loan.emi_amount) : "";
+  const osp = loan ? money(f.outstanding) : "";
+  const message = `नमस्ते ${customer.full_name} जी,\\n\\nARK JAN SAMRIDDHI FOUNDATION (AJSF) की ओर से आपकी निर्धारित लोन किस्त के संबंध में विनम्र स्मरण।${loan ? `\\nLoan Ref: ${loan.loan_reference}\\nकिस्त राशि: ${emi}\\nशेष बकाया: ${osp}` : ""}\\n\\nकृपया अपनी निर्धारित किस्त समय पर जमा करें। भुगतान के बाद रसीद अवश्य प्राप्त करें। किसी जानकारी के लिए अपने कलेक्टर से संपर्क करें।\\n\\nधन्यवाद,\\nAJSF Team`;
+  $("reminderMessage").value = message;
+  if (info) info.textContent = `ग्राहक: ${customer.full_name} · मोबाइल: ${phone(customer.contact_number) || "नंबर उपलब्ध नहीं"}`;
+}
+function reminderPhone() {
+  const customer = customers.find(c => c.id === $("reminderCustomer")?.value);
+  let digits = String(phone(customer?.contact_number) || "").replace(/\\D/g, "");
+  if (digits.length === 10) digits = "91" + digits;
+  return digits;
+}
+function openReminder(channel) {
+  const customer = customers.find(c => c.id === $("reminderCustomer")?.value);
+  if (!customer) return showMessage("पहले ग्राहक चुनें।", "warn");
+  const digits = reminderPhone();
+  if (!digits || digits.length < 10) return showMessage("इस ग्राहक का सही मोबाइल नंबर उपलब्ध नहीं है।", "warn");
+  const message = $("reminderMessage").value.trim();
+  if (!message) return showMessage("Reminder message खाली है।", "warn");
+  const url = channel === "whatsapp"
+    ? `https://wa.me/${digits}?text=${encodeURIComponent(message)}`
+    : `sms:+${digits}?body=${encodeURIComponent(message)}`;
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+\nasync function loadCustomerLedger() {
   const customerId = $("ledgerCustomer").value;
   const summary = $("ledgerSummary"), rows = $("ledgerRows");
   if (!customerId) {
@@ -773,6 +818,10 @@ async function boot() {
   });
   $("logoutBtn").addEventListener("click", logout);
   $("payCustomer").addEventListener("change", refreshLoanOptions);
+  $("reminderCustomer").addEventListener("change", updateReminderLoanOptions);
+  $("reminderLoan").addEventListener("change", buildReminderMessage);
+  $("sendWhatsAppReminder").addEventListener("click", () => openReminder("whatsapp"));
+  $("sendSmsReminder").addEventListener("click", () => openReminder("sms"));
   $("loanCustomerFilter").addEventListener("change", renderData);
   $("ledgerCustomer").addEventListener("change", loadCustomerLedger);
   $("ledgerSearch").addEventListener("input", filterLedgerCustomers);
