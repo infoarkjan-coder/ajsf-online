@@ -165,3 +165,142 @@
 .customer-search-filters{grid-template-columns:minmax(220px,2fr) minmax(180px,1fr) minmax(150px,1fr);align-items:end}
 @media(max-width:850px){.customer-search-filters{grid-template-columns:1fr 1fr}}
 @media(max-width:520px){.customer-search-filters{grid-template-columns:1fr}}
+
+
+/* Responsive application layout refresh — desktop, tablet and mobile */
+html{min-width:320px;scroll-behavior:smooth}
+body{width:100%;overflow-x:hidden}
+#appShell.logged-in.shell.wide{
+  width:min(100% - 40px,1600px)!important;
+  max-width:1600px!important;
+  margin-inline:auto;
+  padding:22px 0 32px!important;
+}
+#appShell.logged-in>.brand{gap:16px;margin-bottom:22px}
+#dashboardCard{width:100%;min-width:0}
+.dashboard-layout{
+  width:100%;
+  grid-template-columns:240px minmax(0,1fr)!important;
+  gap:20px;
+  align-items:start;
+}
+.sidebar{width:100%;min-width:0;top:14px}
+.dashboard-content{width:100%;min-width:0}
+.dashboard-content>.card,
+.dashboard-content>[data-panel],
+#receiptPanel{width:100%;min-width:0}
+.panel{overflow:hidden}
+.panel-head{flex-wrap:wrap}
+.panel-head h2{min-width:0}
+.grid{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+.formgrid{grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+input,select,button{min-height:42px}
+.tablewrap{width:100%;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.tablewrap table{min-width:680px}
+#customerRows td{white-space:nowrap}
+#receiptPanel{max-width:none}
+#receiptContent.receipt{
+  width:100%;
+  max-width:760px;
+  min-height:0;
+  margin:12px auto;
+  padding:22px;
+  overflow:hidden;
+}
+#receiptContent .receipt-brand{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  min-width:0;
+}
+#receiptContent .receipt-brand img.receipt-logo{
+  display:block!important;
+  width:58px!important;
+  height:58px!important;
+  min-width:58px!important;
+  min-height:58px!important;
+  max-width:58px!important;
+  max-height:58px!important;
+  flex:0 0 58px!important;
+  object-fit:contain!important;
+  border:0!important;
+  border-radius:0!important;
+}
+#receiptContent .receipt-brand>div{min-width:0}
+#receiptContent .receipt-brand h2{font-size:16px;line-height:1.25;overflow-wrap:anywhere}
+#receiptContent .receipt-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+#receiptContent .receipt-grid b{overflow-wrap:anywhere}
+@media(max-width:1000px){
+  #appShell.logged-in.shell.wide{width:min(100% - 28px,100%)!important;padding-top:16px!important}
+  .dashboard-layout{grid-template-columns:200px minmax(0,1fr)!important;gap:14px}
+  .grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:760px){
+  #appShell.logged-in.shell.wide{width:100%!important;padding:12px 12px 24px!important}
+  #appShell.logged-in>.brand{padding:0 4px;gap:10px}
+  .brand-logo{width:58px;height:58px}
+  .brand h1{font-size:16px}
+  .brand p{font-size:10px;letter-spacing:.5px}
+  .dashboard-layout{display:flex!important;flex-direction:column;gap:12px}
+  .sidebar{position:static;width:100%;padding:10px;border-radius:12px}
+  .sidebar-title{padding:3px 5px 9px}
+  .sidebar .tabs{
+    display:flex!important;
+    flex-direction:row!important;
+    flex-wrap:nowrap!important;
+    gap:7px;
+    overflow-x:auto;
+    padding:0 0 5px;
+    scrollbar-width:thin;
+    -webkit-overflow-scrolling:touch;
+  }
+  .sidebar .tabs button{
+    flex:0 0 auto;
+    width:auto!important;
+    min-width:max-content;
+    min-height:40px;
+    padding:9px 12px!important;
+    text-align:center!important;
+    white-space:nowrap;
+    font-size:12px;
+  }
+  .dashboard-content{width:100%}
+  .dashhead{align-items:flex-start}
+  .dashhead>div{min-width:0}
+  .dashhead h2{font-size:18px}
+  .dashhead .muted{font-size:12px}
+  .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .grid .card{padding:12px;margin-bottom:0}
+  .metric{font-size:20px;overflow-wrap:anywhere}
+  .formgrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .card{padding:14px;margin-bottom:10px;border-radius:12px}
+  .panel-head{align-items:flex-start}
+  .panel-head .actions{width:100%}
+  .panel-head .actions button{flex:1}
+  #receiptContent.receipt{padding:15px;margin:8px auto}
+}
+@media(max-width:480px){
+  #appShell.logged-in.shell.wide{padding-inline:9px!important}
+  .brand h1{font-size:14px}
+  .brand p{font-size:9px}
+  .grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .formgrid{grid-template-columns:1fr}
+  .dashhead{gap:8px}
+  .dashhead>button{padding:9px 10px;font-size:12px;white-space:nowrap}
+  .sidebar .tabs button{font-size:11px;padding:8px 10px!important}
+  .card{padding:12px}
+  #receiptContent .receipt-brand img.receipt-logo{
+    width:48px!important;height:48px!important;min-width:48px!important;min-height:48px!important;
+    max-width:48px!important;max-height:48px!important;flex-basis:48px!important
+  }
+  #receiptContent .receipt-brand h2{font-size:13px}
+  #receiptContent .receipt-meta{font-size:10px;flex-wrap:wrap}
+  #receiptContent .receipt-grid{gap:9px;padding:10px 0}
+  #receiptContent .receipt-grid b{font-size:11px}
+  #receiptContent .receipt-amount strong{font-size:20px}
+  #receiptContent .receipt-footer span{min-width:0;width:46%;font-size:9px}
+}
+@media print{
+  #appShell.logged-in.shell.wide{width:100%!important;max-width:none!important;padding:0!important}
+  #receiptContent .receipt-brand img.receipt-logo{width:18mm!important;height:18mm!important;min-width:18mm!important;min-height:18mm!important;max-width:18mm!important;max-height:18mm!important;flex-basis:18mm!important}
+}
