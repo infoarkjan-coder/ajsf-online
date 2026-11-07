@@ -317,7 +317,7 @@ function buildReminderMessage() {
 }
 function reminderPhone() {
   const customer = customers.find(c => c.id === $("reminderCustomer")?.value);
-  let digits = String(phone(customer?.contact_number) || "").replace(/\\D/g, "");
+  let digits = String(phone(customer?.contact_number) || "").replace(/\D/g, "");
   if (digits.length === 10) digits = "91" + digits;
   return digits;
 }
