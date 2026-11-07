@@ -3,8 +3,119 @@ import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./config.js";
 
 const $ = (id) => document.getElementById(id);
 const money = (n) => "₹" + Number(n || 0).toLocaleString("en-IN");
+const EN_ONES = ["Zero","One","Two","Three","Four","Five","Six","Seven","Eight","Nine","Ten","Eleven","Twelve","Thirteen","Fourteen","Fifteen","Sixteen","Seventeen","Eighteen","Nineteen"];
+const EN_TENS = ["","","Twenty","Thirty","Forty","Fifty","Sixty","Seventy","Eighty","Ninety"];
+const HI_ONES = ["शून्य","एक","दो","तीन","चार","पाँच","छह","सात","आठ","नौ","दस","ग्यारह","बारह","तेरह","चौदह","पंद्रह","सोलह","सत्रह","अठारह","उन्नीस"];
+const HI_TENS = ["","","बीस","तीस","चालीस","पचास","साठ","सत्तर","अस्सी","नब्बे"];
+function underHundred(n, hindi=false) {
+  const ones = hindi ? HI_ONES : EN_ONES, tens = hindi ? HI_TENS : EN_TENS;
+  if (n < 20) return ones[n];
+  return tens[Math.floor(n/10)] + (n%10 ? (hindi ? " " : " ") + ones[n%10] : "");
+}
+function underThousand(n, hindi=false) {
+  if (n < 100) return underHundred(n,hindi);
+  const hundreds = hindi ? "सौ" : "Hundred";
+  return (hindi ? HI_ONES[numericHundreds(n)] : EN_ONES[Math.floor(n/100)]) + " " + hundreds + (n%100 ? " " + underHundred(n%100,hindi) : "");
+}
+function numericHundreds(n) { return Math.floor(n/100); }
+function indianNumberWords(value, hindi=false) {
+  let n = Math.floor(Math.abs(Number(value)||0));
+  if (!n) return hindi ? "शून्य" : "Zero";
+  const units = hindi ? ["","हजार","लाख","करोड़","अरब","खरब"] : ["","Thousand","Lakh","Crore","Arab","Kharab"];
+  const parts = [];
+  const first = n % 1000; n = Math.floor(n/1000);
+  if (first) parts.unshift(underThousand(first,hindi));
+  let index = 1;
+  while (n > 0 && index < units.length) {
+    const group = n % 100; n = Math.floor(n/100);
+    if (group) parts.unshift(underHundred(group,hindi) + " " + units[index]);
+    index++;
+  }
+  if (n > 0) return hindi ? "राशि बहुत बड़ी है" : "Amount too large";
+  return parts.join(" ").trim();
+}
+function amountInWords(value, hindi=false) {
+  const amount = Math.round((Number(value)||0) * 100) / 100;
+  const rupees = Math.floor(amount);
+  const paise = Math.round((amount - rupees) * 100);
+  const prefix = hindi ? "रुपये" : "Rupees";
+  let result = prefix + " " + indianNumberWords(rupees,hindi);
+  if (paise) result += hindi ? " और " + indianNumberWords(paise,true) + " पैसे" : " and " + indianNumberWords(paise,false) + " Paise";
+  return result + (hindi ? " मात्र" : " Only");
+}
+
+const phone = (v) => { const s = String(v ?? "").trim(); return /^\d+\.0+$/.test(s) ? s.replace(/\.0+$/, "") : s; };
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 let supabase, currentUser, profile, customers = [], loans = [], payments = [], lastReceipt = null;
+let offlineDbPromise;
+function offlineDb() {
+  if (!("indexedDB" in window)) return Promise.reject(new Error("इस browser में offline storage उपलब्ध नहीं है।"));
+  if (!offlineDbPromise) offlineDbPromise = new Promise((resolve, reject) => {
+    const request = indexedDB.open("ajsf-offline-v1", 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains("snapshots")) db.createObjectStore("snapshots", {keyPath:"key"});
+      if (!db.objectStoreNames.contains("paymentQueue")) db.createObjectStore("paymentQueue", {keyPath:"client_tx_id"});
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+  return offlineDbPromise;
+}
+async function offlineStore(store, mode, action) {
+  const db = await offlineDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, mode);
+    const req = action(tx.objectStore(store));
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+const cacheSnapshot = (key, value) => offlineStore("snapshots", "readwrite", store => store.put({key, value, saved_at:new Date().toISOString()}));
+const readSnapshot = key => offlineStore("snapshots", "readonly", store => store.get(key));
+const queuePayment = row => offlineStore("paymentQueue", "readwrite", store => store.put(row));
+const readPaymentQueue = () => offlineStore("paymentQueue", "readonly", store => store.getAll());
+const removeQueuedPayment = id => offlineStore("paymentQueue", "readwrite", store => store.delete(id));
+function updateConnectionStatus(message) {
+  const el = $("connectionStatus");
+  if (!el) return;
+  const queued = Number(el.dataset.queued || 0);
+  el.textContent = message || (navigator.onLine ? `इंटरनेट उपलब्ध · Pending Offline Payments: ${queued}` : `Offline Mode · Pending Payments: ${queued}`);
+  el.classList.toggle("offline", !navigator.onLine);
+  el.classList.toggle("online", navigator.onLine);
+}
+async function refreshConnectionStatus() {
+  try {
+    const queue = await readPaymentQueue();
+    const mine = queue.filter(item => item.collector_id === currentUser?.id);
+    const el = $("connectionStatus");
+    if (el) el.dataset.queued = String(mine.length);
+    updateConnectionStatus();
+  } catch { updateConnectionStatus(navigator.onLine ? "इंटरनेट उपलब्ध" : "Offline Mode"); }
+}
+async function syncQueuedPayments() {
+  if (!navigator.onLine || !currentUser) return;
+  let queue;
+  try { queue = await readPaymentQueue(); } catch { return; }
+  for (const item of queue.filter(p => p.collector_id === currentUser.id)) {
+    let { data, error } = await supabase.from("payments").insert(item.payload)
+      .select("id, client_tx_id, customer_id, loan_id, collector_id, amount, paid_at, payment_mode, remarks").single();
+    if (error) {
+      const existing = await supabase.from("payments")
+        .select("id, client_tx_id, customer_id, loan_id, collector_id, amount, paid_at, payment_mode, remarks")
+        .eq("client_tx_id", item.client_tx_id).maybeSingle();
+      if (!existing.error && existing.data) { data = existing.data; error = null; }
+    }
+    if (error) continue;
+    await removeQueuedPayment(item.client_tx_id);
+    payments = payments.filter(p => p.client_tx_id !== item.client_tx_id);
+    payments.unshift(data);
+  }
+  renderData();
+  try { await cacheSnapshot(`user:${currentUser.id}`, {customers, loans, payments}); } catch {}
+  await refreshConnectionStatus();
+}
+
 const paymentsByLoan = () => payments.filter(p => !p.is_reversal).reduce((m, p) => { const k = p.loan_id; if (k) m[k] = (m[k] || 0) + Number(p.amount || 0); return m; }, {});
 function loanFigures(loan, paymentTotals) {
   const newPaid = paymentTotals[loan.id] || 0;
@@ -12,6 +123,30 @@ function loanFigures(loan, paymentTotals) {
   const collected = importedPaid + newPaid;
   const baselineOsp = loan.source_osp == null ? Math.max(0, Number(loan.loan_amount || 0) - importedPaid) : Number(loan.source_osp);
   return { collected, outstanding: Math.max(0, baselineOsp - newPaid) };
+}
+
+function openAjsfPrint(title, content, pageCss) {
+  const w = window.open("", "_blank");
+  if (!w) { showMessage("Print popup block है। Browser में pop-ups allow करें।", "warn"); return null; }
+  w.document.open();
+  w.document.write(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base href="${esc(document.baseURI)}"><title>${esc(title)}</title><style>
+    *{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff;color:#172923;font-family:Arial,system-ui,sans-serif}
+    body{padding:7mm;font-size:10pt;line-height:1.35}
+    img{max-width:100%;object-fit:contain}table{width:100%;border-collapse:collapse}thead{display:table-header-group}tr{break-inside:avoid}
+    th,td{border:1px solid #cbd8d0;padding:6px;text-align:left;vertical-align:top}th{background:#edf5f0;color:#23483c}
+    h1,h2,h3{color:#123f35}small{color:#60756b}
+    ${pageCss}
+    @media print{body{padding:0}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+  </style></head><body>${content}</body></html>`);
+  w.document.close();
+  const printWhenReady = () => {
+    const images = Array.from(w.document.images);
+    Promise.all(images.map(img => img.complete ? Promise.resolve() : new Promise(resolve => { img.onload=resolve; img.onerror=resolve; })))
+      .then(() => { w.focus(); w.print(); });
+  };
+  if (w.document.readyState === "complete") printWhenReady();
+  else w.addEventListener("load", printWhenReady, { once:true });
+  return w;
 }
 
 function showMessage(message, type = "info") {
@@ -64,15 +199,28 @@ document.addEventListener("click", e => {
 async function loadAll() {
   showMessage("डेटा लोड हो रहा है…");
   let customerQuery = supabase.from("customers")
-    .select("id, customer_code, full_name, center_name, contact_number, area, address, collection_day, assigned_collector, customer_status, recovery_status, is_active")
+    .select("id, customer_code, full_name, center_name, contact_number, area, address, collection_day, assigned_collector, customer_status, recovery_status, status_reason, status_changed_at, status_notes, is_active")
     .order("full_name");
   if (!canAdmin()) customerQuery = customerQuery.eq("assigned_collector", currentUser.id);
-  const [c, l] = await Promise.all([
+  let c, l;
+  try { [c, l] = await Promise.all([
     customerQuery,
     supabase.from("loans").select("id, loan_reference, customer_id, loan_type, disbursement_date, loan_amount, emi_amount, total_emis_required, status, source_total_collected, source_osp, source_emis_paid, source_emis_pending").order("created_at", {ascending:false})
-  ]);
-  if (c.error) throw new Error("Customer API (" + c.error.code + "): " + c.error.message);
-  if (l.error) throw new Error("Loan API (" + l.error.code + "): " + l.error.message);
+  ]); } catch (networkError) { c = {error:networkError}; l = {error:networkError}; }
+  if (c.error || l.error) {
+    const cached = await readSnapshot(`user:${currentUser.id}`);
+    if (!cached?.value) throw new Error("डेटा ऑनलाइन लोड नहीं हुआ और इस डिवाइस पर Offline Backup भी नहीं मिला।");
+    customers = cached.value.customers || [];
+    loans = cached.value.loans || [];
+    payments = cached.value.payments || [];
+    const pendingOffline = (await readPaymentQueue()).filter(item => item.collector_id === currentUser.id);
+    payments.push(...pendingOffline.map(item => ({...item.payload, id:null, offline_pending:true})));
+    renderData();
+    await syncQueuedPayments();
+    await refreshConnectionStatus();
+    showMessage("Offline डेटा खुल गया। इंटरनेट आने पर Pending Payments अपने आप Sync होंगे।", "warn");
+    return;
+  }
   customers = c.data || []; loans = l.data || [];
   payments = [];
   for (let start = 0; ; start += 1000) {
@@ -81,7 +229,10 @@ async function loadAll() {
     payments.push(...(data || []));
     if (!data || data.length < 1000) break;
   }
+  try { await cacheSnapshot(`user:${currentUser.id}`, {customers, loans, payments}); } catch (cacheError) { console.warn("Offline cache unavailable", cacheError); }
   renderData();
+  await syncQueuedPayments();
+  await refreshConnectionStatus();
   showMessage("डेटा सफलतापूर्वक लोड हुआ। जमा राशि में आयातित पुरानी वसूली और नए भुगतान शामिल हैं; बकाया में नए भुगतान घटाए गए हैं।", "success");
 }
 
@@ -96,13 +247,34 @@ function renderData() {
   const figures = loans.map(l => loanFigures(l, totalsByLoan));
   $("collectedTotal").textContent = money(figures.reduce((s, f) => s + f.collected, 0));
   $("outstandingTotal").textContent = money(figures.reduce((s, f) => s + f.outstanding, 0));
-  $("customerRows").innerHTML = customers.map(c => `<tr><td>${esc(c.customer_code)}</td><td>${esc(c.full_name)}</td><td>${esc(c.center_name)}</td><td>${esc(c.contact_number)}</td><td>${esc(c.collection_day)}</td><td>${esc(c.customer_status)}</td></tr>`).join("") || `<tr><td colspan="6" class="empty">कोई ग्राहक नहीं मिला।</td></tr>`;
-  $("loanRows").innerHTML = loans.map(l => {
+  const operationalCustomers = customers.filter(c => c.is_active !== false && (c.customer_status || "ACTIVE") === "ACTIVE");
+  const customerRegisterRows = [...operationalCustomers].sort((a,b) =>
+    String(a.center_name || "").localeCompare(String(b.center_name || "")) ||
+    String(a.full_name || "").localeCompare(String(b.full_name || ""))
+  );
+  $("customerRows").innerHTML = customerRegisterRows.map((c,i) => "<tr data-center=\"" + esc(c.center_name || "") + "\" data-day=\"" + esc(c.collection_day || "") + "\"><td>" + (i+1) + "</td><td>" + esc(c.center_name || "—") + "</td><td>" + esc(c.full_name || "—") + "</td><td>" + esc(phone(c.contact_number) || "—") + "</td><td>" + esc(c.customer_code || "—") + "</td><td>" + esc(c.area || "—") + "</td><td>" + esc(c.address || "—") + "</td><td>" + esc(c.collection_day || "—") + "</td><td>" + esc(c.customer_status || "—") + "</td></tr>").join("") || "<tr><td colspan=\"9\" class=\"empty\">कोई ग्राहक नहीं मिला।</td></tr>";
+  const centerFilter = $("customerCenterFilter");
+  if (centerFilter) {
+    const selectedCenter = centerFilter.value;
+    const centers = [...new Set(operationalCustomers.map(c => String(c.center_name || "").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+    centerFilter.innerHTML = "<option value=\"\">सभी Center / House</option>" + centers.map(name => "<option value=\"" + esc(name) + "\">" + esc(name) + "</option>").join("");
+    if (centers.includes(selectedCenter)) centerFilter.value = selectedCenter;
+  }
+  const loanFilter = $("loanCustomerFilter");
+  if (loanFilter) {
+    const selectedLoanCustomer = loanFilter.value;
+    loanFilter.innerHTML = '<option value="">सभी ग्राहक</option>' + operationalCustomers.map(c => `<option value="${esc(c.id)}">${esc(c.customer_code || "")} · ${esc(c.full_name || "")}</option>`).join("");
+    if (customers.some(c => c.id === selectedLoanCustomer)) loanFilter.value = selectedLoanCustomer;
+  }
+  const loanCustomerId = loanFilter?.value || "";
+  $("loanRows").innerHTML = loans.filter(l => !loanCustomerId || l.customer_id === loanCustomerId).map(l => {
     const c = customers.find(x => x.id === l.customer_id);
     const f = loanFigures(l, totalsByLoan);
     return `<tr><td>${esc(l.loan_reference)}</td><td>${esc(c?.full_name || l.customer_id)}</td><td>${esc(l.loan_type)}</td><td>${money(l.loan_amount)}</td><td>${money(l.emi_amount)}</td><td>${esc(l.total_emis_required)}</td><td>${money(f.collected)}</td><td>${money(f.outstanding)}</td><td>${esc(l.status)}</td></tr>`;
   }).join("") || `<tr><td colspan="9" class="empty">कोई लोन रिकॉर्ड नहीं मिला।</td></tr>`;
-  const customerOptions = `<option value="">ग्राहक चुनें</option>` + customers.map(c => `<option value="${esc(c.id)}">${esc(c.customer_code)} · ${esc(c.full_name)}</option>`).join("");
+  const customerOptions = `<option value="">ग्राहक चुनें</option>` + operationalCustomers.map(c => `<option value="${esc(c.id)}">${esc(c.customer_code)} · ${esc(c.full_name)}</option>`).join("");
+  $("reminderCustomer").innerHTML = customerOptions;
+  updateReminderLoanOptions();
   $("payCustomer").innerHTML = customerOptions;
   $("ledgerCustomer").innerHTML = customerOptions;
   filterLedgerCustomers();
@@ -116,9 +288,83 @@ function renderData() {
     const l = loans.find(x => x.id === p.loan_id);
     return `<tr><td>${esc(p.id)}</td><td>${esc(formatDate(p.paid_at))}</td><td>${esc(c?.full_name || p.customer_id)}</td><td>${esc(l?.loan_reference || "—")}</td><td>${money(p.amount)}</td><td>${esc(p.payment_mode || "—")}</td></tr>`;
   }).join("") || `<tr><td colspan="6" class="empty">अभी भुगतान उपलब्ध नहीं हैं।</td></tr>`;
+  renderCustomerMIS();
 }
 
 
+
+function updateReminderLoanOptions() {
+  const customerId = $("reminderCustomer")?.value || "";
+  const eligible = loans.filter(l => l.customer_id === customerId && l.status === "active");
+  $("reminderLoan").innerHTML = '<option value="">लोन चुनें</option>' + eligible.map(l => `<option value="${esc(l.id)}">${esc(l.loan_reference)} · ${money(l.loan_amount)}</option>`).join("");
+  if (eligible.length === 1) $("reminderLoan").value = eligible[0].id;
+  buildReminderMessage();
+}
+function buildReminderMessage() {
+  const customer = customers.find(c => c.id === $("reminderCustomer")?.value);
+  const loan = loans.find(l => l.id === $("reminderLoan")?.value);
+  const info = $("reminderInfo");
+  if (!customer) {
+    $("reminderMessage").value = "";
+    if (info) info.textContent = "पहले ग्राहक चुनें।";
+    return;
+  }
+  const totals = paymentsByLoan();
+  const f = loan ? loanFigures(loan, totals) : null;
+  const emi = loan ? money(loan.emi_amount) : "";
+  const osp = loan ? money(f.outstanding) : "";
+  const message = `नमस्ते ${customer.full_name} जी,\n\nARK JAN SAMRIDDHI FOUNDATION (AJSF) की ओर से आपकी निर्धारित लोन किस्त के संबंध में विनम्र स्मरण।${loan ? `\nLoan Ref: ${loan.loan_reference}\nकिस्त राशि: ${emi}\nशेष बकाया: ${osp}` : ""}\n\nकृपया अपनी निर्धारित किस्त समय पर जमा करें। भुगतान के बाद रसीद अवश्य प्राप्त करें। किसी जानकारी के लिए अपने कलेक्टर से संपर्क करें।\n\nधन्यवाद,\nAJSF Team`;
+  $("reminderMessage").value = message;
+  if (info) info.textContent = `ग्राहक: ${customer.full_name} · मोबाइल: ${phone(customer.contact_number) || "नंबर उपलब्ध नहीं"}`;
+}
+function reminderPhone() {
+  const customer = customers.find(c => c.id === $("reminderCustomer")?.value);
+  let digits = String(phone(customer?.contact_number) || "").replace(/\D/g, "");
+  if (digits.length === 10) digits = "91" + digits;
+  return digits;
+}
+function openReminder(channel) {
+  const customer = customers.find(c => c.id === $("reminderCustomer")?.value);
+  if (!customer) return showMessage("पहले ग्राहक चुनें।", "warn");
+  const digits = reminderPhone();
+  if (!digits || digits.length < 10) return showMessage("इस ग्राहक का सही मोबाइल नंबर उपलब्ध नहीं है।", "warn");
+  const message = $("reminderMessage").value.trim();
+  if (!message) return showMessage("Reminder message खाली है।", "warn");
+  const url = channel === "whatsapp"
+    ? `https://wa.me/${digits}?text=${encodeURIComponent(message)}`
+    : `sms:+${digits}?body=${encodeURIComponent(message)}`;
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+function renderCustomerMIS() {
+  const body = $("customerMisRows");
+  if (!body) return;
+  const statusFilter = $("misStatusFilter")?.value || "";
+  const term = ($("misSearch")?.value || "").trim().toLowerCase();
+  const rows = customers.filter(c => (!statusFilter || (c.customer_status || "ACTIVE") === statusFilter) &&
+    (!term || [c.customer_code,c.full_name,c.center_name,c.contact_number].some(v => String(v || "").toLowerCase().includes(term))));
+  body.innerHTML = rows.map(c => `<tr data-mis-customer="${esc(c.id)}"><td>${esc(c.customer_code || "—")}</td><td>${esc(c.full_name || "—")}</td><td>${esc(c.center_name || "—")}</td><td>${esc(phone(c.contact_number) || "—")}</td><td><select class="mis-status" ${canAdmin() ? "" : "disabled"}><option value="ACTIVE" ${(c.customer_status || "ACTIVE")==="ACTIVE"?"selected":""}>ACTIVE</option><option value="ABSCONDED" ${c.customer_status==="ABSCONDED"?"selected":""}>ABSCONDED</option><option value="DECEASED" ${c.customer_status==="DECEASED"?"selected":""}>DECEASED</option></select></td><td><input class="mis-date" type="date" value="${esc(c.status_changed_at || "")}" ${canAdmin()?"":"disabled"}></td><td><input class="mis-reason" value="${esc(c.status_reason || "")}" placeholder="जैसे: संपर्क नहीं / मृत्यु" ${canAdmin()?"":"disabled"}></td><td><input class="mis-notes" value="${esc(c.status_notes || "")}" placeholder="विवरण" ${canAdmin()?"":"disabled"}></td><td><button type="button" class="mis-save" ${canAdmin()?"":"disabled"}>सेव</button></td></tr>`).join("") || `<tr><td colspan="9" class="empty">कोई रिकॉर्ड नहीं मिला।</td></tr>`;
+}
+async function saveCustomerMISRow(row) {
+  if (!canAdmin()) return showMessage("यह बदलाव केवल Admin कर सकता है।", "warn");
+  const id = row?.dataset.misCustomer;
+  const customer = customers.find(c => c.id === id);
+  if (!customer) return;
+  const status = row.querySelector(".mis-status").value;
+  const date = row.querySelector(".mis-date").value || null;
+  const reason = row.querySelector(".mis-reason").value.trim() || null;
+  const notes = row.querySelector(".mis-notes").value.trim() || null;
+  if (status !== "ACTIVE" && !date) return showMessage("Absconded / Deceased status के लिए तारीख भरें।", "warn");
+  if (status !== "ACTIVE" && !reason) return showMessage("Status का कारण / विवरण भरें।", "warn");
+  const payload = {customer_status:status, status_changed_at:status==="ACTIVE"?null:date, status_reason:status==="ACTIVE"?null:reason, status_notes:status==="ACTIVE"?null:notes};
+  const btn = row.querySelector(".mis-save");
+  setBusy(btn, true, "सेव…");
+  const {error} = await supabase.from("customers").update(payload).eq("id", id);
+  setBusy(btn, false);
+  if (error) return showMessage("Status सेव नहीं हुआ: " + error.message, "error");
+  Object.assign(customer, payload);
+  renderData();
+  showMessage("Customer MIS status सफलतापूर्वक अपडेट हुआ।", "success");
+}
 async function loadCustomerLedger() {
   const customerId = $("ledgerCustomer").value;
   const summary = $("ledgerSummary"), rows = $("ledgerRows");
@@ -142,14 +388,19 @@ async function loadCustomerLedger() {
   const paymentRows = data || [];
   const paid = paymentRows.reduce((s,p) => s + Number(p.amount || 0), 0);
   const loanAmount = customerLoans.reduce((s,l) => s + Number(l.loan_amount || 0), 0);
-  const sourceOsp = customerLoans.reduce((s,l) => s + Number(l.source_osp || 0), 0);
-  const collectedIncludingImported = customerLoans.reduce((s,l) => s + Number(l.total_collected || 0), 0) + paid;
-  const loanDetails = customerLoans.map(l => `<tr><td>${esc(l.loan_reference || "—")}</td><td>${money(l.loan_amount)}</td><td>${money(l.emi_amount)}</td><td>${esc(l.total_emis_required || "—")}</td><td>${money(l.source_osp)}</td></tr>`).join("") || `<tr><td colspan="5">कोई Loan record उपलब्ध नहीं है।</td></tr>`;
+  const importedCollected = customerLoans.reduce((s,l) => s + Number(l.source_total_collected || 0), 0);
+  const paymentTotals = paymentsByLoan();
+  const currentOsp = customerLoans.reduce((s,l) => s + loanFigures(l, paymentTotals).outstanding, 0);
+  const totalCollected = importedCollected + paid;
+  const loanDetails = customerLoans.map(l => {
+    const figures = loanFigures(l, paymentTotals);
+    return `<tr><td>${esc(l.loan_reference || "—")}</td><td>${money(l.loan_amount)}</td><td>${money(l.emi_amount)}</td><td>${esc(l.total_emis_required || "—")}</td><td>${money(Number(l.source_total_collected || 0))}</td><td>${money(figures.outstanding)}</td></tr>`;
+  }).join("") || `<tr><td colspan="6">कोई Loan record उपलब्ध नहीं है।</td></tr>`;
   summary.innerHTML = `<div id="ledgerPrintArea">
     <div class="ledger-print-brand"><img src="./assets/ajsf-logo.png" alt="AJSF Logo" width="72" height="72" style="width:72px;height:72px;max-width:72px;max-height:72px;object-fit:contain;flex:0 0 72px"><div><h2>ARK JAN SAMRIDDHI FOUNDATION</h2><p>SAPNE AAPKE SATH HAMARA</p><strong>CUSTOMER LEDGER / LOAN STATEMENT</strong></div></div>
-    <div class="ledger-print-customer"><span><small>Customer ID</small><b>${esc(customer?.customer_code || "—")}</b></span><span><small>Customer Name</small><b>${esc(customer?.full_name || "—")}</b></span><span><small>Center</small><b>${esc(customer?.center_name || "—")}</b></span><span><small>Mobile</small><b>${esc(customer?.contact_number || "—")}</b></span></div>
-    <div class="ledger-print-totals"><span><small>Total Loan Amount</small><b>${money(loanAmount)}</b></span><span><small>Recorded Payments</small><b>${money(paid)}</b></span><span><small>Imported OSP</small><b>${money(sourceOsp)}</b></span></div>
-    <h3>Loan Details</h3><div class="tablewrap"><table><thead><tr><th>Loan Reference</th><th>Loan Amount</th><th>Weekly EMI</th><th>Terms</th><th>Imported OSP</th></tr></thead><tbody>${loanDetails}</tbody></table></div>
+    <div class="ledger-print-customer"><span><small>Customer ID</small><b>${esc(customer?.customer_code || "—")}</b></span><span><small>Customer Name</small><b>${esc(customer?.full_name || "—")}</b></span><span><small>Center</small><b>${esc(customer?.center_name || "—")}</b></span><span><small>Mobile</small><b>${esc(phone(customer?.contact_number) || "—")}</b></span></div>
+    <div class="ledger-print-totals"><span><small>Total Loan Amount</small><b>${money(loanAmount)}</b></span><span><small>Total Collected (Imported + Recorded)</small><b>${money(totalCollected)}</b></span><span><small>Recorded Payments</small><b>${money(paid)}</b></span><span><small>Current OSP</small><b>${money(currentOsp)}</b></span></div>
+    <h3>Loan Details</h3><div class="tablewrap"><table><thead><tr><th>Loan Reference</th><th>Loan Amount</th><th>Weekly EMI</th><th>Terms</th><th>Imported Collection</th><th>Current OSP</th></tr></thead><tbody>${loanDetails}</tbody></table></div>
     <h3>Payment History</h3>
   </div>`;
   rows.innerHTML = paymentRows.map(p => {
@@ -181,7 +432,7 @@ function filterScheduleCustomers() {
   const current = select.value;
   select.innerHTML = `<option value="">ग्राहक चुनें</option>` + customers
     .filter(c => !q || [c.customer_code,c.full_name,c.contact_number,c.center_name].some(v => String(v || "").toLocaleLowerCase().includes(q)))
-    .map(c => `<option value="${esc(c.id)}">${esc(c.customer_code || "")} · ${esc(c.full_name || "")} · ${esc(c.contact_number || "")}</option>`).join("");
+    .map(c => `<option value="${esc(c.id)}">${esc(c.customer_code || "")} · ${esc(c.full_name || "")} · ${esc(phone(c.contact_number))}</option>`).join("");
   if (Array.from(select.options).some(o => o.value === current)) select.value = current;
 }
 function populateScheduleLoans() {
@@ -238,7 +489,7 @@ function renderRepaymentSchedule() {
       <h2>CUSTOMER & LOAN DETAILS</h2>
       <div class="customer-detail"><small>Customer Name</small><b>${esc(customer?.full_name || "—")}</b></div>
       <div class="customer-detail"><small>Customer ID</small><b>${esc(customer?.customer_code || "—")}</b></div>
-      <div class="customer-detail"><small>Mobile Number</small><b>${esc(customer?.contact_number || "—")}</b></div>
+      <div class="customer-detail"><small>Mobile Number</small><b>${esc(phone(customer?.contact_number) || "—")}</b></div>
       <div class="customer-detail"><small>Center Name</small><b>${esc(customer?.center_name || "—")}</b></div>
       <div class="customer-detail"><small>Area</small><b>${esc(customer?.area || "—")}</b></div>
       <div class="customer-detail"><small>Address</small><b>${esc(customer?.address || "—")}</b></div>
@@ -246,7 +497,7 @@ function renderRepaymentSchedule() {
       <div class="customer-detail"><small>Disbursement Date</small><b>${displayDueDate(disb)}</b></div>
       <div class="customer-detail"><small>Loan Amount / Weekly EMI</small><b>${money(loan.loan_amount)} / ${money(emi)}</b></div>
       <div class="customer-detail"><small>Collection Day / Total Installments</small><b>${weekday} / ${count} Weeks</b></div>
-      <div class="customer-detail"><small>Imported Outstanding (OSP)</small><b>${money(loan.source_osp)}</b></div>
+      <div class="customer-detail"><small>Current Outstanding (OSP)</small><b>${money(loanFigures(loan, paymentsByLoan()).outstanding)}</b></div>
       <div class="customer-signatures"><div><small>Borrower Signature / Thumb Impression</small><span></span></div><div><small>Collector Name & Staff Code</small><b>${esc(profile?.full_name || "—")} · ${esc(profile?.staff_code || "—")}</b></div><div><small>Collector Signature</small><span></span></div></div>
       <p class="schedule-generated">Generated: ${new Date().toLocaleDateString("en-IN")}</p>
     </aside>
@@ -256,40 +507,42 @@ function printRepaymentSchedule() {
   if (!$("scheduleLoan").value) return showMessage("पहले ग्राहक और लोन चुनें।","warn");
   const area = $("repaymentSchedulePrint");
   if (!area) return showMessage("पहले Schedule लोड होने दें।","warn");
-  const w = window.open("","_blank");
-  if (!w) return showMessage("Print popup block है। Browser में pop-ups allow करें।","warn");
-  w.document.write(`<!doctype html><html><head><title>AJSF Repayment Schedule</title><style>
-  @page{size:A4 landscape;margin:5mm}
-  *{box-sizing:border-box}html,body{margin:0;padding:0;font-family:Arial,sans-serif;color:#172923}
-  body{font-size:8px}
-  .schedule-print-sheet{display:grid;grid-template-columns:55% 45%;grid-template-rows:17mm 1fr;width:100%;height:198mm;max-height:198mm;border:1px solid #243c33;position:relative;overflow:hidden}
-  .schedule-brand-center{grid-column:1/3;grid-row:1;display:flex;justify-content:center;align-items:center;text-align:center;gap:3mm;border-bottom:1px solid #123f35;padding:1mm}
-  .schedule-brand img{width:14mm;height:14mm;max-width:14mm;max-height:14mm;object-fit:contain}
-  .schedule-brand h2{font-size:13px;margin:0;color:#123f35;letter-spacing:.2px}.schedule-brand p{font-size:7px;margin:1px 0 2px;font-weight:bold;letter-spacing:1px}.schedule-brand strong{font-size:8px}
-  .schedule-left{grid-column:1;grid-row:2;padding:2mm 4mm 2mm 2.5mm;border-right:1px dashed #536b60;min-width:0;overflow:hidden}
-  .schedule-right{grid-column:2;grid-row:2;padding:3mm 3mm 2mm 5mm;min-width:0;overflow:hidden}
-  .schedule-print-sheet:after{content:"FOLD HERE";position:absolute;left:55%;top:55%;transform:translate(-50%,-50%) rotate(-90deg);font-size:5.5px;letter-spacing:1px;color:#718278;background:#fff;padding:2px 4px}
-  .schedule-summary{display:grid;grid-template-columns:repeat(2,1fr);gap:2px;padding:2px 0 3px}
-  .schedule-summary span{border:1px solid #d5e0d9;padding:2px 3px}
-  .schedule-summary small,.customer-detail small,.customer-signatures small{display:block;color:#60756b;font-size:6.5px;margin-bottom:1px}
-  .schedule-summary b,.customer-detail b{font-size:7.5px}
-  h3{font-size:8px;margin:2px 0;color:#123f35}
-  .schedule-left table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:7.2px}
-  .schedule-left th,.schedule-left td{border:1px solid #cbd8d0;padding:2px 2.5px;text-align:left;line-height:1.05;height:6.1mm}
-  .schedule-left th{background:#edf5f0;font-size:7px}
-  .schedule-status{font-size:6.5px;font-weight:bold}
-  .staff-sign-cell{height:6.1mm}.staff-sign-line{display:block;width:100%;height:4mm;border-bottom:1px solid #52665c}
-  .schedule-note{font-size:5.5px;color:#53665d;margin-top:2px}
-  .schedule-right h2{font-size:10px;color:#123f35;border-bottom:1px solid #123f35;padding-bottom:2mm;margin:0 0 2mm}
-  .customer-detail{padding:2.1mm 1mm;border-bottom:1px solid #e1e8e3;min-height:8mm}
-  .customer-detail b{overflow-wrap:anywhere}
-  .customer-signatures{margin-top:3mm;border-top:1px solid #aabbb1;padding-top:2mm}
-  .customer-signatures div{margin:2.5mm 0 3mm}
-  .customer-signatures span{display:block;height:8mm;border-bottom:1px solid #52665c;width:85%}
-  .customer-signatures b{font-size:7px}
-  .schedule-generated{font-size:6px;text-align:right;margin-top:2mm;color:#53665d}
-  </style></head><body>${area.outerHTML}</body></html>`);
-  w.document.close();w.focus();w.print();
+  openAjsfPrint("AJSF Repayment Schedule", area.outerHTML, `
+    @page{size:A4 landscape;margin:5mm}
+    body{padding:0;font-size:8pt}
+    .schedule-print-sheet{display:grid;grid-template-columns:55% 45%;grid-template-rows:17mm 1fr;width:100%;min-height:198mm;border:1px solid #243c33;position:relative;overflow:hidden}
+    .schedule-brand-center{grid-column:1/3;grid-row:1;display:flex;justify-content:center;align-items:center;text-align:center;gap:3mm;border-bottom:1px solid #123f35;padding:1mm}
+    .schedule-brand img{width:14mm;height:14mm;max-width:14mm;max-height:14mm;object-fit:contain}
+    .schedule-brand h2{font-size:13px;margin:0;color:#123f35}.schedule-brand p{font-size:7px;margin:1px 0 2px;font-weight:bold;letter-spacing:1px}.schedule-brand strong{font-size:8px}
+    .schedule-left{grid-column:1;grid-row:2;padding:2mm 4mm 2mm 2.5mm;border-right:1px dashed #536b60;min-width:0}
+    .schedule-right{grid-column:2;grid-row:2;padding:3mm 3mm 2mm 5mm;min-width:0}
+    .schedule-summary{display:grid;grid-template-columns:repeat(2,1fr);gap:2px;padding:2px 0 3px}
+    .schedule-summary span{border:1px solid #d5e0d9;padding:2px 3px}
+    .schedule-summary small,.customer-detail small,.customer-signatures small{display:block;font-size:7px;margin-bottom:1px}
+    .schedule-summary b,.customer-detail b{font-size:8px}
+    .schedule-left table{width:100%;table-layout:fixed;font-size:8px}
+    .schedule-left th,.schedule-left td{padding:1px 2px;line-height:1;height:4.8mm}
+    .schedule-left th{font-size:7px}
+    .schedule-status{font-size:6.5px;font-weight:bold}
+    .staff-sign-cell{height:4.8mm}.staff-sign-line{display:block;width:100%;height:2.8mm;border-bottom:1px solid #52665c}
+    .schedule-note{font-size:5.5px;margin-top:1px}
+    .schedule-print-sheet{min-height:0;height:198mm;max-height:198mm;break-inside:avoid;page-break-inside:avoid}
+    .schedule-summary{padding:1px 0 2px}
+    .schedule-left h3{margin:1px 0;font-size:7.5px}
+    .schedule-right{padding-top:2mm}
+    .customer-detail{padding:1.5mm 1mm;min-height:6.5mm}
+    .customer-signatures{margin-top:2mm;padding-top:1mm}
+    .customer-signatures div{margin:1.5mm 0 2mm}
+    .customer-signatures span{height:5mm}
+    .schedule-right h2{font-size:10px;border-bottom:1px solid #123f35;padding-bottom:2mm;margin:0 0 2mm}
+    .customer-detail{padding:2.1mm 1mm;border-bottom:1px solid #e1e8e3;min-height:8mm}
+    .customer-detail b{overflow-wrap:anywhere}
+    .customer-signatures{margin-top:3mm;border-top:1px solid #aabbb1;padding-top:2mm}
+    .customer-signatures div{margin:2.5mm 0 3mm}
+    .customer-signatures span{display:block;height:8mm;border-bottom:1px solid #52665c;width:85%}
+    .customer-signatures b{font-size:8px}
+    .schedule-generated{font-size:7px;text-align:right;margin-top:2mm}
+  `);
 }
 
 function filterLedgerCustomers() {
@@ -299,31 +552,39 @@ function filterLedgerCustomers() {
   const current = select.value;
   select.innerHTML = `<option value="">ग्राहक चुनें</option>` + customers
     .filter(c => !q || [c.customer_code,c.full_name,c.contact_number,c.center_name].some(v => String(v || "").toLocaleLowerCase().includes(q)))
-    .map(c => `<option value="${esc(c.id)}">${esc(c.customer_code || "")} · ${esc(c.full_name || "")} · ${esc(c.contact_number || "")}</option>`).join("");
+    .map(c => `<option value="${esc(c.id)}">${esc(c.customer_code || "")} · ${esc(c.full_name || "")} · ${esc(phone(c.contact_number))}</option>`).join("");
   if (Array.from(select.options).some(o => o.value === current)) select.value = current;
 }
 function printCustomerLedger() {
   if (!$("ledgerCustomer").value) return showMessage("पहले ग्राहक खोजकर चुनें।", "warn");
   const area = $("ledgerPrintArea");
   if (!area) return showMessage("पहले Ledger लोड होने दें।", "warn");
-  const w = window.open("", "_blank");
-  if (!w) return showMessage("Print popup block है। Browser में pop-ups allow करें।", "warn");
-  w.document.write(`<!doctype html><html><head><title>AJSF Customer Ledger</title><style>
-  @page{size:A4 portrait;margin:12mm}body{font-family:Arial,sans-serif;color:#172923;font-size:11px}
-  .ledger-print-brand{display:flex;align-items:center;justify-content:center;gap:14px;border-bottom:2px solid #123f35;padding-bottom:10px;text-align:left}
-  .ledger-print-brand img{display:block!important;width:72px!important;height:72px!important;max-width:72px!important;max-height:72px!important;min-width:72px!important;min-height:72px!important;flex:0 0 72px!important;object-fit:contain!important}.ledger-print-brand h2{font-size:17px;margin:0;color:#123f35}.ledger-print-brand p{font-size:9px;margin:3px 0 8px}.ledger-print-brand strong{font-size:12px}
-  .ledger-print-customer,.ledger-print-totals{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:12px 0}.ledger-print-customer small,.ledger-print-totals small{display:block;color:#60756b;font-size:9px;margin-bottom:3px}.ledger-print-customer b,.ledger-print-totals b{font-size:11px}
-  .ledger-print-totals{background:#edf5f0;padding:10px;border-radius:6px}h3{font-size:12px;margin:14px 0 6px;color:#123f35}
-  table{width:100%;border-collapse:collapse;font-size:9px;margin:7px 0 12px}th,td{border:1px solid #cbd8d0;padding:6px;text-align:left}th{background:#edf5f0}
-  .ledger-generated{text-align:right;font-size:9px;margin-top:14px}
-  </style></head><body>${area.innerHTML}</body></html>`);
-  w.document.close();w.focus();w.print();
+  openAjsfPrint("AJSF Customer Ledger", area.innerHTML, `
+    @page{size:A4 landscape;margin:9mm}
+    body{font-size:9pt}
+    .ledger-print-brand{display:flex;align-items:center;justify-content:center;gap:12px;border-bottom:2px solid #123f35;padding-bottom:8px;text-align:left}
+    .ledger-print-brand img{display:block!important;width:18mm!important;height:18mm!important;max-width:18mm!important;max-height:18mm!important;min-width:18mm!important;min-height:18mm!important;flex:0 0 18mm!important;object-fit:contain!important}
+    .ledger-print-brand h2{font-size:15pt;margin:0;color:#123f35}.ledger-print-brand p{font-size:8pt;margin:2px 0 5px}.ledger-print-brand strong{font-size:10pt}
+    .ledger-print-customer{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:9px 0}
+    .ledger-print-totals{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:9px;background:#edf5f0}
+    .ledger-print-customer small,.ledger-print-totals small{display:block;font-size:8pt;margin-bottom:2px}
+    .ledger-print-customer b,.ledger-print-totals b{font-size:9pt}
+    h3{font-size:10pt;margin:10px 0 4px;color:#123f35}
+    table{width:100%;border-collapse:collapse;font-size:8pt;margin:5px 0 9px}
+    th,td{border:1px solid #cbd8d0;padding:5px;text-align:left}th{background:#edf5f0}
+    .ledger-generated{text-align:right;font-size:8pt;margin-top:8px}
+  `);
 }
 
 function filterCustomerRows() {
   const q = ($("customerFilter")?.value || "").trim().toLocaleLowerCase();
+  const center = ($("customerCenterFilter")?.value || "").trim().toLocaleLowerCase();
+  const day = ($("customerDayFilter")?.value || "").trim().toLocaleLowerCase();
   document.querySelectorAll("#customerRows tr").forEach(row => {
-    row.hidden = !!q && !row.textContent.toLocaleLowerCase().includes(q);
+    const matchesText = !q || row.textContent.toLocaleLowerCase().includes(q);
+    const matchesCenter = !center || (row.dataset.center || "").toLocaleLowerCase() === center;
+    const matchesDay = !day || (row.dataset.day || "").toLocaleLowerCase() === day;
+    row.hidden = !(matchesText && matchesCenter && matchesDay);
   });
 }
 function filterStatementCustomers() {
@@ -333,7 +594,7 @@ function filterStatementCustomers() {
   const current = select.value;
   select.innerHTML = `<option value="">ग्राहक चुनें</option>` + customers
     .filter(c => !q || [c.customer_code,c.full_name,c.contact_number,c.center_name].some(v => String(v || "").toLocaleLowerCase().includes(q)))
-    .map(c => `<option value="${esc(c.id)}">${esc(c.customer_code)} · ${esc(c.full_name)} · ${esc(c.contact_number || "")}</option>`).join("");
+    .map(c => `<option value="${esc(c.id)}">${esc(c.customer_code)} · ${esc(c.full_name)} · ${esc(phone(c.contact_number))}</option>`).join("");
   if (customers.some(c => c.id === current) && Array.from(select.options).some(o => o.value === current)) select.value = current;
 }
 function renderCustomerStatement() {
@@ -359,7 +620,7 @@ function renderCustomerStatement() {
   root.innerHTML = `<div id="statementPrintArea">
     <div class="statement-brand"><img src="./assets/ajsf-logo.png" alt="AJSF Logo" width="72" height="72" style="width:72px;height:72px;max-width:72px;max-height:72px;object-fit:contain;flex:0 0 72px"><div><h1>ARK JAN SAMRIDDHI FOUNDATION</h1><p>SAPNE AAPKE SATH HAMARA</p></div></div>
     <h2 class="statement-title">CUSTOMER LOAN STATEMENT / ग्राहक ऋण विवरण</h2>
-    <div class="statement-customer"><div><small>Customer ID</small><b>${esc(customer?.customer_code)}</b></div><div><small>Customer Name</small><b>${esc(customer?.full_name)}</b></div><div><small>Center</small><b>${esc(customer?.center_name || "—")}</b></div><div><small>Mobile</small><b>${esc(customer?.contact_number || "—")}</b></div><div><small>Collection Day</small><b>${esc(customer?.collection_day || "—")}</b></div></div>
+    <div class="statement-customer"><div><small>Customer ID</small><b>${esc(customer?.customer_code)}</b></div><div><small>Customer Name</small><b>${esc(customer?.full_name)}</b></div><div><small>Center</small><b>${esc(customer?.center_name || "—")}</b></div><div><small>Mobile</small><b>${esc(phone(customer?.contact_number) || "—")}</b></div><div><small>Collection Day</small><b>${esc(customer?.collection_day || "—")}</b></div></div>
     <div class="statement-totals"><div><small>Total Loan Amount</small><b>${money(totalLoan)}</b></div><div><small>Total Collected</small><b>${money(totalCollected)}</b></div><div><small>Outstanding (OSP)</small><b>${money(totalOutstanding)}</b></div></div>
     <h3>Loan Details</h3><div class="tablewrap"><table><thead><tr><th>Loan Ref</th><th>Disbursement</th><th>Loan Amount</th><th>Weekly EMI</th><th>Terms</th><th>Total Collected</th><th>Outstanding</th><th>Status</th></tr></thead><tbody>${loanRows}</tbody></table></div>
     <h3>Payment History</h3><div class="tablewrap"><table><thead><tr><th>Payment Date</th><th>Receipt No.</th><th>Loan Ref</th><th>Mode</th><th>Amount</th><th>Remarks</th></tr></thead><tbody>${paymentRows}</tbody></table></div>
@@ -370,7 +631,25 @@ function renderCustomerStatement() {
 function printCustomerStatement() {
   if (!$("statementCustomer").value) return showMessage("पहले ग्राहक चुनें।", "warn");
   renderCustomerStatement();
-  window.print();
+  const area = $("statementPrintArea");
+  if (!area) return showMessage("Statement तैयार नहीं हुआ।","warn");
+  openAjsfPrint("AJSF Customer Loan Statement", area.outerHTML, `
+    @page{size:A4 landscape;margin:8mm}
+    body{font-size:8pt}
+    .statement-brand{display:flex;align-items:center;justify-content:center;gap:10px;border-bottom:2px solid #123f35;padding-bottom:7px}
+    .statement-brand img{width:17mm!important;height:17mm!important;max-width:17mm!important;max-height:17mm!important;flex:0 0 17mm!important}
+    .statement-brand h1{font-size:14pt;margin:0}.statement-brand p{font-size:8pt;margin:2px 0}
+    .statement-title{text-align:center;font-size:12pt;margin:8px 0}
+    .statement-customer{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;padding:7px 0}
+    .statement-totals{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:8px;background:#edf5f0}
+    .statement-customer small,.statement-totals small{display:block;font-size:7pt;margin-bottom:2px}
+    .statement-customer b,.statement-totals b{font-size:8pt}
+    h3{font-size:9pt;margin:9px 0 4px}
+    table{width:100%;border-collapse:collapse;font-size:7.5pt;margin:4px 0 8px}
+    th,td{border:1px solid #cbd8d0;padding:4px;text-align:left;white-space:normal}
+    .statement-generated{text-align:right;font-size:7pt;margin-top:8px}
+    .statement-note{font-size:6.5pt;margin-top:6px}
+  `);
 }
 
 async function submitCustomer(event) {
@@ -380,7 +659,7 @@ async function submitCustomer(event) {
   const d = Object.fromEntries(new FormData(form));
   const row = {
     customer_code: d.customer_code.trim(), full_name: d.full_name.trim(),
-    center_name: d.center_name || null, contact_number: d.contact_number || null,
+    center_name: d.center_name || null, contact_number: phone(d.contact_number) || null,
     area: d.area || null, address: d.address || null, collection_day: d.collection_day,
     assigned_collector: d.assigned_collector || currentUser.id,
     created_by: currentUser.id, customer_status: "ACTIVE", recovery_status: "NOT_REQUIRED", is_active: true
@@ -417,10 +696,10 @@ function showReceipt(payment, customer, loan) {
       <div><small>Loan Reference</small><b>${esc(loan.loan_reference)}</b></div>
       <div><small>Payment Mode</small><b>${esc(payment.payment_mode.toUpperCase().replace("_", " "))}</b></div>
     </div>
-    <div class="receipt-amount"><small>Amount Received / प्राप्त राशि</small><strong>${money(payment.amount)}</strong></div>
+    <div class="receipt-amount"><small>Amount Received / प्राप्त राशि</small><strong>${money(payment.amount)}</strong><div class="receipt-amount-words"><b>In Words:</b> ${esc(amountInWords(payment.amount))}<br><b>शब्दों में:</b> ${esc(amountInWords(payment.amount,true))}</div></div>
     <p class="receipt-remarks">Remarks: ${esc(payment.remarks || "—")}</p>
     <div class="receipt-footer"><span>Customer Signature</span><span>Authorized Collector</span></div>
-    <p class="receipt-note">यह कंप्यूटर जनरेटेड रसीद है। भुगतान रिकॉर्ड AJSF ONLINE में सेव है।</p>`;
+    <p class="receipt-note">${payment.offline_pending ? "यह Offline Entry है। इंटरनेट आने पर भुगतान AJSF ONLINE में Sync होगा।" : "यह कंप्यूटर जनरेटेड रसीद है। भुगतान रिकॉर्ड AJSF ONLINE में सेव है।"}</p>`;
   $("receiptPanel").classList.remove("hidden");
   $("receiptPanel").scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -436,7 +715,6 @@ async function submitPayment(event) {
   if (!d.payment_date) return showMessage("भुगतान की तारीख चुनें।", "warn");
   const paidAt = new Date(`${d.payment_date}T12:00:00`).toISOString();
   const row = {
-    client_tx_id: crypto.randomUUID(),
     loan_id: loan.id,
     customer_id: customer.id,
     amount,
@@ -445,16 +723,58 @@ async function submitPayment(event) {
     collector_id: currentUser.id,
     remarks: d.remarks?.trim() || null
   };
+  row.client_tx_id = crypto.randomUUID();
   setBusy(btn, true, "भुगतान सेव हो रहा है…");
-  const { data, error } = await supabase.from("payments").insert(row).select("id, client_tx_id, customer_id, loan_id, collector_id, amount, paid_at, payment_mode, remarks").single();
+  if (!navigator.onLine) {
+    try {
+      await queuePayment({client_tx_id:row.client_tx_id, collector_id:currentUser.id, payload:row, queued_at:new Date().toISOString()});
+      const queued = {...row, id:null, offline_pending:true};
+      payments.unshift(queued);
+      renderData();
+      form.reset(); $("paymentDate").value = localDateValue(); refreshLoanOptions();
+      showReceipt(queued, customer, loan);
+      await refreshConnectionStatus();
+      setBusy(btn, false);
+      return showMessage("भुगतान इस डिवाइस में सुरक्षित है। इंटरनेट आते ही अपने आप Sync होगा।", "warn");
+    } catch (queueError) {
+      setBusy(btn, false);
+      return showMessage("Offline भुगतान सुरक्षित नहीं हो पाया: " + queueError.message, "error");
+    }
+  }
+  let { data, error } = await supabase.from("payments").insert(row)
+    .select("id, client_tx_id, customer_id, loan_id, collector_id, amount, paid_at, payment_mode, remarks").single();
+  if (error) {
+    // A previous request may have reached the database even if the browser lost its response.
+    const existing = await supabase.from("payments")
+      .select("id, client_tx_id, customer_id, loan_id, collector_id, amount, paid_at, payment_mode, remarks")
+      .eq("client_tx_id", row.client_tx_id).maybeSingle();
+    if (!existing.error && existing.data) { data = existing.data; error = null; }
+  }
   setBusy(btn, false);
-  if (error) return showMessage("भुगतान सेव नहीं हुआ: " + error.message, "error");
+  if (error && (!navigator.onLine || /failed to fetch|network|load failed|fetch failed/i.test(error.message || ""))) {
+    try {
+      await queuePayment({client_tx_id:row.client_tx_id, collector_id:currentUser.id, payload:row, queued_at:new Date().toISOString()});
+      const queued = {...row, id:null, offline_pending:true};
+      payments.unshift(queued); renderData(); form.reset(); $("paymentDate").value = localDateValue(); refreshLoanOptions();
+      showReceipt(queued, customer, loan); await refreshConnectionStatus(); setBusy(btn, false);
+      return showMessage("Network नहीं मिला। भुगतान इस डिवाइस में सुरक्षित है और इंटरनेट आते ही Sync होगा।", "warn");
+    } catch (queueError) {
+      setBusy(btn, false);
+      return showMessage("भुगतान सेव नहीं हुआ और Offline Backup भी नहीं बन पाया: " + queueError.message, "error");
+    }
+  }
+  if (error) {
+    setBusy(btn, false);
+    return showMessage("भुगतान सेव नहीं हुआ: " + error.message, "error");
+  }
+  payments = payments.filter(p => p.client_tx_id !== data.client_tx_id);
   payments.unshift(data);
   renderData();
   form.reset();
   $("paymentDate").value = localDateValue();
   refreshLoanOptions();
   showReceipt(data, customer, loan);
+  await refreshConnectionStatus();
   showMessage("भुगतान सफलतापूर्वक सेव हुआ। रसीद नीचे उपलब्ध है।", "success");
 }
 function localDateValue() {
@@ -464,7 +784,26 @@ function localDateValue() {
 }
 function printReceipt() {
   if (!lastReceipt) return showMessage("पहले भुगतान सेव करें।", "warn");
-  window.print();
+  const area = $("receiptContent");
+  if (!area || !area.innerHTML.trim()) return showMessage("पहले Payment Receipt तैयार होने दें।","warn");
+  openAjsfPrint("AJSF Payment Receipt", area.innerHTML, `
+    @page{size:A5 portrait;margin:6mm}
+    body{padding:0;font-size:8pt;line-height:1.2}
+    .receipt{width:100%;max-width:none;margin:0;padding:3mm;border:1px solid #9aa9a0;border-radius:0}
+    .receipt-brand{display:flex;align-items:center;gap:2mm;border-bottom:1px solid #123f35;padding-bottom:1.5mm}
+    .receipt-brand img.receipt-logo{display:block!important;width:12mm!important;height:12mm!important;min-width:12mm!important;min-height:12mm!important;max-width:12mm!important;max-height:12mm!important;flex:0 0 12mm!important;object-fit:contain!important}
+    .receipt-brand h2{font-size:10pt;margin:0}.receipt-brand p{font-size:6pt;letter-spacing:.3px;margin:1px 0}
+    .receipt-title{text-align:center;font-size:9pt;font-weight:800;margin:2mm 0;color:#123f35}
+    .receipt-meta{display:flex;justify-content:space-between;gap:2mm;font-size:7pt;margin-bottom:2mm;padding-bottom:1.5mm;border-bottom:1px solid #dce5df}
+    .receipt-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.5mm 3mm;border-top:0;border-bottom:1px solid #dce5df;padding:1.5mm 0}
+    .receipt-grid div{display:grid;gap:.3mm}.receipt-grid small{font-size:6pt;color:#60756b}.receipt-grid b{font-size:7pt;overflow-wrap:anywhere}
+    .receipt-amount{display:grid;grid-template-columns:1fr auto;align-items:center;gap:1mm 3mm;margin:2mm 0;padding:1.5mm 2mm;background:#edf5f0}
+    .receipt-amount small{font-size:7pt}.receipt-amount strong{font-size:13pt;color:#123f35}.receipt-amount-words{grid-column:1/-1;font-size:6.5pt;line-height:1.35;overflow-wrap:anywhere}.receipt-amount-words b{color:#23483c}
+    .receipt-remarks{font-size:7pt;margin:1mm 0}
+    .receipt-footer{display:flex;justify-content:space-between;gap:8mm;margin:6mm 0 2mm;font-size:6pt}
+    .receipt-footer span{border-top:1px solid #687a72;padding-top:1mm;min-width:30mm;text-align:center}
+    .receipt-note{text-align:center;font-size:5.5pt;color:#68756b;margin-top:1mm}
+  `);
 }
 
 async function logout() {
@@ -480,6 +819,9 @@ async function boot() {
     $("loginBtn").disabled = true; return;
   }
   supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("./service-worker.js").catch(err => console.warn("AJSF offline app setup failed", err));
+  window.addEventListener("online", () => { updateConnectionStatus(); syncQueuedPayments(); });
+  window.addEventListener("offline", () => updateConnectionStatus());
   $("loginForm").addEventListener("submit", async event => {
     event.preventDefault(); showMessage("");
     const btn = $("loginBtn"); setBusy(btn, true, "लॉगिन हो रहा है…");
@@ -508,6 +850,14 @@ async function boot() {
   });
   $("logoutBtn").addEventListener("click", logout);
   $("payCustomer").addEventListener("change", refreshLoanOptions);
+  $("reminderCustomer").addEventListener("change", updateReminderLoanOptions);
+  $("reminderLoan").addEventListener("change", buildReminderMessage);
+  $("sendWhatsAppReminder").addEventListener("click", () => openReminder("whatsapp"));
+  $("sendSmsReminder").addEventListener("click", () => openReminder("sms"));
+  $("loanCustomerFilter").addEventListener("change", renderData);
+  $("misStatusFilter")?.addEventListener("change", renderCustomerMIS);
+  $("misSearch")?.addEventListener("input", renderCustomerMIS);
+  $("customerMisRows")?.addEventListener("click", event => { const btn = event.target.closest(".mis-save"); if (btn) saveCustomerMISRow(btn.closest("tr")); });
   $("ledgerCustomer").addEventListener("change", loadCustomerLedger);
   $("ledgerSearch").addEventListener("input", filterLedgerCustomers);
   $("printLedgerBtn").addEventListener("click", printCustomerLedger);
@@ -516,6 +866,8 @@ async function boot() {
   $("scheduleLoan").addEventListener("change", renderRepaymentSchedule);
   $("printScheduleBtn").addEventListener("click", printRepaymentSchedule);
   $("customerFilter").addEventListener("input", filterCustomerRows);
+  $("customerCenterFilter").addEventListener("change", filterCustomerRows);
+  $("customerDayFilter").addEventListener("change", filterCustomerRows);
   $("statementSearch").addEventListener("input", filterStatementCustomers);
   $("statementCustomer").addEventListener("change", renderCustomerStatement);
   $("printStatementBtn").addEventListener("click", printCustomerStatement);
