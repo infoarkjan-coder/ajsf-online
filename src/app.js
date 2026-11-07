@@ -133,7 +133,14 @@ function renderData() {
     centerFilter.innerHTML = "<option value=\"\">सभी Center / House</option>" + centers.map(name => "<option value=\"" + esc(name) + "\">" + esc(name) + "</option>").join("");
     if (centers.includes(selectedCenter)) centerFilter.value = selectedCenter;
   }
-  $("loanRows").innerHTML = loans.map(l => {
+  const loanFilter = $("loanCustomerFilter");
+  if (loanFilter) {
+    const selectedLoanCustomer = loanFilter.value;
+    loanFilter.innerHTML = '<option value="">सभी ग्राहक</option>' + customers.map(c => `<option value="${esc(c.id)}">${esc(c.customer_code || "")} · ${esc(c.full_name || "")}</option>`).join("");
+    if (customers.some(c => c.id === selectedLoanCustomer)) loanFilter.value = selectedLoanCustomer;
+  }
+  const loanCustomerId = loanFilter?.value || "";
+  $("loanRows").innerHTML = loans.filter(l => !loanCustomerId || l.customer_id === loanCustomerId).map(l => {
     const c = customers.find(x => x.id === l.customer_id);
     const f = loanFigures(l, totalsByLoan);
     return `<tr><td>${esc(l.loan_reference)}</td><td>${esc(c?.full_name || l.customer_id)}</td><td>${esc(l.loan_type)}</td><td>${money(l.loan_amount)}</td><td>${money(l.emi_amount)}</td><td>${esc(l.total_emis_required)}</td><td>${money(f.collected)}</td><td>${money(f.outstanding)}</td><td>${esc(l.status)}</td></tr>`;
@@ -614,6 +621,7 @@ async function boot() {
   });
   $("logoutBtn").addEventListener("click", logout);
   $("payCustomer").addEventListener("change", refreshLoanOptions);
+  $("loanCustomerFilter").addEventListener("change", renderData);
   $("ledgerCustomer").addEventListener("change", loadCustomerLedger);
   $("ledgerSearch").addEventListener("input", filterLedgerCustomers);
   $("printLedgerBtn").addEventListener("click", printCustomerLedger);
