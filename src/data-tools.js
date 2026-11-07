@@ -117,7 +117,7 @@ async function loadCollectors(select) {
   select.innerHTML = '<option value="">स्वयं / Unassigned</option>' +
     (data || []).filter(p => p.role === "collector").map(p =>
       `<option value="${p.id}">${escapeHtml(p.full_name)} · ${escapeHtml(p.staff_code || "")}</option>`).join("");
-  if (activeRole === "collector" && activeUser) select.value = activeUser.id;
+  if (activeRole === "collector" && activeUser) select.value = activeUser.id;\n  else if (activeRole === "admin" && data?.length) select.value = data.filter(p=>p.role==="collector")[0]?.id || "";
 }
 function escapeHtml(v) {
   return String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -201,7 +201,7 @@ async function importCustomers(event) {
         status_changed_at:status==="ACTIVE"?null:date,
         status_reason:status==="ACTIVE"?null:reason,
         status_notes:cell(r,"Notes","status_notes") || null,
-        is_active:status==="ACTIVE", assigned_collector:activeUser.id, created_by:activeUser.id
+        is_active:status==="ACTIVE", assigned_collector:$("customerCollectorSelect")?.value || activeUser.id, created_by:activeUser.id
       });
     });
     if (!payload.length) return say("कोई नया रिकॉर्ड Import योग्य नहीं। " + problems.slice(0,4).join(" | "), "warn");
