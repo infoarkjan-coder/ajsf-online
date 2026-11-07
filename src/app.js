@@ -6,6 +6,74 @@ const money = (n) => "₹" + Number(n || 0).toLocaleString("en-IN");
 const phone = (v) => { const s = String(v ?? "").trim(); return /^\d+\.0+$/.test(s) ? s.replace(/\.0+$/, "") : s; };
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 let supabase, currentUser, profile, customers = [], loans = [], payments = [], lastReceipt = null;
+let offlineDbPromise;
+function offlineDb() {
+  if (!("indexedDB" in window)) return Promise.reject(new Error("इस browser में offline storage उपलब्ध नहीं है।"));
+  if (!offlineDbPromise) offlineDbPromise = new Promise((resolve, reject) => {
+    const request = indexedDB.open("ajsf-offline-v1", 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains("snapshots")) db.createObjectStore("snapshots", {keyPath:"key"});
+      if (!db.objectStoreNames.contains("paymentQueue")) db.createObjectStore("paymentQueue", {keyPath:"client_tx_id"});
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+  return offlineDbPromise;
+}
+async function offlineStore(store, mode, action) {
+  const db = await offlineDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, mode);
+    const req = action(tx.objectStore(store));
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+const cacheSnapshot = (key, value) => offlineStore("snapshots", "readwrite", store => store.put({key, value, saved_at:new Date().toISOString()}));
+const readSnapshot = key => offlineStore("snapshots", "readonly", store => store.get(key));
+const queuePayment = row => offlineStore("paymentQueue", "readwrite", store => store.put(row));
+const readPaymentQueue = () => offlineStore("paymentQueue", "readonly", store => store.getAll());
+const removeQueuedPayment = id => offlineStore("paymentQueue", "readwrite", store => store.delete(id));
+function updateConnectionStatus(message) {
+  const el = $("connectionStatus");
+  if (!el) return;
+  const queued = Number(el.dataset.queued || 0);
+  el.textContent = message || (navigator.onLine ? `इंटरनेट उपलब्ध · Pending Offline Payments: ${queued}` : `Offline Mode · Pending Payments: ${queued}`);
+  el.classList.toggle("offline", !navigator.onLine);
+  el.classList.toggle("online", navigator.onLine);
+}
+async function refreshConnectionStatus() {
+  try {
+    const queue = await readPaymentQueue();
+    const mine = queue.filter(item => item.collector_id === currentUser?.id);
+    const el = $("connectionStatus");
+    if (el) el.dataset.queued = String(mine.length);
+    updateConnectionStatus();
+  } catch { updateConnectionStatus(navigator.onLine ? "इंटरनेट उपलब्ध" : "Offline Mode"); }
+}
+async function syncQueuedPayments() {
+  if (!navigator.onLine || !currentUser) return;
+  let queue;
+  try { queue = await readPaymentQueue(); } catch { return; }
+  for (const item of queue.filter(p => p.collector_id === currentUser.id)) {
+    let { data, error } = await supabase.from("payments").insert(item.payload)
+      .select("id, client_tx_id, customer_id, loan_id, collector_id, amount, paid_at, payment_mode, remarks").single();
+    if (error) {
+      const existing = await supabase.from("payments")
+        .select("id, client_tx_id, customer_id, loan_id, collector_id, amount, paid_at, payment_mode, remarks")
+        .eq("client_tx_id", item.client_tx_id).maybeSingle();
+      if (!existing.error && existing.data) { data = existing.data; error = null; }
+    }
+    if (error) continue;
+    await removeQueuedPayment(item.client_tx_id);
+    payments = payments.filter(p => p.client_tx_id !== item.client_tx_id);
+    payments.unshift(data);
+  }
+  renderData();
+  await refreshConnectionStatus();
+}
+
 const paymentsByLoan = () => payments.filter(p => !p.is_reversal).reduce((m, p) => { const k = p.loan_id; if (k) m[k] = (m[k] || 0) + Number(p.amount || 0); return m; }, {});
 function loanFigures(loan, paymentTotals) {
   const newPaid = paymentTotals[loan.id] || 0;
@@ -96,8 +164,18 @@ async function loadAll() {
     customerQuery,
     supabase.from("loans").select("id, loan_reference, customer_id, loan_type, disbursement_date, loan_amount, emi_amount, total_emis_required, status, source_total_collected, source_osp, source_emis_paid, source_emis_pending").order("created_at", {ascending:false})
   ]);
-  if (c.error) throw new Error("Customer API (" + c.error.code + "): " + c.error.message);
-  if (l.error) throw new Error("Loan API (" + l.error.code + "): " + l.error.message);
+  if (c.error || l.error) {
+    const cached = await readSnapshot(`user:${currentUser.id}`);
+    if (!cached?.value) throw new Error("डेटा ऑनलाइन लोड नहीं हुआ और इस डिवाइस पर Offline Backup भी नहीं मिला।");
+    customers = cached.value.customers || [];
+    loans = cached.value.loans || [];
+    payments = cached.value.payments || [];
+    renderData();
+    await syncQueuedPayments();
+    await refreshConnectionStatus();
+    showMessage("Offline डेटा खुल गया। इंटरनेट आने पर Pending Payments अपने आप Sync होंगे।", "warn");
+    return;
+  }
   customers = c.data || []; loans = l.data || [];
   payments = [];
   for (let start = 0; ; start += 1000) {
@@ -106,7 +184,10 @@ async function loadAll() {
     payments.push(...(data || []));
     if (!data || data.length < 1000) break;
   }
+  try { await cacheSnapshot(`user:${currentUser.id}`, {customers, loans, payments}); } catch (cacheError) { console.warn("Offline cache unavailable", cacheError); }
   renderData();
+  await syncQueuedPayments();
+  await refreshConnectionStatus();
   showMessage("डेटा सफलतापूर्वक लोड हुआ। जमा राशि में आयातित पुरानी वसूली और नए भुगतान शामिल हैं; बकाया में नए भुगतान घटाए गए हैं।", "success");
 }
 
@@ -520,16 +601,24 @@ async function submitPayment(event) {
     collector_id: currentUser.id,
     remarks: d.remarks?.trim() || null
   };
-  const storageKey = `ajsf.pending-payment.${currentUser.id}`;
-  const fingerprint = JSON.stringify(row);
-  let pending = null;
-  try { pending = JSON.parse(localStorage.getItem(storageKey) || "null"); } catch {}
-  if (!pending || pending.fingerprint !== fingerprint || !pending.client_tx_id) {
-    pending = { fingerprint, client_tx_id: crypto.randomUUID() };
-    try { localStorage.setItem(storageKey, JSON.stringify(pending)); } catch {}
-  }
-  row.client_tx_id = pending.client_tx_id;
+  row.client_tx_id = crypto.randomUUID();
   setBusy(btn, true, "भुगतान सेव हो रहा है…");
+  if (!navigator.onLine) {
+    try {
+      await queuePayment({client_tx_id:row.client_tx_id, collector_id:currentUser.id, payload:row, queued_at:new Date().toISOString()});
+      const queued = {...row, id:null, offline_pending:true};
+      payments.unshift(queued);
+      renderData();
+      form.reset(); $("paymentDate").value = localDateValue(); refreshLoanOptions();
+      showReceipt(queued, customer, loan);
+      await refreshConnectionStatus();
+      setBusy(btn, false);
+      return showMessage("भुगतान इस डिवाइस में सुरक्षित है। इंटरनेट आते ही अपने आप Sync होगा।", "warn");
+    } catch (queueError) {
+      setBusy(btn, false);
+      return showMessage("Offline भुगतान सुरक्षित नहीं हो पाया: " + queueError.message, "error");
+    }
+  }
   let { data, error } = await supabase.from("payments").insert(row)
     .select("id, client_tx_id, customer_id, loan_id, collector_id, amount, paid_at, payment_mode, remarks").single();
   if (error) {
@@ -540,8 +629,10 @@ async function submitPayment(event) {
     if (!existing.error && existing.data) { data = existing.data; error = null; }
   }
   setBusy(btn, false);
-  if (error) return showMessage("भुगतान की पुष्टि नहीं हो सकी: " + error.message + "। उसी फॉर्म विवरण के साथ दोबारा प्रयास करें; duplicate रोकने के लिए वही transaction ID रखी गई है।", "error");
-  try { localStorage.removeItem(storageKey); } catch {}
+  if (error) {
+    setBusy(btn, false);
+    return showMessage("भुगतान सेव नहीं हुआ: " + error.message, "error");
+  }
   payments = payments.filter(p => p.client_tx_id !== data.client_tx_id);
   payments.unshift(data);
   renderData();
@@ -549,6 +640,7 @@ async function submitPayment(event) {
   $("paymentDate").value = localDateValue();
   refreshLoanOptions();
   showReceipt(data, customer, loan);
+  await refreshConnectionStatus();
   showMessage("भुगतान सफलतापूर्वक सेव हुआ। रसीद नीचे उपलब्ध है।", "success");
 }
 function localDateValue() {
@@ -593,6 +685,9 @@ async function boot() {
     $("loginBtn").disabled = true; return;
   }
   supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("./service-worker.js").catch(err => console.warn("AJSF offline app setup failed", err));
+  window.addEventListener("online", () => { updateConnectionStatus(); syncQueuedPayments(); });
+  window.addEventListener("offline", () => updateConnectionStatus());
   $("loginForm").addEventListener("submit", async event => {
     event.preventDefault(); showMessage("");
     const btn = $("loginBtn"); setBusy(btn, true, "लॉगिन हो रहा है…");
