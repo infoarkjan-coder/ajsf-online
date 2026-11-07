@@ -160,16 +160,19 @@ async function loadAll() {
     .select("id, customer_code, full_name, center_name, contact_number, area, address, collection_day, assigned_collector, customer_status, recovery_status, is_active")
     .order("full_name");
   if (!canAdmin()) customerQuery = customerQuery.eq("assigned_collector", currentUser.id);
-  const [c, l] = await Promise.all([
+  let c, l;
+  try { [c, l] = await Promise.all([
     customerQuery,
     supabase.from("loans").select("id, loan_reference, customer_id, loan_type, disbursement_date, loan_amount, emi_amount, total_emis_required, status, source_total_collected, source_osp, source_emis_paid, source_emis_pending").order("created_at", {ascending:false})
-  ]);
+  ]); } catch (networkError) { c = {error:networkError}; l = {error:networkError}; }
   if (c.error || l.error) {
     const cached = await readSnapshot(`user:${currentUser.id}`);
     if (!cached?.value) throw new Error("डेटा ऑनलाइन लोड नहीं हुआ और इस डिवाइस पर Offline Backup भी नहीं मिला।");
     customers = cached.value.customers || [];
     loans = cached.value.loans || [];
     payments = cached.value.payments || [];
+    const pendingOffline = (await readPaymentQueue()).filter(item => item.collector_id === currentUser.id);
+    payments.push(...pendingOffline.map(item => ({...item.payload, id:null, offline_pending:true})));
     renderData();
     await syncQueuedPayments();
     await refreshConnectionStatus();
@@ -629,6 +632,18 @@ async function submitPayment(event) {
     if (!existing.error && existing.data) { data = existing.data; error = null; }
   }
   setBusy(btn, false);
+  if (error && (!navigator.onLine || /failed to fetch|network|load failed|fetch failed/i.test(error.message || ""))) {
+    try {
+      await queuePayment({client_tx_id:row.client_tx_id, collector_id:currentUser.id, payload:row, queued_at:new Date().toISOString()});
+      const queued = {...row, id:null, offline_pending:true};
+      payments.unshift(queued); renderData(); form.reset(); $("paymentDate").value = localDateValue(); refreshLoanOptions();
+      showReceipt(queued, customer, loan); await refreshConnectionStatus(); setBusy(btn, false);
+      return showMessage("Network नहीं मिला। भुगतान इस डिवाइस में सुरक्षित है और इंटरनेट आते ही Sync होगा।", "warn");
+    } catch (queueError) {
+      setBusy(btn, false);
+      return showMessage("भुगतान सेव नहीं हुआ और Offline Backup भी नहीं बन पाया: " + queueError.message, "error");
+    }
+  }
   if (error) {
     setBusy(btn, false);
     return showMessage("भुगतान सेव नहीं हुआ: " + error.message, "error");
