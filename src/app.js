@@ -333,7 +333,7 @@ function openReminder(channel) {
     : `sms:+${digits}?body=${encodeURIComponent(message)}`;
   window.open(url, "_blank", "noopener,noreferrer");
 }
-\nasync function loadCustomerLedger() {
+async function loadCustomerLedger() {
   const customerId = $("ledgerCustomer").value;
   const summary = $("ledgerSummary"), rows = $("ledgerRows");
   if (!customerId) {
