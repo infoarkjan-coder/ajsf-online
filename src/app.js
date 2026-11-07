@@ -3,6 +3,47 @@ import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./config.js";
 
 const $ = (id) => document.getElementById(id);
 const money = (n) => "₹" + Number(n || 0).toLocaleString("en-IN");
+const EN_ONES = ["Zero","One","Two","Three","Four","Five","Six","Seven","Eight","Nine","Ten","Eleven","Twelve","Thirteen","Fourteen","Fifteen","Sixteen","Seventeen","Eighteen","Nineteen"];
+const EN_TENS = ["","","Twenty","Thirty","Forty","Fifty","Sixty","Seventy","Eighty","Ninety"];
+const HI_ONES = ["शून्य","एक","दो","तीन","चार","पाँच","छह","सात","आठ","नौ","दस","ग्यारह","बारह","तेरह","चौदह","पंद्रह","सोलह","सत्रह","अठारह","उन्नीस"];
+const HI_TENS = ["","","बीस","तीस","चालीस","पचास","साठ","सत्तर","अस्सी","नब्बे"];
+function underHundred(n, hindi=false) {
+  const ones = hindi ? HI_ONES : EN_ONES, tens = hindi ? HI_TENS : EN_TENS;
+  if (n < 20) return ones[n];
+  return tens[Math.floor(n/10)] + (n%10 ? (hindi ? " " : " ") + ones[n%10] : "");
+}
+function underThousand(n, hindi=false) {
+  if (n < 100) return underHundred(n,hindi);
+  const hundreds = hindi ? "सौ" : "Hundred";
+  return (hindi ? HI_ONES[numericHundreds(n)] : EN_ONES[Math.floor(n/100)]) + " " + hundreds + (n%100 ? " " + underHundred(n%100,hindi) : "");
+}
+function numericHundreds(n) { return Math.floor(n/100); }
+function indianNumberWords(value, hindi=false) {
+  let n = Math.floor(Math.abs(Number(value)||0));
+  if (!n) return hindi ? "शून्य" : "Zero";
+  const units = hindi ? ["","हजार","लाख","करोड़","अरब","खरब"] : ["","Thousand","Lakh","Crore","Arab","Kharab"];
+  const parts = [];
+  const first = n % 1000; n = Math.floor(n/1000);
+  if (first) parts.unshift(underThousand(first,hindi));
+  let index = 1;
+  while (n > 0 && index < units.length) {
+    const group = n % 100; n = Math.floor(n/100);
+    if (group) parts.unshift(underHundred(group,hindi) + " " + units[index]);
+    index++;
+  }
+  if (n > 0) return hindi ? "राशि बहुत बड़ी है" : "Amount too large";
+  return parts.join(" ").trim();
+}
+function amountInWords(value, hindi=false) {
+  const amount = Math.round((Number(value)||0) * 100) / 100;
+  const rupees = Math.floor(amount);
+  const paise = Math.round((amount - rupees) * 100);
+  const prefix = hindi ? "रुपये" : "Rupees";
+  let result = prefix + " " + indianNumberWords(rupees,hindi);
+  if (paise) result += hindi ? " और " + indianNumberWords(paise,true) + " पैसे" : " and " + indianNumberWords(paise,false) + " Paise";
+  return result + (hindi ? " मात्र" : " Only");
+}
+
 const phone = (v) => { const s = String(v ?? "").trim(); return /^\d+\.0+$/.test(s) ? s.replace(/\.0+$/, "") : s; };
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 let supabase, currentUser, profile, customers = [], loans = [], payments = [], lastReceipt = null;
@@ -578,7 +619,7 @@ function showReceipt(payment, customer, loan) {
       <div><small>Loan Reference</small><b>${esc(loan.loan_reference)}</b></div>
       <div><small>Payment Mode</small><b>${esc(payment.payment_mode.toUpperCase().replace("_", " "))}</b></div>
     </div>
-    <div class="receipt-amount"><small>Amount Received / प्राप्त राशि</small><strong>${money(payment.amount)}</strong></div>
+    <div class="receipt-amount"><small>Amount Received / प्राप्त राशि</small><strong>${money(payment.amount)}</strong><div class="receipt-amount-words"><b>In Words:</b> ${esc(amountInWords(payment.amount))}<br><b>शब्दों में:</b> ${esc(amountInWords(payment.amount,true))}</div></div>
     <p class="receipt-remarks">Remarks: ${esc(payment.remarks || "—")}</p>
     <div class="receipt-footer"><span>Customer Signature</span><span>Authorized Collector</span></div>
     <p class="receipt-note">${payment.offline_pending ? "यह Offline Entry है। इंटरनेट आने पर भुगतान AJSF ONLINE में Sync होगा।" : "यह कंप्यूटर जनरेटेड रसीद है। भुगतान रिकॉर्ड AJSF ONLINE में सेव है।"}</p>`;
