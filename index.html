@@ -1,12 +1,12 @@
 <!doctype html>
 <html lang="hi">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AJSF Online</title><link rel="stylesheet" href="./style.css"></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AJSF Online</title><link rel="manifest" href="./manifest.webmanifest"><meta name="theme-color" content="#123f35"><link rel="stylesheet" href="./style.css"></head>
 <body><main class="shell wide" id="appShell">
 <header class="brand"><img class="brand-logo" src="./assets/ajsf-logo.png" alt="AJSF Logo"><div><h1>ARK JAN SAMRIDDHI FOUNDATION</h1><p>SAPNE AAPKE SATH HAMARA</p></div></header>
 <section class="card" id="loginCard"><span class="eyebrow">SECURE STAFF ACCESS</span><h2>लॉगिन करें</h2><p class="muted">Admin और अधिकृत Collector के लिए</p><form id="loginForm"><label for="email">ईमेल</label><input id="email" type="email" autocomplete="username" required><label for="password">पासवर्ड</label><input id="password" type="password" autocomplete="current-password" required><button id="loginBtn" type="submit">लॉगिन करें</button></form><p id="loginMessage" class="message" role="status"></p><p class="small">अपना पासवर्ड किसी के साथ साझा न करें।</p></section>
 <section class="hidden" id="dashboardCard">
 <div class="dashhead"><div><span class="eyebrow">AJSF ONLINE</span><h2>नमस्ते, <span id="staffName">Staff</span></h2><p class="muted"><span id="staffCode"></span> · <span id="staffRole"></span> — <span id="roleNote"></span></p></div><button class="secondary" id="logoutBtn">लॉगआउट</button></div>
-<p id="dashboardMessage" class="message" role="status"></p>
+<p id="dashboardMessage" class="message" role="status"></p><div id="connectionStatus" class="connection-status" role="status">जाँच हो रही है…</div>
 <div class="grid"><div class="card"><div class="label">कुल ग्राहक</div><div class="metric" id="customersCount">0</div></div><div class="card"><div class="label">कुल लोन</div><div class="metric" id="loansCount">0</div></div><div class="card"><div class="label">कुल जमा राशि</div><div class="metric" id="collectedTotal">₹0</div></div><div class="card"><div class="label">कुल बकाया (OSP)</div><div class="metric" id="outstandingTotal">₹0</div></div><div class="card"><div class="label">आज की वसूली</div><div class="metric" id="todayTotal">₹0</div></div><div class="card"><div class="label">भुगतान रिकॉर्ड</div><div class="metric" id="paymentsCount">0</div></div></div>
 <div class="dashboard-layout">
 <aside class="sidebar"><div class="sidebar-title">AJSF MENU</div><nav class="tabs"><button data-tab="customers" class="active">ग्राहक</button><button data-tab="loans">लोन</button><button data-tab="payment">Payment Entry</button><button data-tab="payments">Payment History</button><button data-tab="ledger">Customer Ledger</button><button data-tab="statement">Loan Statement</button><button data-tab="schedule">Repayment Schedule</button></nav></aside>
