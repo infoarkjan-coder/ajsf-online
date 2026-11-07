@@ -199,7 +199,7 @@ document.addEventListener("click", e => {
 async function loadAll() {
   showMessage("डेटा लोड हो रहा है…");
   let customerQuery = supabase.from("customers")
-    .select("id, customer_code, full_name, center_name, contact_number, area, address, collection_day, assigned_collector, customer_status, recovery_status, is_active")
+    .select("id, customer_code, full_name, center_name, contact_number, area, address, collection_day, assigned_collector, customer_status, recovery_status, status_reason, status_changed_at, status_notes, is_active")
     .order("full_name");
   if (!canAdmin()) customerQuery = customerQuery.eq("assigned_collector", currentUser.id);
   let c, l;
@@ -332,6 +332,36 @@ function openReminder(channel) {
     ? `https://wa.me/${digits}?text=${encodeURIComponent(message)}`
     : `sms:+${digits}?body=${encodeURIComponent(message)}`;
   window.open(url, "_blank", "noopener,noreferrer");
+}
+function renderCustomerMIS() {
+  const body = $("customerMisRows");
+  if (!body) return;
+  const statusFilter = $("misStatusFilter")?.value || "";
+  const term = ($("misSearch")?.value || "").trim().toLowerCase();
+  const rows = customers.filter(c => (!statusFilter || (c.customer_status || "ACTIVE") === statusFilter) &&
+    (!term || [c.customer_code,c.full_name,c.center_name,c.contact_number].some(v => String(v || "").toLowerCase().includes(term))));
+  body.innerHTML = rows.map(c => `<tr data-mis-customer="${esc(c.id)}"><td>${esc(c.customer_code || "—")}</td><td>${esc(c.full_name || "—")}</td><td>${esc(c.center_name || "—")}</td><td>${esc(phone(c.contact_number) || "—")}</td><td><select class="mis-status" ${canAdmin() ? "" : "disabled"}><option value="ACTIVE" ${(c.customer_status || "ACTIVE")==="ACTIVE"?"selected":""}>ACTIVE</option><option value="ABSCONDED" ${c.customer_status==="ABSCONDED"?"selected":""}>ABSCONDED</option><option value="DECEASED" ${c.customer_status==="DECEASED"?"selected":""}>DECEASED</option></select></td><td><input class="mis-date" type="date" value="${esc(c.status_changed_at || "")}" ${canAdmin()?"":"disabled"}></td><td><input class="mis-reason" value="${esc(c.status_reason || "")}" placeholder="जैसे: संपर्क नहीं / मृत्यु" ${canAdmin()?"":"disabled"}></td><td><input class="mis-notes" value="${esc(c.status_notes || "")}" placeholder="विवरण" ${canAdmin()?"":"disabled"}></td><td><button type="button" class="mis-save" ${canAdmin()?"":"disabled"}>सेव</button></td></tr>`).join("") || `<tr><td colspan="9" class="empty">कोई रिकॉर्ड नहीं मिला।</td></tr>`;
+}
+async function saveCustomerMISRow(row) {
+  if (!canAdmin()) return showMessage("यह बदलाव केवल Admin कर सकता है।", "warn");
+  const id = row?.dataset.misCustomer;
+  const customer = customers.find(c => c.id === id);
+  if (!customer) return;
+  const status = row.querySelector(".mis-status").value;
+  const date = row.querySelector(".mis-date").value || null;
+  const reason = row.querySelector(".mis-reason").value.trim() || null;
+  const notes = row.querySelector(".mis-notes").value.trim() || null;
+  if (status !== "ACTIVE" && !date) return showMessage("Absconded / Deceased status के लिए तारीख भरें।", "warn");
+  if (status !== "ACTIVE" && !reason) return showMessage("Status का कारण / विवरण भरें।", "warn");
+  const payload = {customer_status:status, status_changed_at:status==="ACTIVE"?null:date, status_reason:status==="ACTIVE"?null:reason, status_notes:status==="ACTIVE"?null:notes};
+  const btn = row.querySelector(".mis-save");
+  setBusy(btn, true, "सेव…");
+  const {error} = await supabase.from("customers").update(payload).eq("id", id);
+  setBusy(btn, false);
+  if (error) return showMessage("Status सेव नहीं हुआ: " + error.message, "error");
+  Object.assign(customer, payload);
+  renderData();
+  showMessage("Customer MIS status सफलतापूर्वक अपडेट हुआ।", "success");
 }
 async function loadCustomerLedger() {
   const customerId = $("ledgerCustomer").value;
@@ -823,6 +853,9 @@ async function boot() {
   $("sendWhatsAppReminder").addEventListener("click", () => openReminder("whatsapp"));
   $("sendSmsReminder").addEventListener("click", () => openReminder("sms"));
   $("loanCustomerFilter").addEventListener("change", renderData);
+  $("misStatusFilter")?.addEventListener("change", renderCustomerMIS);
+  $("misSearch")?.addEventListener("input", renderCustomerMIS);
+  $("customerMisRows")?.addEventListener("click", event => { const btn = event.target.closest(".mis-save"); if (btn) saveCustomerMISRow(btn.closest("tr")); });
   $("ledgerCustomer").addEventListener("change", loadCustomerLedger);
   $("ledgerSearch").addEventListener("input", filterLedgerCustomers);
   $("printLedgerBtn").addEventListener("click", printCustomerLedger);
