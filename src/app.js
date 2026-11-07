@@ -185,6 +185,8 @@ function renderShell() {
   const collectorOnly = $("collectorOnly");
   if (adminOnly) adminOnly.classList.toggle("hidden", !canAdmin());
   if (collectorOnly) collectorOnly.classList.toggle("hidden", canAdmin());
+  const customerActionHeader = $("customerActionHeader");
+  if (customerActionHeader) customerActionHeader.classList.toggle("hidden", !canAdmin());
 }
 
 function activateTab(tab) {
@@ -252,7 +254,7 @@ function renderData() {
     String(a.center_name || "").localeCompare(String(b.center_name || "")) ||
     String(a.full_name || "").localeCompare(String(b.full_name || ""))
   );
-  $("customerRows").innerHTML = customerRegisterRows.map((c,i) => "<tr data-center=\"" + esc(c.center_name || "") + "\" data-day=\"" + esc(c.collection_day || "") + "\"><td>" + (i+1) + "</td><td>" + esc(c.center_name || "—") + "</td><td>" + esc(c.full_name || "—") + "</td><td>" + esc(phone(c.contact_number) || "—") + "</td><td>" + esc(c.customer_code || "—") + "</td><td>" + esc(c.area || "—") + "</td><td>" + esc(c.address || "—") + "</td><td>" + esc(c.collection_day || "—") + "</td><td>" + esc(c.customer_status || "—") + "</td></tr>").join("") || "<tr><td colspan=\"9\" class=\"empty\">कोई ग्राहक नहीं मिला।</td></tr>";
+  $("customerRows").innerHTML = customerRegisterRows.map((c,i) => "<tr data-center=\"" + esc(c.center_name || "") + "\" data-day=\"" + esc(c.collection_day || "") + "\"><td>" + (i+1) + "</td><td>" + esc(c.center_name || "—") + "</td><td>" + esc(c.full_name || "—") + "</td><td>" + esc(phone(c.contact_number) || "—") + "</td><td>" + esc(c.customer_code || "—") + "</td><td>" + esc(c.area || "—") + "</td><td>" + esc(c.address || "—") + "</td><td>" + esc(c.collection_day || "—") + "</td><td>" + esc(c.customer_status || "—") + "</td><td>" + (canAdmin() ? "<button type=\"button\" class=\"customer-remove secondary\" data-customer-id=\"" + esc(c.id) + "\">हटाएँ</button>" : "—") + "</td></tr>").join("") || "<tr><td colspan=\"10\" class=\"empty\">कोई ग्राहक नहीं मिला।</td></tr>";
   const centerFilter = $("customerCenterFilter");
   if (centerFilter) {
     const selectedCenter = centerFilter.value;
@@ -342,8 +344,26 @@ function renderCustomerMIS() {
   const term = ($("misSearch")?.value || "").trim().toLowerCase();
   const rows = customers.filter(c => (!statusFilter || (c.customer_status || "ACTIVE") === statusFilter) &&
     (!term || [c.customer_code,c.full_name,c.center_name,c.contact_number].some(v => String(v || "").toLowerCase().includes(term))));
-  body.innerHTML = rows.map(c => `<tr data-mis-customer="${esc(c.id)}"><td>${esc(c.customer_code || "—")}</td><td>${esc(c.full_name || "—")}</td><td>${esc(c.center_name || "—")}</td><td>${esc(phone(c.contact_number) || "—")}</td><td><select class="mis-status" ${canAdmin() ? "" : "disabled"}><option value="ACTIVE" ${(c.customer_status || "ACTIVE")==="ACTIVE"?"selected":""}>ACTIVE</option><option value="ABSCONDED" ${c.customer_status==="ABSCONDED"?"selected":""}>ABSCONDED</option><option value="DECEASED" ${c.customer_status==="DECEASED"?"selected":""}>DECEASED</option></select></td><td><input class="mis-date" type="date" value="${esc(c.status_changed_at || "")}" ${canAdmin()?"":"disabled"}></td><td><input class="mis-reason" value="${esc(c.status_reason || "")}" placeholder="जैसे: संपर्क नहीं / मृत्यु" ${canAdmin()?"":"disabled"}></td><td><input class="mis-notes" value="${esc(c.status_notes || "")}" placeholder="विवरण" ${canAdmin()?"":"disabled"}></td><td><button type="button" class="mis-save" ${canAdmin()?"":"disabled"}>सेव</button></td></tr>`).join("") || `<tr><td colspan="9" class="empty">कोई रिकॉर्ड नहीं मिला।</td></tr>`;
+  body.innerHTML = rows.map(c => `<tr data-mis-customer="${esc(c.id)}"><td>${esc(c.customer_code || "—")}</td><td>${esc(c.full_name || "—")}</td><td>${esc(c.center_name || "—")}</td><td>${esc(phone(c.contact_number) || "—")}</td><td><select class="mis-status" ${canAdmin() ? "" : "disabled"}><option value="ACTIVE" ${(c.customer_status || "ACTIVE")==="ACTIVE"?"selected":""}>ACTIVE</option><option value="ABSCONDED" ${c.customer_status==="ABSCONDED"?"selected":""}>ABSCONDED</option><option value="DECEASED" ${c.customer_status==="DECEASED"?"selected":""}>DECEASED</option></select>${c.is_active === false ? '<small class="inactive-flag">INACTIVE</small>' : ""}</td><td><input class="mis-date" type="date" value="${esc(c.status_changed_at || "")}" ${canAdmin()?"":"disabled"}></td><td><input class="mis-reason" value="${esc(c.status_reason || "")}" placeholder="जैसे: संपर्क नहीं / मृत्यु" ${canAdmin()?"":"disabled"}></td><td><input class="mis-notes" value="${esc(c.status_notes || "")}" placeholder="विवरण" ${canAdmin()?"":"disabled"}></td><td><div class="mis-actions"><button type="button" class="mis-save" ${canAdmin()?"":"disabled"}>सेव</button>${canAdmin() ? `<button type="button" class="customer-remove secondary" data-customer-id="${esc(c.id)}">हटाएँ</button>` : ""}</div></td></tr>`).join("") || `<tr><td colspan="9" class="empty">कोई रिकॉर्ड नहीं मिला।</td></tr>`;
 }
+async function removeCustomerRecord(customerId, button) {
+  if (!canAdmin()) return showMessage("ग्राहक हटाने का अधिकार केवल Admin को है।", "warn");
+  if (!navigator.onLine) return showMessage("ग्राहक हटाने के लिए इंटरनेट कनेक्शन आवश्यक है।", "warn");
+  const customer = customers.find(c => c.id === customerId);
+  if (!customer) return showMessage("ग्राहक रिकॉर्ड नहीं मिला। Refresh करके दोबारा प्रयास करें।", "error");
+  const confirmed = window.confirm(`क्या आप ग्राहक ${customer.full_name} (${customer.customer_code}) को हटाना चाहते हैं?\n\nयदि Loan या Payment रिकॉर्ड मौजूद है, तो ग्राहक केवल INACTIVE होगा और पुराना हिसाब सुरक्षित रहेगा। बिना Loan/Payment रिकॉर्ड के ही Permanent Delete होगा।\n\nक्या आगे बढ़ें?`);
+  if (!confirmed) return;
+  setBusy(button, true, "प्रक्रिया जारी…");
+  const { data, error } = await supabase.rpc("admin_remove_customer", { p_customer_id: customerId });
+  setBusy(button, false);
+  if (error) return showMessage("ग्राहक हटाने की प्रक्रिया पूरी नहीं हुई: " + error.message, "error");
+  const outcome = Array.isArray(data) ? data[0] : data;
+  await loadAll();
+  if (outcome?.result === "deleted") showMessage(`ग्राहक ${outcome.customer_code || customer.customer_code} Permanent Delete हो गया। Audit Log सुरक्षित है।`, "success");
+  else if (outcome?.result === "deactivated") showMessage("इस ग्राहक का Loan/Payment इतिहास मौजूद है। इसलिए इसे INACTIVE किया गया है; पुराना Loan और Payment रिकॉर्ड सुरक्षित है। Audit Log सुरक्षित है।", "success");
+  else showMessage("प्रक्रिया पूरी हुई, लेकिन परिणाम स्पष्ट नहीं मिला। कृपया रिकॉर्ड Refresh करके जाँचें।", "warn");
+}
+
 async function saveCustomerMISRow(row) {
   if (!canAdmin()) return showMessage("यह बदलाव केवल Admin कर सकता है।", "warn");
   const id = row?.dataset.misCustomer;
@@ -857,7 +877,8 @@ async function boot() {
   $("loanCustomerFilter").addEventListener("change", renderData);
   $("misStatusFilter")?.addEventListener("change", renderCustomerMIS);
   $("misSearch")?.addEventListener("input", renderCustomerMIS);
-  $("customerMisRows")?.addEventListener("click", event => { const btn = event.target.closest(".mis-save"); if (btn) saveCustomerMISRow(btn.closest("tr")); });
+  $("customerMisRows")?.addEventListener("click", event => { const removeBtn = event.target.closest(".customer-remove"); if (removeBtn) return removeCustomerRecord(removeBtn.dataset.customerId, removeBtn); const btn = event.target.closest(".mis-save"); if (btn) saveCustomerMISRow(btn.closest("tr")); });
+  $("customerRows")?.addEventListener("click", event => { const btn = event.target.closest(".customer-remove"); if (btn) removeCustomerRecord(btn.dataset.customerId, btn); });
   $("ledgerCustomer").addEventListener("change", loadCustomerLedger);
   $("ledgerSearch").addEventListener("input", filterLedgerCustomers);
   $("printLedgerBtn").addEventListener("click", printCustomerLedger);
