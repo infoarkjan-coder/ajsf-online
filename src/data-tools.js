@@ -117,7 +117,8 @@ async function loadCollectors(select) {
   select.innerHTML = '<option value="">स्वयं / Unassigned</option>' +
     (data || []).filter(p => p.role === "collector").map(p =>
       `<option value="${p.id}">${escapeHtml(p.full_name)} · ${escapeHtml(p.staff_code || "")}</option>`).join("");
-  if (activeRole === "collector" && activeUser) select.value = activeUser.id;\n  else if (activeRole === "admin" && data?.length) select.value = data.filter(p=>p.role==="collector")[0]?.id || "";
+  if (activeRole === "collector" && activeUser) select.value = activeUser.id;
+  else if (activeRole === "admin" && data?.length) select.value = data.filter(p=>p.role==="collector")[0]?.id || "";
 }
 function escapeHtml(v) {
   return String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
