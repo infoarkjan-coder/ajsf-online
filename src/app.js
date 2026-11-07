@@ -96,7 +96,18 @@ function renderData() {
   const figures = loans.map(l => loanFigures(l, totalsByLoan));
   $("collectedTotal").textContent = money(figures.reduce((s, f) => s + f.collected, 0));
   $("outstandingTotal").textContent = money(figures.reduce((s, f) => s + f.outstanding, 0));
-  $("customerRows").innerHTML = customers.map(c => `<tr><td>${esc(c.customer_code)}</td><td>${esc(c.full_name)}</td><td>${esc(c.center_name)}</td><td>${esc(c.contact_number)}</td><td>${esc(c.collection_day)}</td><td>${esc(c.customer_status)}</td></tr>`).join("") || `<tr><td colspan="6" class="empty">कोई ग्राहक नहीं मिला।</td></tr>`;
+  const customerRegisterRows = [...customers].sort((a,b) =>
+    String(a.center_name || "").localeCompare(String(b.center_name || "")) ||
+    String(a.full_name || "").localeCompare(String(b.full_name || ""))
+  );
+  $("customerRows").innerHTML = customerRegisterRows.map((c,i) => "<tr data-center=\"" + esc(c.center_name || "") + "\" data-day=\"" + esc(c.collection_day || "") + "\"><td>" + (i+1) + "</td><td>" + esc(c.center_name || "—") + "</td><td>" + esc(c.full_name || "—") + "</td><td>" + esc(c.contact_number || "—") + "</td><td>" + esc(c.customer_code || "—") + "</td><td>" + esc(c.area || "—") + "</td><td>" + esc(c.address || "—") + "</td><td>" + esc(c.collection_day || "—") + "</td><td>" + esc(c.customer_status || "—") + "</td></tr>").join("") || "<tr><td colspan=\"9\" class=\"empty\">कोई ग्राहक नहीं मिला।</td></tr>";
+  const centerFilter = $("customerCenterFilter");
+  if (centerFilter) {
+    const selectedCenter = centerFilter.value;
+    const centers = [...new Set(customers.map(c => String(c.center_name || "").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+    centerFilter.innerHTML = "<option value=\"\">सभी Center / House</option>" + centers.map(name => "<option value=\"" + esc(name) + "\">" + esc(name) + "</option>").join("");
+    if (centers.includes(selectedCenter)) centerFilter.value = selectedCenter;
+  }
   $("loanRows").innerHTML = loans.map(l => {
     const c = customers.find(x => x.id === l.customer_id);
     const f = loanFigures(l, totalsByLoan);
@@ -322,8 +333,13 @@ function printCustomerLedger() {
 
 function filterCustomerRows() {
   const q = ($("customerFilter")?.value || "").trim().toLocaleLowerCase();
+  const center = ($("customerCenterFilter")?.value || "").trim().toLocaleLowerCase();
+  const day = ($("customerDayFilter")?.value || "").trim().toLocaleLowerCase();
   document.querySelectorAll("#customerRows tr").forEach(row => {
-    row.hidden = !!q && !row.textContent.toLocaleLowerCase().includes(q);
+    const matchesText = !q || row.textContent.toLocaleLowerCase().includes(q);
+    const matchesCenter = !center || (row.dataset.center || "").toLocaleLowerCase() === center;
+    const matchesDay = !day || (row.dataset.day || "").toLocaleLowerCase() === day;
+    row.hidden = !(matchesText && matchesCenter && matchesDay);
   });
 }
 function filterStatementCustomers() {
@@ -516,6 +532,8 @@ async function boot() {
   $("scheduleLoan").addEventListener("change", renderRepaymentSchedule);
   $("printScheduleBtn").addEventListener("click", printRepaymentSchedule);
   $("customerFilter").addEventListener("input", filterCustomerRows);
+  $("customerCenterFilter").addEventListener("change", filterCustomerRows);
+  $("customerDayFilter").addEventListener("change", filterCustomerRows);
   $("statementSearch").addEventListener("input", filterStatementCustomers);
   $("statementCustomer").addEventListener("change", renderCustomerStatement);
   $("printStatementBtn").addEventListener("click", printCustomerStatement);
