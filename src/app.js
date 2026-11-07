@@ -310,11 +310,19 @@ function printRepaymentSchedule() {
     .schedule-summary small,.customer-detail small,.customer-signatures small{display:block;font-size:7px;margin-bottom:1px}
     .schedule-summary b,.customer-detail b{font-size:8px}
     .schedule-left table{width:100%;table-layout:fixed;font-size:8px}
-    .schedule-left th,.schedule-left td{padding:2px 2.5px;line-height:1.05;height:6.1mm}
-    .schedule-left th{font-size:7.5px}
-    .schedule-status{font-size:7px;font-weight:bold}
-    .staff-sign-cell{height:6.1mm}.staff-sign-line{display:block;width:100%;height:4mm;border-bottom:1px solid #52665c}
-    .schedule-note{font-size:6px;margin-top:2px}
+    .schedule-left th,.schedule-left td{padding:1px 2px;line-height:1;height:4.8mm}
+    .schedule-left th{font-size:7px}
+    .schedule-status{font-size:6.5px;font-weight:bold}
+    .staff-sign-cell{height:4.8mm}.staff-sign-line{display:block;width:100%;height:2.8mm;border-bottom:1px solid #52665c}
+    .schedule-note{font-size:5.5px;margin-top:1px}
+    .schedule-print-sheet{min-height:0;height:198mm;max-height:198mm;break-inside:avoid;page-break-inside:avoid}
+    .schedule-summary{padding:1px 0 2px}
+    .schedule-left h3{margin:1px 0;font-size:7.5px}
+    .schedule-right{padding-top:2mm}
+    .customer-detail{padding:1.5mm 1mm;min-height:6.5mm}
+    .customer-signatures{margin-top:2mm;padding-top:1mm}
+    .customer-signatures div{margin:1.5mm 0 2mm}
+    .customer-signatures span{height:5mm}
     .schedule-right h2{font-size:10px;border-bottom:1px solid #123f35;padding-bottom:2mm;margin:0 0 2mm}
     .customer-detail{padding:2.1mm 1mm;border-bottom:1px solid #e1e8e3;min-height:8mm}
     .customer-detail b{overflow-wrap:anywhere}
@@ -545,22 +553,22 @@ function printReceipt() {
   const area = $("receiptContent");
   if (!area || !area.innerHTML.trim()) return showMessage("पहले Payment Receipt तैयार होने दें।","warn");
   openAjsfPrint("AJSF Payment Receipt", area.innerHTML, `
-    @page{size:A5 portrait;margin:8mm}
-    body{padding:0;font-size:9pt}
-    .receipt{width:100%;max-width:none;margin:0;padding:5mm;border:1px solid #9aa9a0;border-radius:0}
-    .receipt-brand{display:flex;align-items:center;gap:3mm;border-bottom:1.5px solid #123f35;padding-bottom:3mm}
-    .receipt-brand img.receipt-logo{display:block!important;width:17mm!important;height:17mm!important;min-width:17mm!important;min-height:17mm!important;max-width:17mm!important;max-height:17mm!important;flex:0 0 17mm!important;object-fit:contain!important}
-    .receipt-brand h2{font-size:12pt;margin:0}.receipt-brand p{font-size:7pt;letter-spacing:.5px;margin:2px 0}
-    .receipt-title{text-align:center;font-size:11pt;font-weight:800;margin:5mm 0 3mm;color:#123f35}
-    .receipt-meta{display:flex;justify-content:space-between;gap:4mm;font-size:8pt;margin-bottom:4mm}
-    .receipt-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:3mm;border-top:1px solid #dce5df;border-bottom:1px solid #dce5df;padding:4mm 0}
-    .receipt-grid div{display:grid;gap:1mm}.receipt-grid small{font-size:7pt;color:#60756b}.receipt-grid b{font-size:8pt;overflow-wrap:anywhere}
-    .receipt-amount{display:flex;justify-content:space-between;align-items:center;margin:4mm 0;padding:3mm;background:#edf5f0}
-    .receipt-amount small{font-size:8pt}.receipt-amount strong{font-size:17pt;color:#123f35}
-    .receipt-remarks{font-size:8pt}
-    .receipt-footer{display:flex;justify-content:space-between;gap:8mm;margin:13mm 0 4mm;font-size:7pt}
-    .receipt-footer span{border-top:1px solid #687a72;padding-top:2mm;min-width:35mm;text-align:center}
-    .receipt-note{text-align:center;font-size:6.5pt;color:#687a72;margin-top:3mm}
+    @page{size:A5 portrait;margin:6mm}
+    body{padding:0;font-size:8pt;line-height:1.2}
+    .receipt{width:100%;max-width:none;margin:0;padding:3mm;border:1px solid #9aa9a0;border-radius:0}
+    .receipt-brand{display:flex;align-items:center;gap:2mm;border-bottom:1px solid #123f35;padding-bottom:1.5mm}
+    .receipt-brand img.receipt-logo{display:block!important;width:12mm!important;height:12mm!important;min-width:12mm!important;min-height:12mm!important;max-width:12mm!important;max-height:12mm!important;flex:0 0 12mm!important;object-fit:contain!important}
+    .receipt-brand h2{font-size:10pt;margin:0}.receipt-brand p{font-size:6pt;letter-spacing:.3px;margin:1px 0}
+    .receipt-title{text-align:center;font-size:9pt;font-weight:800;margin:2mm 0;color:#123f35}
+    .receipt-meta{display:flex;justify-content:space-between;gap:2mm;font-size:7pt;margin-bottom:2mm;padding-bottom:1.5mm;border-bottom:1px solid #dce5df}
+    .receipt-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.5mm 3mm;border-top:0;border-bottom:1px solid #dce5df;padding:1.5mm 0}
+    .receipt-grid div{display:grid;gap:.3mm}.receipt-grid small{font-size:6pt;color:#60756b}.receipt-grid b{font-size:7pt;overflow-wrap:anywhere}
+    .receipt-amount{display:flex;justify-content:space-between;align-items:center;margin:2mm 0;padding:1.5mm 2mm;background:#edf5f0}
+    .receipt-amount small{font-size:7pt}.receipt-amount strong{font-size:13pt;color:#123f35}
+    .receipt-remarks{font-size:7pt;margin:1mm 0}
+    .receipt-footer{display:flex;justify-content:space-between;gap:8mm;margin:6mm 0 2mm;font-size:6pt}
+    .receipt-footer span{border-top:1px solid #687a72;padding-top:1mm;min-width:30mm;text-align:center}
+    .receipt-note{text-align:center;font-size:5.5pt;color:#68756b;margin-top:1mm}
   `);
 }
 
