@@ -1,0 +1,11 @@
+{
+  "name": "AJSF Online – Collection Management",
+  "short_name": "AJSF Online",
+  "description": "ARK JAN SAMRIDDHI FOUNDATION collection management",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f7f4",
+  "theme_color": "#123f35",
+  "icons": []
+}
