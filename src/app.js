@@ -3,6 +3,7 @@ import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./config.js";
 
 const $ = (id) => document.getElementById(id);
 const money = (n) => "₹" + Number(n || 0).toLocaleString("en-IN");
+const phone = (v) => { const s = String(v ?? "").trim(); return /^\d+\.0+$/.test(s) ? s.replace(/\.0+$/, "") : s; };
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 let supabase, currentUser, profile, customers = [], loans = [], payments = [], lastReceipt = null;
 const paymentsByLoan = () => payments.filter(p => !p.is_reversal).reduce((m, p) => { const k = p.loan_id; if (k) m[k] = (m[k] || 0) + Number(p.amount || 0); return m; }, {});
@@ -124,7 +125,7 @@ function renderData() {
     String(a.center_name || "").localeCompare(String(b.center_name || "")) ||
     String(a.full_name || "").localeCompare(String(b.full_name || ""))
   );
-  $("customerRows").innerHTML = customerRegisterRows.map((c,i) => "<tr data-center=\"" + esc(c.center_name || "") + "\" data-day=\"" + esc(c.collection_day || "") + "\"><td>" + (i+1) + "</td><td>" + esc(c.center_name || "—") + "</td><td>" + esc(c.full_name || "—") + "</td><td>" + esc(c.contact_number || "—") + "</td><td>" + esc(c.customer_code || "—") + "</td><td>" + esc(c.area || "—") + "</td><td>" + esc(c.address || "—") + "</td><td>" + esc(c.collection_day || "—") + "</td><td>" + esc(c.customer_status || "—") + "</td></tr>").join("") || "<tr><td colspan=\"9\" class=\"empty\">कोई ग्राहक नहीं मिला।</td></tr>";
+  $("customerRows").innerHTML = customerRegisterRows.map((c,i) => "<tr data-center=\"" + esc(c.center_name || "") + "\" data-day=\"" + esc(c.collection_day || "") + "\"><td>" + (i+1) + "</td><td>" + esc(c.center_name || "—") + "</td><td>" + esc(c.full_name || "—") + "</td><td>" + esc(phone(c.contact_number) || "—") + "</td><td>" + esc(c.customer_code || "—") + "</td><td>" + esc(c.area || "—") + "</td><td>" + esc(c.address || "—") + "</td><td>" + esc(c.collection_day || "—") + "</td><td>" + esc(c.customer_status || "—") + "</td></tr>").join("") || "<tr><td colspan=\"9\" class=\"empty\">कोई ग्राहक नहीं मिला।</td></tr>";
   const centerFilter = $("customerCenterFilter");
   if (centerFilter) {
     const selectedCenter = centerFilter.value;
@@ -187,7 +188,7 @@ async function loadCustomerLedger() {
   }).join("") || `<tr><td colspan="6">कोई Loan record उपलब्ध नहीं है।</td></tr>`;
   summary.innerHTML = `<div id="ledgerPrintArea">
     <div class="ledger-print-brand"><img src="./assets/ajsf-logo.png" alt="AJSF Logo" width="72" height="72" style="width:72px;height:72px;max-width:72px;max-height:72px;object-fit:contain;flex:0 0 72px"><div><h2>ARK JAN SAMRIDDHI FOUNDATION</h2><p>SAPNE AAPKE SATH HAMARA</p><strong>CUSTOMER LEDGER / LOAN STATEMENT</strong></div></div>
-    <div class="ledger-print-customer"><span><small>Customer ID</small><b>${esc(customer?.customer_code || "—")}</b></span><span><small>Customer Name</small><b>${esc(customer?.full_name || "—")}</b></span><span><small>Center</small><b>${esc(customer?.center_name || "—")}</b></span><span><small>Mobile</small><b>${esc(customer?.contact_number || "—")}</b></span></div>
+    <div class="ledger-print-customer"><span><small>Customer ID</small><b>${esc(customer?.customer_code || "—")}</b></span><span><small>Customer Name</small><b>${esc(customer?.full_name || "—")}</b></span><span><small>Center</small><b>${esc(customer?.center_name || "—")}</b></span><span><small>Mobile</small><b>${esc(phone(customer?.contact_number) || "—")}</b></span></div>
     <div class="ledger-print-totals"><span><small>Total Loan Amount</small><b>${money(loanAmount)}</b></span><span><small>Total Collected (Imported + Recorded)</small><b>${money(totalCollected)}</b></span><span><small>Recorded Payments</small><b>${money(paid)}</b></span><span><small>Current OSP</small><b>${money(currentOsp)}</b></span></div>
     <h3>Loan Details</h3><div class="tablewrap"><table><thead><tr><th>Loan Reference</th><th>Loan Amount</th><th>Weekly EMI</th><th>Terms</th><th>Imported Collection</th><th>Current OSP</th></tr></thead><tbody>${loanDetails}</tbody></table></div>
     <h3>Payment History</h3>
@@ -221,7 +222,7 @@ function filterScheduleCustomers() {
   const current = select.value;
   select.innerHTML = `<option value="">ग्राहक चुनें</option>` + customers
     .filter(c => !q || [c.customer_code,c.full_name,c.contact_number,c.center_name].some(v => String(v || "").toLocaleLowerCase().includes(q)))
-    .map(c => `<option value="${esc(c.id)}">${esc(c.customer_code || "")} · ${esc(c.full_name || "")} · ${esc(c.contact_number || "")}</option>`).join("");
+    .map(c => `<option value="${esc(c.id)}">${esc(c.customer_code || "")} · ${esc(c.full_name || "")} · ${esc(phone(c.contact_number))}</option>`).join("");
   if (Array.from(select.options).some(o => o.value === current)) select.value = current;
 }
 function populateScheduleLoans() {
@@ -278,7 +279,7 @@ function renderRepaymentSchedule() {
       <h2>CUSTOMER & LOAN DETAILS</h2>
       <div class="customer-detail"><small>Customer Name</small><b>${esc(customer?.full_name || "—")}</b></div>
       <div class="customer-detail"><small>Customer ID</small><b>${esc(customer?.customer_code || "—")}</b></div>
-      <div class="customer-detail"><small>Mobile Number</small><b>${esc(customer?.contact_number || "—")}</b></div>
+      <div class="customer-detail"><small>Mobile Number</small><b>${esc(phone(customer?.contact_number) || "—")}</b></div>
       <div class="customer-detail"><small>Center Name</small><b>${esc(customer?.center_name || "—")}</b></div>
       <div class="customer-detail"><small>Area</small><b>${esc(customer?.area || "—")}</b></div>
       <div class="customer-detail"><small>Address</small><b>${esc(customer?.address || "—")}</b></div>
@@ -341,7 +342,7 @@ function filterLedgerCustomers() {
   const current = select.value;
   select.innerHTML = `<option value="">ग्राहक चुनें</option>` + customers
     .filter(c => !q || [c.customer_code,c.full_name,c.contact_number,c.center_name].some(v => String(v || "").toLocaleLowerCase().includes(q)))
-    .map(c => `<option value="${esc(c.id)}">${esc(c.customer_code || "")} · ${esc(c.full_name || "")} · ${esc(c.contact_number || "")}</option>`).join("");
+    .map(c => `<option value="${esc(c.id)}">${esc(c.customer_code || "")} · ${esc(c.full_name || "")} · ${esc(phone(c.contact_number))}</option>`).join("");
   if (Array.from(select.options).some(o => o.value === current)) select.value = current;
 }
 function printCustomerLedger() {
@@ -383,7 +384,7 @@ function filterStatementCustomers() {
   const current = select.value;
   select.innerHTML = `<option value="">ग्राहक चुनें</option>` + customers
     .filter(c => !q || [c.customer_code,c.full_name,c.contact_number,c.center_name].some(v => String(v || "").toLocaleLowerCase().includes(q)))
-    .map(c => `<option value="${esc(c.id)}">${esc(c.customer_code)} · ${esc(c.full_name)} · ${esc(c.contact_number || "")}</option>`).join("");
+    .map(c => `<option value="${esc(c.id)}">${esc(c.customer_code)} · ${esc(c.full_name)} · ${esc(phone(c.contact_number))}</option>`).join("");
   if (customers.some(c => c.id === current) && Array.from(select.options).some(o => o.value === current)) select.value = current;
 }
 function renderCustomerStatement() {
@@ -409,7 +410,7 @@ function renderCustomerStatement() {
   root.innerHTML = `<div id="statementPrintArea">
     <div class="statement-brand"><img src="./assets/ajsf-logo.png" alt="AJSF Logo" width="72" height="72" style="width:72px;height:72px;max-width:72px;max-height:72px;object-fit:contain;flex:0 0 72px"><div><h1>ARK JAN SAMRIDDHI FOUNDATION</h1><p>SAPNE AAPKE SATH HAMARA</p></div></div>
     <h2 class="statement-title">CUSTOMER LOAN STATEMENT / ग्राहक ऋण विवरण</h2>
-    <div class="statement-customer"><div><small>Customer ID</small><b>${esc(customer?.customer_code)}</b></div><div><small>Customer Name</small><b>${esc(customer?.full_name)}</b></div><div><small>Center</small><b>${esc(customer?.center_name || "—")}</b></div><div><small>Mobile</small><b>${esc(customer?.contact_number || "—")}</b></div><div><small>Collection Day</small><b>${esc(customer?.collection_day || "—")}</b></div></div>
+    <div class="statement-customer"><div><small>Customer ID</small><b>${esc(customer?.customer_code)}</b></div><div><small>Customer Name</small><b>${esc(customer?.full_name)}</b></div><div><small>Center</small><b>${esc(customer?.center_name || "—")}</b></div><div><small>Mobile</small><b>${esc(phone(customer?.contact_number) || "—")}</b></div><div><small>Collection Day</small><b>${esc(customer?.collection_day || "—")}</b></div></div>
     <div class="statement-totals"><div><small>Total Loan Amount</small><b>${money(totalLoan)}</b></div><div><small>Total Collected</small><b>${money(totalCollected)}</b></div><div><small>Outstanding (OSP)</small><b>${money(totalOutstanding)}</b></div></div>
     <h3>Loan Details</h3><div class="tablewrap"><table><thead><tr><th>Loan Ref</th><th>Disbursement</th><th>Loan Amount</th><th>Weekly EMI</th><th>Terms</th><th>Total Collected</th><th>Outstanding</th><th>Status</th></tr></thead><tbody>${loanRows}</tbody></table></div>
     <h3>Payment History</h3><div class="tablewrap"><table><thead><tr><th>Payment Date</th><th>Receipt No.</th><th>Loan Ref</th><th>Mode</th><th>Amount</th><th>Remarks</th></tr></thead><tbody>${paymentRows}</tbody></table></div>
@@ -448,7 +449,7 @@ async function submitCustomer(event) {
   const d = Object.fromEntries(new FormData(form));
   const row = {
     customer_code: d.customer_code.trim(), full_name: d.full_name.trim(),
-    center_name: d.center_name || null, contact_number: d.contact_number || null,
+    center_name: d.center_name || null, contact_number: phone(d.contact_number) || null,
     area: d.area || null, address: d.address || null, collection_day: d.collection_day,
     assigned_collector: d.assigned_collector || currentUser.id,
     created_by: currentUser.id, customer_status: "ACTIVE", recovery_status: "NOT_REQUIRED", is_active: true
