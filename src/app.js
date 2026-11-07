@@ -71,6 +71,7 @@ async function syncQueuedPayments() {
     payments.unshift(data);
   }
   renderData();
+  try { await cacheSnapshot(`user:${currentUser.id}`, {customers, loans, payments}); } catch {}
   await refreshConnectionStatus();
 }
 
@@ -580,7 +581,7 @@ function showReceipt(payment, customer, loan) {
     <div class="receipt-amount"><small>Amount Received / प्राप्त राशि</small><strong>${money(payment.amount)}</strong></div>
     <p class="receipt-remarks">Remarks: ${esc(payment.remarks || "—")}</p>
     <div class="receipt-footer"><span>Customer Signature</span><span>Authorized Collector</span></div>
-    <p class="receipt-note">यह कंप्यूटर जनरेटेड रसीद है। भुगतान रिकॉर्ड AJSF ONLINE में सेव है।</p>`;
+    <p class="receipt-note">${payment.offline_pending ? "यह Offline Entry है। इंटरनेट आने पर भुगतान AJSF ONLINE में Sync होगा।" : "यह कंप्यूटर जनरेटेड रसीद है। भुगतान रिकॉर्ड AJSF ONLINE में सेव है।"}</p>`;
   $("receiptPanel").classList.remove("hidden");
   $("receiptPanel").scrollIntoView({ behavior: "smooth", block: "start" });
 }
