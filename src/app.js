@@ -185,8 +185,13 @@ function renderShell() {
   const collectorOnly = $("collectorOnly");
   if (adminOnly) adminOnly.classList.toggle("hidden", !canAdmin());
   if (collectorOnly) collectorOnly.classList.toggle("hidden", canAdmin());
-  $("dashboardCard").classList.toggle("collector-mode", !canAdmin());
-  $("dashboardCard").classList.remove("collector-payment-mode");
+  const dashboard = $("dashboardCard");
+  dashboard.classList.toggle("collector-mode", !canAdmin());
+  dashboard.classList.remove("collector-payment-mode");
+  // Hide the Admin KPI strip directly for Collectors (not just via stylesheet).
+  const summaryGrid = dashboard.querySelector(":scope > .grid");
+  if (summaryGrid) summaryGrid.style.setProperty("display", canAdmin() ? "" : "none", "important");
+  // Keep Collector on the demand screen; Admin navigation remains unchanged.
   activateTab(canAdmin() ? "customers" : "collector-demand");
   const customerActionHeader = $("customerActionHeader");
   if (customerActionHeader) customerActionHeader.classList.toggle("hidden", !canAdmin());
@@ -951,7 +956,10 @@ async function boot() {
     }
   });
   $("logoutBtn").addEventListener("click", logout);
-  $("collectorDemandDay")?.addEventListener("change", renderCollectorDemand);
+  // Delegated listener survives panel redraws and reliably handles day changes.
+  document.addEventListener("change", event => {
+    if (event.target && event.target.id === "collectorDemandDay") renderCollectorDemand();
+  });
   $("collectorDemandRows")?.addEventListener("click", event => {
     const button = event.target.closest(".demand-collect-btn");
     if (!button) return;
