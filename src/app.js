@@ -282,6 +282,8 @@ function renderCollectorDemand() {
     const customer = customerById.get(loan.customer_id);
     if (!customer || customer.is_active === false || (customer.customer_status || "ACTIVE") !== "ACTIVE") return;
     if (customer.collection_day !== day || loan.status !== "active") return;
+    const figures = loanFigures(loan, totalsByLoan);
+    if (figures.outstanding <= 0) return;
     const schedule = weeklyByLoan[loan.id];
     const pendingCount = schedule?.rows
       ? schedule.pending
