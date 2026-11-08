@@ -112,7 +112,7 @@ async function syncQueuedPayments() {
     payments.unshift(data);
   }
   renderData();
-  try { await cacheSnapshot(`user:${currentUser.id}`, {customers, loans, payments}); } catch {}
+  try { await cacheSnapshot(`user:${currentUser.id}`, {customers, loans, payments, weeklyStatuses}); } catch {}
   await refreshConnectionStatus();
 }
 
