@@ -499,16 +499,12 @@ async function loadCustomerLedger() {
   const paymentTotals = paymentsByLoan();
   const currentOsp = customerLoans.reduce((s,l) => s + loanFigures(l, paymentTotals).outstanding, 0);
   const totalCollected = importedCollected + paid;
-  const loanDetails = customerLoans.map(l => {
-    const figures = loanFigures(l, paymentTotals);
-    return `<tr><td>${esc(l.loan_reference || "—")}</td><td>${money(l.loan_amount)}</td><td>${money(l.emi_amount)}</td><td>${esc(l.total_emis_required || "—")}</td><td>${money(Number(l.source_total_collected || 0))}</td><td>${money(figures.outstanding)}</td></tr>`;
-  }).join("") || `<tr><td colspan="6">कोई Loan record उपलब्ध नहीं है।</td></tr>`;
   summary.innerHTML = `<div id="ledgerPrintArea">
-    <div class="ledger-print-brand"><img src="./assets/ajsf-logo.png" alt="AJSF Logo" width="72" height="72" style="width:72px;height:72px;max-width:72px;max-height:72px;object-fit:contain;flex:0 0 72px"><div><h2>ARK JAN SAMRIDDHI FOUNDATION</h2><p>SAPNE AAPKE SATH HAMARA</p><strong>CUSTOMER LEDGER / LOAN STATEMENT</strong></div></div>
+    <div class="ledger-print-brand"><img src="./assets/ajsf-logo.png" alt="AJSF Logo" width="72" height="72" style="width:72px;height:72px;max-width:72px;max-height:72px;object-fit:contain;flex:0 0 72px"><div><h2>ARK JAN SAMRIDDHI FOUNDATION</h2><p>SAPNE AAPKE SATH HAMARA</p><strong>CUSTOMER PAYMENT LEDGER / भुगतान खाता</strong></div></div>
     <div class="ledger-print-customer"><span><small>Customer ID</small><b>${esc(customer?.customer_code || "—")}</b></span><span><small>Customer Name</small><b>${esc(customer?.full_name || "—")}</b></span><span><small>Center</small><b>${esc(customer?.center_name || "—")}</b></span><span><small>Mobile</small><b>${esc(phone(customer?.contact_number) || "—")}</b></span></div>
-    <div class="ledger-print-totals"><span><small>Total Loan Amount</small><b>${money(loanAmount)}</b></span><span><small>Total Collected (Imported + Recorded)</small><b>${money(totalCollected)}</b></span><span><small>Recorded Payments</small><b>${money(paid)}</b></span><span><small>Current OSP</small><b>${money(currentOsp)}</b></span></div>
-    <h3>Loan Details</h3><div class="tablewrap"><table><thead><tr><th>Loan Reference</th><th>Loan Amount</th><th>Weekly EMI</th><th>Terms</th><th>Imported Collection</th><th>Current OSP</th></tr></thead><tbody>${loanDetails}</tbody></table></div>
-    <h3>Payment History</h3>
+    <div class="ledger-print-totals"><span><small>Recorded Transactions</small><b>${paymentRows.length.toLocaleString("en-IN")}</b></span><span><small>Total Payments Received</small><b>${money(paid)}</b></span><span><small>Imported Historical Collection</small><b>${money(importedCollected)}</b></span><span><small>All-time Collection</small><b>${money(totalCollected)}</b></span></div>
+    <h3>Payment Transaction Register</h3>
+    <p class="small muted">यहाँ केवल सिस्टम में दर्ज वास्तविक भुगतान की तारीख, रसीद, Loan Ref, Mode और राशि दिखाई जाती है। Loan balance और EMI summary के लिए Loan Statement खोलें।</p>
   </div>`;
   rows.innerHTML = paymentRows.map(p => {
     const loan = customerLoans.find(l => l.id === p.loan_id);
@@ -666,7 +662,7 @@ function printCustomerLedger() {
   if (!$("ledgerCustomer").value) return showMessage("पहले ग्राहक खोजकर चुनें।", "warn");
   const area = $("ledgerPrintArea");
   if (!area) return showMessage("पहले Ledger लोड होने दें।", "warn");
-  openAjsfPrint("AJSF Customer Ledger", area.innerHTML, `
+  openAjsfPrint("AJSF Customer Payment Ledger", area.innerHTML, `
     @page{size:A4 landscape;margin:9mm}
     body{font-size:9pt}
     .ledger-print-brand{display:flex;align-items:center;justify-content:center;gap:12px;border-bottom:2px solid #123f35;padding-bottom:8px;text-align:left}
