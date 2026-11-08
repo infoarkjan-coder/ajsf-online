@@ -442,3 +442,22 @@ input,select,button{min-height:42px}
  #dashboardCard.collector-mode .demand-metrics .card:first-child{grid-column:1/-1}
  .demand-day-field{min-width:100%;max-width:none;width:100%}
 }
+
+
+/* Collector navigation: keep all permitted dashboard sections accessible. */
+#dashboardCard.collector-mode .dashboard-layout{
+  display:flex!important;
+  flex-direction:column!important;
+}
+#dashboardCard.collector-mode .dashboard-layout>.sidebar{
+  display:block!important;
+}
+#dashboardCard.collector-mode .dashboard-content [data-panel]{
+  display:block!important;
+}
+#dashboardCard.collector-mode .dashboard-content [data-panel].hidden{
+  display:none!important;
+}
+#dashboardCard.collector-mode .dashboard-content [data-panel]:not(.hidden) .grid{
+  display:grid!important;
+}
