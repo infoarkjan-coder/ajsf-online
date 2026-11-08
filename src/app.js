@@ -46,7 +46,7 @@ function amountInWords(value, hindi=false) {
 
 const phone = (v) => { const s = String(v ?? "").trim(); return /^\d+\.0+$/.test(s) ? s.replace(/\.0+$/, "") : s; };
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-let supabase, currentUser, profile, customers = [], loans = [], payments = [], lastReceipt = null;
+let supabase, currentUser, profile, customers = [], loans = [], payments = [], weeklyStatuses = [], lastReceipt = null;
 let offlineDbPromise;
 function offlineDb() {
   if (!("indexedDB" in window)) return Promise.reject(new Error("इस browser में offline storage उपलब्ध नहीं है।"));
@@ -112,7 +112,7 @@ async function syncQueuedPayments() {
     payments.unshift(data);
   }
   renderData();
-  try { await cacheSnapshot(`user:${currentUser.id}`, {customers, loans, payments}); } catch {}
+  try { await cacheSnapshot(`user:${currentUser.id}`, {customers, loans, payments, weeklyStatuses}); } catch {}
   await refreshConnectionStatus();
 }
 
@@ -185,6 +185,14 @@ function renderShell() {
   const collectorOnly = $("collectorOnly");
   if (adminOnly) adminOnly.classList.toggle("hidden", !canAdmin());
   if (collectorOnly) collectorOnly.classList.toggle("hidden", canAdmin());
+  const dashboard = $("dashboardCard");
+  dashboard.classList.toggle("collector-mode", !canAdmin());
+  dashboard.classList.remove("collector-payment-mode");
+  // Hide the Admin KPI strip directly for Collectors (not just via stylesheet).
+  const summaryGrid = dashboard.querySelector(":scope > .grid");
+  if (summaryGrid) summaryGrid.style.setProperty("display", canAdmin() ? "" : "none", "important");
+  // Keep Collector on the demand screen; Admin navigation remains unchanged.
+  activateTab(canAdmin() ? "customers" : "collector-demand");
   const customerActionHeader = $("customerActionHeader");
   if (customerActionHeader) customerActionHeader.classList.toggle("hidden", !canAdmin());
 }
@@ -204,17 +212,22 @@ async function loadAll() {
     .select("id, customer_code, full_name, center_name, contact_number, area, address, collection_day, assigned_collector, customer_status, recovery_status, status_reason, status_changed_at, status_notes, is_active")
     .order("full_name");
   if (!canAdmin()) customerQuery = customerQuery.eq("assigned_collector", currentUser.id);
-  let c, l;
-  try { [c, l] = await Promise.all([
+  let c, l, w;
+  const weeklyQuery = canAdmin()
+    ? Promise.resolve({data:[], error:null})
+    : supabase.from("loan_weekly_status").select("loan_id, week_no, is_paid");
+  try { [c, l, w] = await Promise.all([
     customerQuery,
-    supabase.from("loans").select("id, loan_reference, customer_id, loan_type, disbursement_date, loan_amount, emi_amount, total_emis_required, status, source_total_collected, source_osp, source_emis_paid, source_emis_pending").order("created_at", {ascending:false})
-  ]); } catch (networkError) { c = {error:networkError}; l = {error:networkError}; }
+    supabase.from("loans").select("id, loan_reference, customer_id, loan_type, disbursement_date, loan_amount, emi_amount, total_emis_required, status, source_total_collected, source_osp, source_emis_paid, source_emis_pending").order("created_at", {ascending:false}),
+    weeklyQuery
+  ]); } catch (networkError) { c = {error:networkError}; l = {error:networkError}; w = {error:networkError}; }
   if (c.error || l.error) {
     const cached = await readSnapshot(`user:${currentUser.id}`);
     if (!cached?.value) throw new Error("डेटा ऑनलाइन लोड नहीं हुआ और इस डिवाइस पर Offline Backup भी नहीं मिला।");
     customers = cached.value.customers || [];
     loans = cached.value.loans || [];
     payments = cached.value.payments || [];
+    weeklyStatuses = cached.value.weeklyStatuses || [];
     const pendingOffline = (await readPaymentQueue()).filter(item => item.collector_id === currentUser.id);
     payments.push(...pendingOffline.map(item => ({...item.payload, id:null, offline_pending:true})));
     renderData();
@@ -224,6 +237,7 @@ async function loadAll() {
     return;
   }
   customers = c.data || []; loans = l.data || [];
+  weeklyStatuses = w && !w.error ? (w.data || []) : [];
   payments = [];
   for (let start = 0; ; start += 1000) {
     const { data, error } = await supabase.from("payments").select("*").order("created_at", {ascending:false}).range(start, start + 999);
@@ -231,11 +245,83 @@ async function loadAll() {
     payments.push(...(data || []));
     if (!data || data.length < 1000) break;
   }
-  try { await cacheSnapshot(`user:${currentUser.id}`, {customers, loans, payments}); } catch (cacheError) { console.warn("Offline cache unavailable", cacheError); }
+  try { await cacheSnapshot(`user:${currentUser.id}`, {customers, loans, payments, weeklyStatuses}); } catch (cacheError) { console.warn("Offline cache unavailable", cacheError); }
   renderData();
   await syncQueuedPayments();
   await refreshConnectionStatus();
   showMessage("डेटा सफलतापूर्वक लोड हुआ। जमा राशि में आयातित पुरानी वसूली और नए भुगतान शामिल हैं; बकाया में नए भुगतान घटाए गए हैं।", "success");
+}
+
+
+function renderCollectorDemand() {
+  const select = $("collectorDemandDay");
+  const body = $("collectorDemandRows");
+  if (!select || !body || canAdmin()) return;
+  const today = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][new Date().getDay()];
+  if (!select.value) select.value = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","MONTHLY"].includes(today) ? today : "Monday";
+  const day = select.value;
+  const isMonthly = day === "MONTHLY";
+  const now = new Date();
+  const periodStart = new Date(now.getFullYear(), now.getMonth(), isMonthly ? 1 : now.getDate() - ((now.getDay() + 6) % 7));
+  periodStart.setHours(0,0,0,0);
+  const periodEnd = isMonthly
+    ? new Date(now.getFullYear(), now.getMonth() + 1, 1)
+    : new Date(periodStart.getFullYear(), periodStart.getMonth(), periodStart.getDate() + 7);
+  const paidByLoan = {};
+  payments.filter(p => !p.is_reversal).forEach(p => {
+    const paidDate = new Date(p.paid_at || p.created_at || "");
+    if (!Number.isNaN(paidDate.getTime()) && paidDate >= periodStart && paidDate < periodEnd) {
+      paidByLoan[p.loan_id] = (paidByLoan[p.loan_id] || 0) + Number(p.amount || 0);
+    }
+  });
+  const weeklyByLoan = {};
+  weeklyStatuses.forEach(row => {
+    if (!weeklyByLoan[row.loan_id]) weeklyByLoan[row.loan_id] = {rows:0, pending:0};
+    weeklyByLoan[row.loan_id].rows++;
+    if (!row.is_paid) weeklyByLoan[row.loan_id].pending++;
+  });
+  const customerById = new Map(customers.map(c => [c.id,c]));
+  const totalsByLoan = paymentsByLoan();
+  const rows = [];
+  loans.forEach(loan => {
+    const customer = customerById.get(loan.customer_id);
+    if (!customer || customer.is_active === false || (customer.customer_status || "ACTIVE") !== "ACTIVE") return;
+    if (customer.collection_day !== day || loan.status !== "active") return;
+    const figures = loanFigures(loan, totalsByLoan);
+    if (figures.outstanding <= 0) return;
+    const schedule = weeklyByLoan[loan.id];
+    const pendingCount = schedule?.rows
+      ? schedule.pending
+      : (loan.source_emis_pending != null
+        ? Number(loan.source_emis_pending)
+        : (loanFigures(loan, totalsByLoan).outstanding > 0 ? 1 : 0));
+    if (pendingCount <= 0) return;
+    const emi = Number(loan.emi_amount || 0);
+    const collectedThisPeriod = Number(paidByLoan[loan.id] || 0);
+    const receivable = Math.max(0, Math.round((emi - collectedThisPeriod) * 100) / 100);
+    if (receivable <= 0) return;
+    rows.push({customer, loan, emi, collectedThisPeriod, receivable});
+  });
+  rows.sort((a,b) =>
+    String(a.customer.center_name || "").localeCompare(String(b.customer.center_name || "")) ||
+    String(a.customer.full_name || "").localeCompare(String(b.customer.full_name || ""))
+  );
+  const customerCount = new Set(rows.map(row => row.customer.id)).size;
+  const totalReceivable = rows.reduce((sum,row) => sum + row.receivable, 0);
+  $("collectorDemandCustomerCount").textContent = customerCount.toLocaleString("en-IN");
+  $("collectorDemandTotal").textContent = money(totalReceivable);
+  $("collectorDemandLoanCount").textContent = rows.length.toLocaleString("en-IN");
+  $("collectorDemandPeriod").textContent = isMonthly ? "इस महीने की शेष मांग" : "इस सप्ताह की शेष मांग";
+  body.innerHTML = rows.map(row => `<tr>
+    <td>${esc(row.customer.customer_code || "—")}</td>
+    <td><strong>${esc(row.customer.full_name || "—")}</strong><small class="demand-subline">${esc(row.customer.contact_number || "")}</small></td>
+    <td>${esc(row.customer.center_name || "—")}</td>
+    <td>${esc(row.loan.loan_reference || "—")}</td>
+    <td>${money(row.emi)}</td>
+    <td>${money(row.collectedThisPeriod)}</td>
+    <td><strong>${money(row.receivable)}</strong></td>
+    <td><button type="button" class="demand-collect-btn" data-customer-id="${esc(row.customer.id)}" data-loan-id="${esc(row.loan.id)}" data-demand="${row.receivable}">राशि जमा करें</button></td>
+  </tr>`).join("") || `<tr><td colspan="8" class="empty">इस दिन के लिए कोई बकाया EMI मांग नहीं है।</td></tr>`;
 }
 
 function renderData() {
@@ -291,6 +377,7 @@ function renderData() {
     return `<tr><td>${esc(p.id)}</td><td>${esc(formatDate(p.paid_at))}</td><td>${esc(c?.full_name || p.customer_id)}</td><td>${esc(l?.loan_reference || "—")}</td><td>${money(p.amount)}</td><td>${esc(p.payment_mode || "—")}</td></tr>`;
   }).join("") || `<tr><td colspan="6" class="empty">अभी भुगतान उपलब्ध नहीं हैं।</td></tr>`;
   renderCustomerMIS();
+  renderCollectorDemand();
 }
 
 
@@ -412,16 +499,12 @@ async function loadCustomerLedger() {
   const paymentTotals = paymentsByLoan();
   const currentOsp = customerLoans.reduce((s,l) => s + loanFigures(l, paymentTotals).outstanding, 0);
   const totalCollected = importedCollected + paid;
-  const loanDetails = customerLoans.map(l => {
-    const figures = loanFigures(l, paymentTotals);
-    return `<tr><td>${esc(l.loan_reference || "—")}</td><td>${money(l.loan_amount)}</td><td>${money(l.emi_amount)}</td><td>${esc(l.total_emis_required || "—")}</td><td>${money(Number(l.source_total_collected || 0))}</td><td>${money(figures.outstanding)}</td></tr>`;
-  }).join("") || `<tr><td colspan="6">कोई Loan record उपलब्ध नहीं है।</td></tr>`;
   summary.innerHTML = `<div id="ledgerPrintArea">
-    <div class="ledger-print-brand"><img src="./assets/ajsf-logo.png" alt="AJSF Logo" width="72" height="72" style="width:72px;height:72px;max-width:72px;max-height:72px;object-fit:contain;flex:0 0 72px"><div><h2>ARK JAN SAMRIDDHI FOUNDATION</h2><p>SAPNE AAPKE SATH HAMARA</p><strong>CUSTOMER LEDGER / LOAN STATEMENT</strong></div></div>
+    <div class="ledger-print-brand"><img src="./assets/ajsf-logo.png" alt="AJSF Logo" width="72" height="72" style="width:72px;height:72px;max-width:72px;max-height:72px;object-fit:contain;flex:0 0 72px"><div><h2>ARK JAN SAMRIDDHI FOUNDATION</h2><p>SAPNE AAPKE SATH HAMARA</p><strong>CUSTOMER PAYMENT LEDGER / भुगतान खाता</strong></div></div>
     <div class="ledger-print-customer"><span><small>Customer ID</small><b>${esc(customer?.customer_code || "—")}</b></span><span><small>Customer Name</small><b>${esc(customer?.full_name || "—")}</b></span><span><small>Center</small><b>${esc(customer?.center_name || "—")}</b></span><span><small>Mobile</small><b>${esc(phone(customer?.contact_number) || "—")}</b></span></div>
-    <div class="ledger-print-totals"><span><small>Total Loan Amount</small><b>${money(loanAmount)}</b></span><span><small>Total Collected (Imported + Recorded)</small><b>${money(totalCollected)}</b></span><span><small>Recorded Payments</small><b>${money(paid)}</b></span><span><small>Current OSP</small><b>${money(currentOsp)}</b></span></div>
-    <h3>Loan Details</h3><div class="tablewrap"><table><thead><tr><th>Loan Reference</th><th>Loan Amount</th><th>Weekly EMI</th><th>Terms</th><th>Imported Collection</th><th>Current OSP</th></tr></thead><tbody>${loanDetails}</tbody></table></div>
-    <h3>Payment History</h3>
+    <div class="ledger-print-totals"><span><small>Recorded Transactions</small><b>${paymentRows.length.toLocaleString("en-IN")}</b></span><span><small>Total Payments Received</small><b>${money(paid)}</b></span><span><small>Imported Historical Collection</small><b>${money(importedCollected)}</b></span><span><small>All-time Collection</small><b>${money(totalCollected)}</b></span></div>
+    <h3>Payment Transaction Register</h3>
+    <p class="small muted">यहाँ केवल सिस्टम में दर्ज वास्तविक भुगतान की तारीख, रसीद, Loan Ref, Mode और राशि दिखाई जाती है। Loan balance और EMI summary के लिए Loan Statement खोलें।</p>
   </div>`;
   rows.innerHTML = paymentRows.map(p => {
     const loan = customerLoans.find(l => l.id === p.loan_id);
@@ -579,7 +662,7 @@ function printCustomerLedger() {
   if (!$("ledgerCustomer").value) return showMessage("पहले ग्राहक खोजकर चुनें।", "warn");
   const area = $("ledgerPrintArea");
   if (!area) return showMessage("पहले Ledger लोड होने दें।", "warn");
-  openAjsfPrint("AJSF Customer Ledger", area.innerHTML, `
+  openAjsfPrint("AJSF Customer Payment Ledger", area.innerHTML, `
     @page{size:A4 landscape;margin:9mm}
     body{font-size:9pt}
     .ledger-print-brand{display:flex;align-items:center;justify-content:center;gap:12px;border-bottom:2px solid #123f35;padding-bottom:8px;text-align:left}
@@ -869,6 +952,29 @@ async function boot() {
     }
   });
   $("logoutBtn").addEventListener("click", logout);
+  // Delegated listener survives panel redraws and reliably handles day changes.
+  document.addEventListener("change", event => {
+    if (event.target && event.target.id === "collectorDemandDay") renderCollectorDemand();
+  });
+  $("collectorDemandRows")?.addEventListener("click", event => {
+    const button = event.target.closest(".demand-collect-btn");
+    if (!button) return;
+    const customer = customers.find(c => c.id === button.dataset.customerId);
+    const loan = loans.find(l => l.id === button.dataset.loanId && l.customer_id === customer?.id && l.status === "active");
+    if (!customer || !loan) return showMessage("ग्राहक या Active Loan नहीं मिला। डेटा Refresh करें।", "warn");
+    $("payCustomer").value = customer.id;
+    refreshLoanOptions();
+    $("payLoan").value = loan.id;
+    $("paymentForm").elements.amount.value = button.dataset.demand;
+    $("paymentDate").value = localDateValue();
+    $("dashboardCard").classList.add("collector-payment-mode");
+    activateTab("payment");
+    $("paymentForm").scrollIntoView({behavior:"smooth", block:"start"});
+  });
+  $("backToDemandBtn")?.addEventListener("click", () => {
+    $("dashboardCard").classList.remove("collector-payment-mode");
+    activateTab("collector-demand");
+  });
   $("payCustomer").addEventListener("change", refreshLoanOptions);
   $("reminderCustomer").addEventListener("change", updateReminderLoanOptions);
   $("reminderLoan").addEventListener("change", buildReminderMessage);
