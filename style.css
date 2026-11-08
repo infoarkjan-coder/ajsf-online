@@ -424,3 +424,21 @@ input,select,button{min-height:42px}
 .customer-remove:hover{background:#ffe9e5!important}
 .mis-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .inactive-flag{display:block;margin-top:4px;color:#a52d22;font-size:10px;font-weight:800;letter-spacing:.4px}
+
+/* Collector-only weekly demand workspace */
+#dashboardCard.collector-mode .grid:not(.demand-metrics){display:none!important}
+#dashboardCard.collector-mode .sidebar{display:none!important}
+#dashboardCard.collector-mode .dashboard-layout{display:block!important}
+#dashboardCard.collector-mode .dashboard-content [data-panel]{display:none!important}
+#dashboardCard.collector-mode:not(.collector-payment-mode) .dashboard-content [data-panel="collector-demand"]{display:block!important}
+#dashboardCard.collector-mode.collector-payment-mode .dashboard-content [data-panel="payment"]{display:block!important}
+#dashboardCard.collector-mode .demand-metrics{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));margin:14px 0}
+.demand-day-field{min-width:190px;max-width:260px}
+.demand-subline{display:block;color:#6b7b73;font-size:11px;margin-top:3px}
+.demand-collect-btn{white-space:nowrap;padding:8px 12px;font-size:12px}
+#collectorDemandRows td{vertical-align:middle}
+@media(max-width:650px){
+ #dashboardCard.collector-mode .demand-metrics{grid-template-columns:1fr 1fr}
+ #dashboardCard.collector-mode .demand-metrics .card:first-child{grid-column:1/-1}
+ .demand-day-field{min-width:100%;max-width:none;width:100%}
+}
