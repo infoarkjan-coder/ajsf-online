@@ -132,7 +132,7 @@ function openAjsfPrint(title, content, pageCss) {
   const frame = document.createElement("iframe");
   frame.setAttribute("title", title);
   frame.setAttribute("aria-hidden", "true");
-  frame.style.cssText = "position:fixed;left:0;top:0;width:100%;height:100%;border:0;opacity:0;pointer-events:none;z-index:-1";
+  frame.style.cssText = "position:fixed;left:0;top:0;width:100%;height:100%;border:0;background:#fff;z-index:99999";
   document.body.appendChild(frame);
 
   const printWindow = frame.contentWindow;
@@ -171,7 +171,11 @@ function openAjsfPrint(title, content, pageCss) {
     }))).then(() => {
       try {
         printWindow.focus();
-        printWindow.print();
+        if (window.AJSFNativePrint && typeof window.AJSFNativePrint.print === "function") {
+          window.AJSFNativePrint.print(title);
+        } else {
+          printWindow.print();
+        }
       } catch (error) {
         cleanup();
         showMessage("Print शुरू नहीं हो पाया: " + (error?.message || String(error)), "warn");
