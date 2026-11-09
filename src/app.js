@@ -785,6 +785,16 @@ function formatDate(value) {
   return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
 }
 
+
+function advanceMarkerAmount(loan, weekNo) {
+  const row=weeklyStatuses.find(x=>x.loan_id===loan.id && Number(x.week_no)===weekNo);
+  if(row?.source_marker!==null && row?.source_marker!==undefined && String(row.source_marker).trim()!==""){
+    const n=Number(String(row.source_marker).replace(/[,₹\\s]/g,""));
+    if(Number.isFinite(n)&&n>=0) return n;
+  }
+  return row?.is_paid ? Number(loan.emi_amount||0) : 0;
+}
+
 function advanceWeekInfo(loan, customer, paidAt) {
   const days={Sunday:0,Monday:1,Tuesday:2,Wednesday:3,Thursday:4,Friday:5,Saturday:6};
   if(!loan?.disbursement_date || days[customer?.collection_day]===undefined) return null;
@@ -810,8 +820,7 @@ async function processAdvanceForPayment(payment) {
   if(error) throw error;
   const entries=rows||[];
   if(entries.some(x=>x.payment_id===payment.id && ["cash_applied","advance_received"].includes(x.entry_type))) return;
-  const markerRow=weeklyStatuses.find(x=>x.loan_id===loan.id && Number(x.week_no)===info.week);
-  const marker=markerRow?.source_marker==null?0:Number(String(markerRow.source_marker).replace(/[,₹\\s]/g,""))||0;
+  const marker=advanceMarkerAmount(loan,info.week);
   const weekPayments=payments.filter(p=>p.loan_id===loan.id && !p.is_reversal && p.client_tx_id!==payment.client_tx_id && p.id!==payment.id).filter(p=>{
     const dt=new Date(p.paid_at); return !Number.isNaN(dt.getTime()) && dt>=info.start && dt<info.end;
   }).reduce((n,p)=>n+Number(p.amount||0),0);
@@ -869,8 +878,7 @@ async function applyMaturedAdvances() {
       if(due>today) continue;
       const weekEntries=entries.filter(x=>Number(x.applied_week_no)===week && ["cash_applied","advance_adjusted"].includes(x.entry_type));
       const weekEmi=Number(weekEntries.find(x=>Number(x.emi_amount_at_allocation)>0)?.emi_amount_at_allocation||loan.emi_amount||0);
-      const markerRow=weeklyStatuses.find(x=>x.loan_id===loan.id && Number(x.week_no)===week);
-      const marker=markerRow?.source_marker==null?0:Number(String(markerRow.source_marker).replace(/[,₹\\s]/g,""))||0;
+      const marker=advanceMarkerAmount(loan,week);
       const start=new Date(due), end=new Date(due); end.setDate(end.getDate()+7);
       const cash=payments.filter(p=>p.loan_id===loan.id && !p.is_reversal).filter(p=>{const dt=new Date(p.paid_at);return !Number.isNaN(dt.getTime())&&dt>=start&&dt<end;}).reduce((n,p)=>n+Number(p.amount||0),0);
       const receivedThisWeek=entries.filter(x=>x.entry_type==="advance_received"&&Number(x.source_week_no)===week).reduce((n,x)=>n+Number(x.amount||0),0);
