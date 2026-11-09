@@ -505,7 +505,6 @@ async function restoreBackup(event) {
     const backup = JSON.parse(await file.text());
     if (backup.app !== "AJSF Online" || backup.format_version !== 1 || !backup.tables) throw new Error("यह AJSF का मान्य Backup नहीं है।");
     if (!Array.isArray(backup.tables.advance_ledger)) backup.tables.advance_ledger = [];
-    if (!Array.isArray(backup.tables.advance_ledger)) backup.tables.advance_ledger = [];
     const order = ["customers","loans","payments","loan_weekly_status","advance_ledger"];
     for (const table of order) if (!Array.isArray(backup.tables[table])) throw new Error("Backup में "+table+" डेटा नहीं है।");
     const total = order.reduce((n,t)=>n+backup.tables[t].length,0);
