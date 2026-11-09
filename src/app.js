@@ -975,6 +975,18 @@ function refreshLoanOptions() {
   $("payLoan").innerHTML = `<option value="">लोन चुनें</option>` + eligible.map(l => `<option value="${esc(l.id)}">${esc(l.loan_reference)} · ${money(l.loan_amount)}</option>`).join("");
 }
 
+// Android system Back should dismiss the receipt panel before navigating away.
+window.__ajsfHandleAndroidBack = function () {
+  const panel = $("receiptPanel");
+  if (panel && !panel.classList.contains("hidden")) {
+    panel.classList.add("hidden");
+    const paymentPanel = document.querySelector('[data-panel="payments"]') || $("paymentForm")?.closest("section");
+    paymentPanel?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return true;
+  }
+  return false;
+};
+
 function showReceipt(payment, customer, loan) {
   lastReceipt = { payment, customer, loan };
   const receiptNo = payment.id ? payment.id.slice(0, 8).toUpperCase() : payment.client_tx_id.slice(0, 8).toUpperCase();
