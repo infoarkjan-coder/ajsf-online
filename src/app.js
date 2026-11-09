@@ -1088,44 +1088,36 @@ async function loadReceiptLibrary(src, test) {
     document.head.appendChild(script);
   });
 }
-async function createReceiptFile(kind) {
+async function createReceiptPdf() {
   const area = $("receiptContent");
   if (!lastReceipt || !area || !area.innerHTML.trim()) throw new Error("पहले भुगतान सेव करें।");
   await loadReceiptLibrary("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js", () => typeof window.html2canvas === "function");
   const canvas = await window.html2canvas(area, {scale:2,backgroundColor:"#ffffff",useCORS:true,logging:false});
-  const receiptNo = (lastReceipt.payment.id || lastReceipt.payment.client_tx_id || "receipt").slice(0,8).toUpperCase();
-  const safeName = "AJSF-Receipt-" + receiptNo;
-  if (kind === "image") {
-    const blob = await new Promise((resolve, reject) => canvas.toBlob(value => value ? resolve(value) : reject(new Error("रसीद Image नहीं बन पाई।")), "image/png"));
-    return new File([blob], safeName + ".png", {type:"image/png"});
-  }
   await loadReceiptLibrary("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js", () => !!window.jspdf?.jsPDF);
   const {jsPDF} = window.jspdf;
   const pdf = new jsPDF({orientation:"portrait",unit:"mm",format:"a5"});
   const width = 138, height = canvas.height * width / canvas.width;
   pdf.addImage(canvas.toDataURL("image/png"),"PNG",6,6,width,Math.min(height,198));
-  return new File([pdf.output("blob")],safeName+".pdf",{type:"application/pdf"});
+  const receiptNo = (lastReceipt.payment.id || lastReceipt.payment.client_tx_id || "receipt").slice(0,8).toUpperCase();
+  return new File([pdf.output("blob")],"AJSF-Receipt-"+receiptNo+".pdf",{type:"application/pdf"});
 }
-async function shareReceipt(kind) {
-  const button = $(kind === "pdf" ? "shareReceiptPdfBtn" : "shareReceiptImageBtn");
-  setBusy(button,true,"रसीद तैयार हो रही है…");
+async function downloadReceiptPdf() {
+  const button = $("downloadReceiptPdfBtn");
+  setBusy(button,true,"PDF तैयार हो रही है…");
   try {
-    const file = await createReceiptFile(kind);
-    const textMsg = "ARK JAN SAMRIDDHI FOUNDATION (AJSF) की भुगतान रसीद";
-    if (navigator.share && navigator.canShare && navigator.canShare({files:[file]})) {
-      await navigator.share({files:[file],title:"AJSF Payment Receipt",text:textMsg});
-    } else {
-      const url = URL.createObjectURL(file);
-      const a = document.createElement("a");
-      a.href = url; a.download = file.name; a.click();
-      setTimeout(() => URL.revokeObjectURL(url),60000);
-      const digits = String(phone(lastReceipt.customer?.contact_number) || "").replace(/\D/g,"");
-      const wa = "https://wa.me/" + (digits.length === 10 ? "91" + digits : digits) + "?text=" + encodeURIComponent(textMsg + "\n" + file.name + " डाउनलोड करके WhatsApp में attach करें।");
-      window.open(wa,"_blank","noopener,noreferrer");
-      showMessage("रसीद डाउनलोड हो गई है। WhatsApp में इसे attach करके भेजें।","success");
-    }
+    const file = await createReceiptPdf();
+    const url = URL.createObjectURL(file);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = file.name;
+    a.style.display = "none";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url),60000);
+    showMessage("रसीद PDF आपके फोन/कंप्यूटर में डाउनलोड हो गई है। अब इसे किसी भी ऐप से भेज सकते हैं।","success");
   } catch(error) {
-    if (error?.name !== "AbortError") showMessage("Share नहीं हो पाया: " + (error?.message || String(error)),"warn");
+    showMessage("PDF डाउनलोड नहीं हो पाई: " + (error?.message || String(error)),"warn");
   } finally {
     setBusy(button,false);
   }
@@ -1245,8 +1237,7 @@ async function boot() {
   $("statementCustomer").addEventListener("change", renderCustomerStatement);
   $("printStatementBtn").addEventListener("click", printCustomerStatement);
   $("printReceiptBtn").addEventListener("click", printReceipt);
-  $("shareReceiptPdfBtn").addEventListener("click", () => shareReceipt("pdf"));
-  $("shareReceiptImageBtn").addEventListener("click", () => shareReceipt("image"));
+  $("downloadReceiptPdfBtn").addEventListener("click", downloadReceiptPdf);
   $("closeReceiptBtn").addEventListener("click", () => $("receiptPanel").classList.add("hidden"));
 }
 if ($("paymentDate")) $("paymentDate").value = localDateValue();
