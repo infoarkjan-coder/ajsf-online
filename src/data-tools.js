@@ -129,7 +129,8 @@ function trackerHeaders() {
     ...Array.from({length:24},(_,i)=>"W"+(i+1)),
     "Total EMIs Paid","Total EMIs Pending","Total Amount Collected","Outstanding Balance (OSP)",
     "_AJSF Customer UUID","_AJSF Loan UUID","_AJSF Loan Ref","_AJSF Loan Status",
-    "_AJSF Assigned Collector","_AJSF Customer Created By","_AJSF Loan Created By"
+    "_AJSF Assigned Collector","_AJSF Customer Created By","_AJSF Loan Created By",
+    "_AJSF Customer Status","_AJSF Recovery Status","_AJSF Status Reason","_AJSF Status Date","_AJSF Status Notes","_AJSF Is Active"
   ];
 }
 function sheetFromRows(rows) {
@@ -186,18 +187,29 @@ function exportTrackerRow(customer, loan, weeklyByLoan, paidByLoan, loanFigures)
     "_AJSF Loan Status":loan?.status || "",
     "_AJSF Assigned Collector":customer.assigned_collector || "",
     "_AJSF Customer Created By":customer.created_by || "",
-    "_AJSF Loan Created By":loan?.created_by || ""
+    "_AJSF Loan Created By":loan?.created_by || "",
+    "_AJSF Customer Status":customer.customer_status || "ACTIVE",
+    "_AJSF Recovery Status":customer.recovery_status || "NOT_REQUIRED",
+    "_AJSF Status Reason":customer.status_reason || "",
+    "_AJSF Status Date":exportDate(customer.status_changed_at),
+    "_AJSF Status Notes":customer.status_notes || "",
+    "_AJSF Is Active":customer.is_active !== false
   };
 }
 async function exportCustomers() {
   try {
     say("पूरा Excel तैयार हो रहा है…");
-    const [allCustomers, allLoans, allWeekly, allPayments] = await Promise.all([
+    const [allCustomers, fetchedLoans, fetchedWeekly, fetchedPayments] = await Promise.all([
       fetchAllRows("customers"),
       fetchAllRows("loans"),
       fetchAllRows("loan_weekly_status"),
       fetchAllRows("payments","id,loan_id,amount,is_reversal")
     ]);
+    const customerIds = new Set(allCustomers.map(c=>c.id));
+    const allLoans = fetchedLoans.filter(l=>customerIds.has(l.customer_id));
+    const loanIds = new Set(allLoans.map(l=>l.id));
+    const allWeekly = fetchedWeekly.filter(w=>loanIds.has(w.loan_id));
+    const allPayments = fetchedPayments.filter(p=>loanIds.has(p.loan_id));
     const weeklyByLoan = new Map();
     allWeekly.forEach(w => {
       if (!weeklyByLoan.has(w.loan_id)) weeklyByLoan.set(w.loan_id,new Map());
@@ -207,7 +219,6 @@ async function exportCustomers() {
     allPayments.filter(p=>!p.is_reversal && p.loan_id).forEach(p=>{
       paidByLoan.set(p.loan_id,(paidByLoan.get(p.loan_id)||0)+Number(p.amount||0));
     });
-    const customerById = new Map(allCustomers.map(c=>[c.id,c]));
     const loanByCustomer = new Map();
     allLoans.forEach(l=>{
       if (!loanByCustomer.has(l.customer_id)) loanByCustomer.set(l.customer_id,[]);
@@ -287,7 +298,7 @@ function excelRowsToRecords(raw, existingCustomers, existingLoans, existingWeekl
     const dayRaw=rowValue(row,"Collection Day");
     const day=normalizeDay(dayRaw);
     if (dayRaw && !day) { problems.push("Row "+rowNo+": Collection Day गलत"); return; }
-    const statusRaw=rowValue(row,"Status","customer_status") || oldCustomer?.customer_status || "ACTIVE";
+    const statusRaw=rowValue(row,"Status","customer_status","_AJSF Customer Status") || oldCustomer?.customer_status || "ACTIVE";
     const status=normalizeStatus(statusRaw);
     if (!status) { problems.push("Row "+rowNo+": Status गलत"); return; }
     const existingCustomer=oldCustomer || {};
@@ -299,11 +310,11 @@ function excelRowsToRecords(raw, existingCustomers, existingLoans, existingWeekl
       address:rowValue(row,"ADDRESS","Address","ADDRESES") || null,
       collection_day:day || null,
       customer_status:status,
-      recovery_status:existingCustomer.recovery_status || (status==="ACTIVE"?"NOT_REQUIRED":"PENDING"),
-      status_reason:existingCustomer.status_reason || null,
-      status_changed_at:existingCustomer.status_changed_at || null,
-      status_notes:existingCustomer.status_notes || null,
-      is_active:status==="ACTIVE",
+      recovery_status:rowValue(row,"_AJSF Recovery Status") || existingCustomer.recovery_status || (status==="ACTIVE"?"NOT_REQUIRED":"PENDING"),
+      status_reason:rowValue(row,"_AJSF Status Reason") || existingCustomer.status_reason || null,
+      status_changed_at:parseExcelDate(rowValue(row,"_AJSF Status Date")) || existingCustomer.status_changed_at || null,
+      status_notes:rowValue(row,"_AJSF Status Notes") || existingCustomer.status_notes || null,
+      is_active:rowValue(row,"_AJSF Is Active") ? ["true","1","yes"].includes(rowValue(row,"_AJSF Is Active").toLowerCase()) : status==="ACTIVE",
       assigned_collector:existingCustomer.assigned_collector || rowValue(row,"_AJSF Assigned Collector") || null,
       created_by:existingCustomer.created_by || rowValue(row,"_AJSF Customer Created By") || activeUser.id
     };
