@@ -107,6 +107,7 @@ async function syncQueuedPayments() {
       if (!existing.error && existing.data) { data = existing.data; error = null; }
     }
     if (error) continue;
+    try { await processAdvanceForPayment(data); } catch (advanceError) { console.warn("Advance ledger update pending",advanceError); }
     await removeQueuedPayment(item.client_tx_id);
     payments = payments.filter(p => p.client_tx_id !== item.client_tx_id);
     payments.unshift(data);
@@ -782,6 +783,70 @@ function formatDate(value) {
   const d = new Date(value);
   return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
 }
+
+function advanceWeekInfo(loan, customer, paidAt) {
+  const days={Sunday:0,Monday:1,Tuesday:2,Wednesday:3,Thursday:4,Friday:5,Saturday:6};
+  if(!loan?.disbursement_date || days[customer?.collection_day]===undefined) return null;
+  const parts=String(loan.disbursement_date).slice(0,10).split("-").map(Number);
+  const first=new Date(parts[0],parts[1]-1,parts[2]);
+  let delta=(days[customer.collection_day]-first.getDay()+7)%7;
+  if(delta===0) delta=7;
+  first.setDate(first.getDate()+delta); first.setHours(0,0,0,0);
+  const date=new Date(paidAt); if(Number.isNaN(date.getTime())) return null; date.setHours(0,0,0,0);
+  const week=Math.max(1,Math.min(Number(loan.total_emis_required||24),Math.floor((date-first)/604800000)+1));
+  const start=new Date(first); start.setDate(first.getDate()+(week-1)*7);
+  const end=new Date(start); end.setDate(start.getDate()+7);
+  const due=new Date(start);
+  return {week,start,end,due};
+}
+async function processAdvanceForPayment(payment) {
+  if(!payment?.id || !payment.loan_id || payment.is_reversal) return;
+  const loan=loans.find(x=>x.id===payment.loan_id);
+  const customer=customers.find(x=>x.id===payment.customer_id);
+  const info=advanceWeekInfo(loan,customer,payment.paid_at);
+  if(!info) return;
+  const {data:rows,error}=await supabase.from("advance_ledger").select("*").eq("loan_id",loan.id).order("event_date");
+  if(error) throw error;
+  const entries=rows||[];
+  if(entries.some(x=>x.payment_id===payment.id && ["cash_applied","advance_received"].includes(x.entry_type))) return;
+  const markerRow=weeklyStatuses.find(x=>x.loan_id===loan.id && Number(x.week_no)===info.week);
+  const marker=markerRow?.source_marker==null?0:Number(String(markerRow.source_marker).replace(/[,₹\\s]/g,""))||0;
+  const weekPayments=payments.filter(p=>p.loan_id===loan.id && !p.is_reversal && p.client_tx_id!==payment.client_tx_id && p.id!==payment.id).filter(p=>{
+    const dt=new Date(p.paid_at); return !Number.isNaN(dt.getTime()) && dt>=info.start && dt<info.end;
+  }).reduce((n,p)=>n+Number(p.amount||0),0);
+  const weekAdvanceReceived=entries.filter(x=>x.entry_type==="advance_received" && Number(x.source_week_no)===info.week).reduce((n,x)=>n+Number(x.amount||0),0);
+  const weekAdvanceAdjusted=entries.filter(x=>x.entry_type==="advance_adjusted" && Number(x.applied_week_no)===info.week).reduce((n,x)=>n+Number(x.amount||0),0);
+  let dueLeft=Math.max(0,Number(loan.emi_amount||0)-marker-Math.max(0,weekPayments-weekAdvanceReceived)-weekAdvanceAdjusted);
+  const deposits=entries.filter(x=>x.entry_type==="advance_received").sort((a,b)=>new Date(a.event_date)-new Date(b.event_date));
+  const newRows=[];
+  for(const deposit of deposits){
+    if(dueLeft<=0) break;
+    const used=entries.filter(x=>x.entry_type==="advance_adjusted" && x.source_entry_id===deposit.id).reduce((n,x)=>n+Number(x.amount||0),0);
+    const available=Math.max(0,Number(deposit.amount||0)-used);
+    if(!available) continue;
+    const amount=Math.min(available,dueLeft);
+    const key="advance-adjusted:"+deposit.id+":"+info.week;
+    if(!entries.some(x=>x.idempotency_key===key)){
+      newRows.push({loan_id:loan.id,customer_id:customer.id,payment_id:payment.id,entry_type:"advance_adjusted",amount,event_date:payment.paid_at,source_week_no:deposit.source_week_no,applied_week_no:info.week,source_entry_id:deposit.id,collector_id:payment.collector_id||currentUser.id,idempotency_key:key,emi_amount_at_allocation:Number(loan.emi_amount||0),due_date:info.due.toISOString().slice(0,10),remarks:"Auto-adjusted against next due EMI"});
+    }
+    dueLeft-=amount;
+  }
+  const cashApplied=Math.min(Number(payment.amount||0),dueLeft);
+  if(cashApplied>0){
+    newRows.push({loan_id:loan.id,customer_id:customer.id,payment_id:payment.id,entry_type:"cash_applied",amount:cashApplied,event_date:payment.paid_at,applied_week_no:info.week,collector_id:payment.collector_id||currentUser.id,idempotency_key:"cash-applied:"+payment.client_tx_id+":"+info.week,emi_amount_at_allocation:Number(loan.emi_amount||0),due_date:info.due.toISOString().slice(0,10),remarks:"Cash applied to weekly EMI"});
+  }
+  const excess=Math.max(0,Number(payment.amount||0)-cashApplied);
+  if(excess>0){
+    newRows.push({loan_id:loan.id,customer_id:customer.id,payment_id:payment.id,entry_type:"advance_received",amount:excess,event_date:payment.paid_at,source_week_no:info.week,collector_id:payment.collector_id||currentUser.id,idempotency_key:"advance-received:"+payment.client_tx_id,emi_amount_at_allocation:Number(loan.emi_amount||0),remarks:"Excess collection stored as advance"});
+  }
+  if(newRows.length){
+    const {data:inserted,error:insertError}=await supabase.from("advance_ledger").upsert(newRows,{onConflict:"idempotency_key"}).select("*");
+    if(insertError) throw insertError;
+    advanceLedger=advanceLedger.filter(x=>x.loan_id!==loan.id).concat(inserted||[]);
+    renderAdvanceBalanceInfo();
+  }
+}
+
 function renderAdvanceBalanceInfo() {
   const el=$("advanceBalanceInfo");
   if(!el) return;
@@ -884,6 +949,7 @@ async function submitPayment(event) {
     setBusy(btn, false);
     return showMessage("भुगतान सेव नहीं हुआ: " + error.message, "error");
   }
+  try { await processAdvanceForPayment(data); } catch (advanceError) { console.error("Advance ledger update failed",advanceError); }
   payments = payments.filter(p => p.client_tx_id !== data.client_tx_id);
   payments.unshift(data);
   renderData();
