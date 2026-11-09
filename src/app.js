@@ -1106,16 +1106,24 @@ async function downloadReceiptPdf() {
   setBusy(button,true,"PDF तैयार हो रही है…");
   try {
     const file = await createReceiptPdf();
-    const url = URL.createObjectURL(file);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = file.name;
-    a.style.display = "none";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url),60000);
-    showMessage("रसीद PDF आपके फोन/कंप्यूटर में डाउनलोड हो गई है। अब इसे किसी भी ऐप से भेज सकते हैं।","success");
+    if (window.AJSFNativeDownload?.saveBase64) {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      let binary = "";
+      for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+      const result = window.AJSFNativeDownload.saveBase64(btoa(binary), file.name, file.type);
+      if (result !== "OK") throw new Error(result || "Android में PDF सेव नहीं हो पाई।");
+    } else {
+      const url = URL.createObjectURL(file);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = file.name;
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url),60000);
+    }
+    showMessage("रसीद PDF Downloads में सेव हो गई है। अब इसे किसी भी ऐप से भेज सकते हैं।","success");
   } catch(error) {
     showMessage("PDF डाउनलोड नहीं हो पाई: " + (error?.message || String(error)),"warn");
   } finally {
