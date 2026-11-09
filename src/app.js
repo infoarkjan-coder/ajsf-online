@@ -1109,6 +1109,21 @@ async function logout() {
   $("loginForm").reset(); showMessage("आप लॉगआउट हो गए हैं।");
 }
 
+async function openAuthenticatedApp(user) {
+  currentUser = user;
+  await loadProfile(currentUser);
+  $("loginCard").classList.add("hidden");
+  renderShell();
+  $("customerForm").addEventListener("submit", submitCustomer);
+  $("paymentForm").addEventListener("submit", submitPayment);
+  try {
+    await loadAll();
+  } catch (dataError) {
+    console.error("AJSF dashboard data load failed:", dataError);
+    showMessage("डेटा लोड नहीं हुआ: " + (dataError?.message || String(dataError)) + " | स्क्रीनशॉट भेजें।", "error");
+  }
+}
+
 async function boot() {
   if (!SUPABASE_PUBLISHABLE_KEY || SUPABASE_PUBLISHABLE_KEY.includes("PASTE_YOUR")) {
     showMessage("src/config.js में Supabase Publishable Key डालें।", "error");
@@ -1126,17 +1141,8 @@ async function boot() {
     });
     if (error) { setBusy(btn, false); return showMessage("लॉगिन असफल: ईमेल/पासवर्ड जाँचें।", "error"); }
     try {
-      currentUser = data.user;
-      await loadProfile(currentUser);
-      renderShell();
-      $("customerForm").addEventListener("submit", submitCustomer);
-      $("paymentForm").addEventListener("submit", submitPayment);
-      try {
-        await loadAll();
-      } catch (dataError) {
-        console.error("AJSF dashboard data load failed:", dataError);
-        showMessage("डेटा लोड नहीं हुआ: " + (dataError?.message || String(dataError)) + " | स्क्रीनशॉट भेजें।", "error");
-      }
+      await openAuthenticatedApp(data.user);
+      setBusy(btn, false);
     } catch (err) {
       console.error("AJSF login/profile failed:", err);
       await supabase.auth.signOut();
@@ -1194,6 +1200,21 @@ async function boot() {
   $("printStatementBtn").addEventListener("click", printCustomerStatement);
   $("printReceiptBtn").addEventListener("click", printReceipt);
   $("closeReceiptBtn").addEventListener("click", () => $("receiptPanel").classList.add("hidden"));
+
+  // Restore the existing Supabase session when the app is reopened or refreshed.
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) {
+    console.warn("AJSF saved session could not be restored:", sessionError.message);
+  } else if (sessionData.session?.user) {
+    try {
+      await openAuthenticatedApp(sessionData.session.user);
+    } catch (restoreError) {
+      console.error("AJSF saved session restore failed:", restoreError);
+      currentUser = null;
+      profile = null;
+      showMessage("सेशन फिर से शुरू नहीं हो पाया। कृपया दोबारा लॉगिन करें।", "warn");
+    }
+  }
 }
 if ($("paymentDate")) $("paymentDate").value = localDateValue();
 boot();
