@@ -2,6 +2,8 @@ package com.arkjan.ajsfonline;
 
 import android.app.Activity;
 import android.app.DownloadManager;
+import android.print.PrintAttributes;
+import android.print.PrintManager;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.net.Uri;
@@ -17,6 +19,7 @@ import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.webkit.JavascriptInterface;
 import android.widget.Toast;
 
 public class MainActivity extends Activity {
@@ -36,6 +39,7 @@ public class MainActivity extends Activity {
         getWindow().setNavigationBarColor(0xFF123F35);
 
         webView = new WebView(this);
+        webView.addJavascriptInterface(new AjsfPrintBridge(), "AJSFNativePrint");
         setContentView(webView);
 
         WebSettings settings = webView.getSettings();
@@ -154,6 +158,31 @@ public class MainActivity extends Activity {
             webView.loadUrl(APP_URL);
         } else {
             webView.restoreState(savedInstanceState);
+        }
+    }
+
+    private class AjsfPrintBridge {
+        @JavascriptInterface
+        public void print(String jobName) {
+            runOnUiThread(() -> {
+                if (webView == null) return;
+                try {
+                    PrintManager printManager = (PrintManager) getSystemService(PRINT_SERVICE);
+                    String safeName = (jobName == null || jobName.trim().isEmpty())
+                            ? "AJSF Receipt" : jobName.trim();
+                    PrintAttributes attributes = new PrintAttributes.Builder()
+                            .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
+                            .setMinMargins(PrintAttributes.Margins.NO_MARGINS)
+                            .build();
+                    printManager.print(safeName,
+                            webView.createPrintDocumentAdapter(safeName),
+                            attributes);
+                } catch (Exception e) {
+                    Toast.makeText(MainActivity.this,
+                            "Print Settings नहीं खुल पाईं: " + e.getMessage(),
+                            Toast.LENGTH_LONG).show();
+                }
+            });
         }
     }
 
