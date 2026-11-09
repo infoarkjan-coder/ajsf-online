@@ -113,7 +113,7 @@ async function syncQueuedPayments() {
     payments.unshift(data);
   }
   renderData();
-  try { await cacheSnapshot(`user:${currentUser.id}`, {customers, loans, payments, weeklyStatuses}); } catch {}
+  try { await cacheSnapshot(`user:${currentUser.id}`, {customers, loans, payments, weeklyStatuses, advanceLedger}); } catch {}
   await refreshConnectionStatus();
 }
 
@@ -790,7 +790,7 @@ function formatDate(value) {
 function advanceMarkerAmount(loan, weekNo) {
   const row=weeklyStatuses.find(x=>x.loan_id===loan.id && Number(x.week_no)===weekNo);
   if(row?.source_marker!==null && row?.source_marker!==undefined && String(row.source_marker).trim()!==""){
-    const n=Number(String(row.source_marker).replace(/[,₹\\s]/g,""));
+    const n=Number(String(row.source_marker).replace(/[,₹\s]/g,""));
     if(Number.isFinite(n)&&n>=0) return n;
   }
   return row?.is_paid ? Number(loan.emi_amount||0) : 0;
