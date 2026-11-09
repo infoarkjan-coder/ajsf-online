@@ -302,7 +302,8 @@ function renderCollectorDemand() {
     if (pendingCount <= 0) return;
     const emi = Number(loan.emi_amount || 0);
     const collectedThisPeriod = Number(paidByLoan[loan.id] || 0);
-    const receivable = Math.max(0, Math.round((emi - collectedThisPeriod) * 100) / 100);
+    const advanceAdjustedThisPeriod = advanceLedger.filter(x=>x.loan_id===loan.id && x.entry_type==="advance_adjusted" && x.due_date && new Date(x.due_date+"T00:00:00")>=periodStart && new Date(x.due_date+"T00:00:00")<periodEnd).reduce((sum,x)=>sum+Number(x.amount||0),0);
+    const receivable = Math.max(0, Math.round((emi - collectedThisPeriod - advanceAdjustedThisPeriod) * 100) / 100);
     if (receivable <= 0) return;
     rows.push({customer, loan, emi, collectedThisPeriod, receivable});
   });
@@ -937,6 +938,7 @@ function showReceipt(payment, customer, loan) {
       <div><small>Payment Mode</small><b>${esc(payment.payment_mode.toUpperCase().replace("_", " "))}</b></div>
     </div>
     <div class="receipt-amount"><small>Amount Received / प्राप्त राशि</small><strong>${money(payment.amount)}</strong><div class="receipt-amount-words"><b>In Words:</b> ${esc(amountInWords(payment.amount))}<br><b>शब्दों में:</b> ${esc(amountInWords(payment.amount,true))}</div></div>
+    <p class="receipt-remarks">Advance Added: ${money(advanceLedger.filter(x=>x.payment_id===payment.id && x.entry_type==="advance_received").reduce((sum,x)=>sum+Number(x.amount||0),0))} · Advance Adjusted: ${money(advanceLedger.filter(x=>x.payment_id===payment.id && x.entry_type==="advance_adjusted").reduce((sum,x)=>sum+Number(x.amount||0),0))}</p>
     <p class="receipt-remarks">Remarks: ${esc(payment.remarks || "—")}</p>
     <div class="receipt-footer"><span>Customer Signature</span><span>Authorized Collector</span></div>
     <p class="receipt-note">${payment.offline_pending ? "यह Offline Entry है। इंटरनेट आने पर भुगतान AJSF ONLINE में Sync होगा।" : "यह कंप्यूटर जनरेटेड रसीद है। भुगतान रिकॉर्ड AJSF ONLINE में सेव है।"}</p>`;
