@@ -46,7 +46,7 @@ function amountInWords(value, hindi=false) {
 
 const phone = (v) => { const s = String(v ?? "").trim(); return /^\d+\.0+$/.test(s) ? s.replace(/\.0+$/, "") : s; };
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-let supabase, currentUser, profile, customers = [], loans = [], payments = [], weeklyStatuses = [], lastReceipt = null;
+let supabase, currentUser, profile, customers = [], loans = [], payments = [], weeklyStatuses = [], advanceLedger = [], lastReceipt = null;
 let offlineDbPromise;
 function offlineDb() {
   if (!("indexedDB" in window)) return Promise.reject(new Error("इस browser में offline storage उपलब्ध नहीं है।"));
@@ -213,14 +213,14 @@ async function loadAll() {
     .order("full_name");
   if (!canAdmin()) customerQuery = customerQuery.eq("assigned_collector", currentUser.id);
   let c, l, w;
-  const weeklyQuery = canAdmin()
-    ? Promise.resolve({data:[], error:null})
-    : supabase.from("loan_weekly_status").select("loan_id, week_no, is_paid");
-  try { [c, l, w] = await Promise.all([
+  const weeklyQuery = supabase.from("loan_weekly_status").select("loan_id, week_no, is_paid, source_marker");
+  let adv;
+  try { [c, l, w, adv] = await Promise.all([
     customerQuery,
     supabase.from("loans").select("id, loan_reference, customer_id, loan_type, disbursement_date, loan_amount, emi_amount, total_emis_required, status, source_total_collected, source_osp, source_emis_paid, source_emis_pending").order("created_at", {ascending:false}),
-    weeklyQuery
-  ]); } catch (networkError) { c = {error:networkError}; l = {error:networkError}; w = {error:networkError}; }
+    weeklyQuery,
+    supabase.from("advance_ledger").select("*")
+  ]); } catch (networkError) { c = {error:networkError}; l = {error:networkError}; w = {error:networkError}; adv = {error:networkError}; }
   if (c.error || l.error) {
     const cached = await readSnapshot(`user:${currentUser.id}`);
     if (!cached?.value) throw new Error("डेटा ऑनलाइन लोड नहीं हुआ और इस डिवाइस पर Offline Backup भी नहीं मिला।");
@@ -228,6 +228,7 @@ async function loadAll() {
     loans = cached.value.loans || [];
     payments = cached.value.payments || [];
     weeklyStatuses = cached.value.weeklyStatuses || [];
+    advanceLedger = cached.value.advanceLedger || [];
     const pendingOffline = (await readPaymentQueue()).filter(item => item.collector_id === currentUser.id);
     payments.push(...pendingOffline.map(item => ({...item.payload, id:null, offline_pending:true})));
     renderData();
@@ -238,6 +239,7 @@ async function loadAll() {
   }
   customers = c.data || []; loans = l.data || [];
   weeklyStatuses = w && !w.error ? (w.data || []) : [];
+  advanceLedger = adv && !adv.error ? (adv.data || []) : [];
   payments = [];
   for (let start = 0; ; start += 1000) {
     const { data, error } = await supabase.from("payments").select("*").order("created_at", {ascending:false}).range(start, start + 999);
@@ -245,7 +247,7 @@ async function loadAll() {
     payments.push(...(data || []));
     if (!data || data.length < 1000) break;
   }
-  try { await cacheSnapshot(`user:${currentUser.id}`, {customers, loans, payments, weeklyStatuses}); } catch (cacheError) { console.warn("Offline cache unavailable", cacheError); }
+  try { await cacheSnapshot(`user:${currentUser.id}`, {customers, loans, payments, weeklyStatuses, advanceLedger}); } catch (cacheError) { console.warn("Offline cache unavailable", cacheError); }
   renderData();
   await syncQueuedPayments();
   await refreshConnectionStatus();
