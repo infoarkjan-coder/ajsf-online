@@ -42,6 +42,29 @@ public class MainActivity extends Activity {
         webView.addJavascriptInterface(new AjsfPrintBridge(), "AJSFNativePrint");
         setContentView(webView);
 
+        // Target SDK 35 draws edge-to-edge on Android 15+. Keep the WebView
+        // content below the status bar/camera cutout and above navigation UI.
+        webView.setOnApplyWindowInsetsListener((view, insets) -> {
+            int left, top, right, bottom;
+            if (android.os.Build.VERSION.SDK_INT >= 30) {
+                android.graphics.Insets safe = insets.getInsets(
+                        android.view.WindowInsets.Type.systemBars()
+                                | android.view.WindowInsets.Type.displayCutout());
+                left = safe.left;
+                top = safe.top;
+                right = safe.right;
+                bottom = safe.bottom;
+            } else {
+                left = insets.getSystemWindowInsetLeft();
+                top = insets.getSystemWindowInsetTop();
+                right = insets.getSystemWindowInsetRight();
+                bottom = insets.getSystemWindowInsetBottom();
+            }
+            view.setPadding(left, top, right, bottom);
+            return insets;
+        });
+        webView.requestApplyInsets();
+
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
