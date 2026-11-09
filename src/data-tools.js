@@ -66,11 +66,11 @@ function makeToolbar() {
         <button type="button" id="importCustomersExcel">Import Excel</button>
         <button type="button" class="secondary" id="downloadFullBackup">Full Backup</button>
         <button type="button" class="secondary" id="restoreFullBackup">Restore Backup</button>
-        <input id="customerExcelFile" type="file" accept=".xlsx,.xls,.csv" hidden>
+        <input id="customerExcelFile" type="file" accept=".xlsx" hidden>
         <input id="backupJsonFile" type="file" accept=".json,application/json" hidden>
       </div>
     </div>
-    <p id="dataToolsMessage" class="data-tools-message" role="status">Excel में .xlsx या .csv फ़ाइल इस्तेमाल करें। Full Backup JSON format में डाउनलोड होगा।</p>`;
+    <p id="dataToolsMessage" class="data-tools-message" role="status">Full Excel Export की .xlsx फ़ाइल को उसी format में Import करें। Full Backup JSON अलग रहेगा।</p>`;
   const form = $("customerForm");
   if (form) panel.insertBefore(toolbar, form);
   else panel.prepend(toolbar);
