@@ -127,10 +127,24 @@ function loanFigures(loan, paymentTotals) {
 }
 
 function openAjsfPrint(title, content, pageCss) {
-  const w = window.open("", "_blank");
-  if (!w) { showMessage("Print popup block है। Browser में pop-ups allow करें।", "warn"); return null; }
-  w.document.open();
-  w.document.write(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base href="${esc(document.baseURI)}"><title>${esc(title)}</title><style>
+  // Print inside a same-origin iframe instead of window.open(). In Android
+  // WebView, a popup can replace the app's current page and break Back navigation.
+  const frame = document.createElement("iframe");
+  frame.setAttribute("title", title);
+  frame.setAttribute("aria-hidden", "true");
+  frame.style.cssText = "position:fixed;left:0;top:0;width:100%;height:100%;border:0;opacity:0;pointer-events:none;z-index:-1";
+  document.body.appendChild(frame);
+
+  const printWindow = frame.contentWindow;
+  const printDocument = frame.contentDocument;
+  if (!printWindow || !printDocument) {
+    frame.remove();
+    showMessage("Print स्क्रीन तैयार नहीं हो पाई। दोबारा कोशिश करें।", "warn");
+    return null;
+  }
+
+  printDocument.open();
+  printDocument.write(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base href="${esc(document.baseURI)}"><title>${esc(title)}</title><style>
     *{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff;color:#172923;font-family:Arial,system-ui,sans-serif}
     body{padding:7mm;font-size:10pt;line-height:1.35}
     img{max-width:100%;object-fit:contain}table{width:100%;border-collapse:collapse}thead{display:table-header-group}tr{break-inside:avoid}
@@ -139,17 +153,38 @@ function openAjsfPrint(title, content, pageCss) {
     ${pageCss}
     @media print{body{padding:0}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
   </style></head><body>${content}</body></html>`);
-  w.document.close();
-  const printWhenReady = () => {
-    const images = Array.from(w.document.images);
-    Promise.all(images.map(img => img.complete ? Promise.resolve() : new Promise(resolve => { img.onload=resolve; img.onerror=resolve; })))
-      .then(() => { w.focus(); w.print(); });
-  };
-  if (w.document.readyState === "complete") printWhenReady();
-  else w.addEventListener("load", printWhenReady, { once:true });
-  return w;
-}
+  printDocument.close();
 
+  let cleaned = false;
+  const cleanup = () => {
+    if (cleaned) return;
+    cleaned = true;
+    frame.remove();
+  };
+  printWindow.onafterprint = cleanup;
+
+  const printWhenReady = () => {
+    const images = Array.from(printDocument.images);
+    Promise.all(images.map(img => img.complete ? Promise.resolve() : new Promise(resolve => {
+      img.onload = resolve;
+      img.onerror = resolve;
+    }))).then(() => {
+      try {
+        printWindow.focus();
+        printWindow.print();
+      } catch (error) {
+        cleanup();
+        showMessage("Print शुरू नहीं हो पाया: " + (error?.message || String(error)), "warn");
+      }
+    });
+  };
+
+  if (printDocument.readyState === "complete") printWhenReady();
+  else printWindow.addEventListener("load", printWhenReady, { once: true });
+  // Fallback cleanup for WebViews that do not fire afterprint.
+  window.setTimeout(cleanup, 120000);
+  return frame;
+}
 function showMessage(message, type = "info") {
   const dashboardCard = $("dashboardCard");
   const dashboardVisible = dashboardCard ? !dashboardCard.classList.contains("hidden") : false;
