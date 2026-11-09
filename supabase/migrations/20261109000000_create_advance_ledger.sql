@@ -32,6 +32,9 @@ create table if not exists public.advance_ledger (
 
 create index if not exists advance_ledger_loan_date_idx on public.advance_ledger(loan_id,event_date);
 create index if not exists advance_ledger_customer_date_idx on public.advance_ledger(customer_id,event_date);
+create index if not exists advance_ledger_collector_id_idx on public.advance_ledger(collector_id);
+create index if not exists advance_ledger_payment_id_idx on public.advance_ledger(payment_id);
+create index if not exists advance_ledger_source_entry_id_idx on public.advance_ledger(source_entry_id);
 
 alter table public.advance_ledger enable row level security;
 revoke all on public.advance_ledger from anon;
