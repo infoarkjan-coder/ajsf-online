@@ -142,13 +142,23 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        if (webView != null && webView.canGoBack()) {
-            webView.goBack();
-        } else {
-            // Keep the authenticated WebView alive in the background.
-            // Do not finish the Activity or return the user to the login screen.
+        if (webView == null) {
             moveTaskToBack(true);
+            return;
         }
+        // First let the web app dismiss an open receipt. Only navigate back
+        // when no receipt panel is visible.
+        webView.evaluateJavascript(
+                "(function(){return !!(window.__ajsfHandleAndroidBack && window.__ajsfHandleAndroidBack());})()",
+                value -> {
+                    if ("true".equals(value)) return;
+                    if (webView != null && webView.canGoBack()) {
+                        webView.goBack();
+                    } else {
+                        moveTaskToBack(true);
+                    }
+                }
+        );
     }
 
     @Override
