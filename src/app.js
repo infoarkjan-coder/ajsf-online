@@ -1129,6 +1129,55 @@ function localDateValue() {
   const offset = d.getTimezoneOffset();
   return new Date(d.getTime() - offset * 60000).toISOString().slice(0, 10);
 }
+async function loadReceiptLibrary(src, test) {
+  if (test()) return;
+  await new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = src; script.onload = resolve; script.onerror = () => reject(new Error("रसीद बनाने की लाइब्रेरी लोड नहीं हुई।"));
+    document.head.appendChild(script);
+  });
+}
+async function createReceiptFile(kind) {
+  const area = $("receiptContent");
+  if (!lastReceipt || !area || !area.innerHTML.trim()) throw new Error("पहले भुगतान सेव करें।");
+  await loadReceiptLibrary("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js", () => typeof window.html2canvas === "function");
+  const canvas = await window.html2canvas(area, {scale:2,backgroundColor:"#ffffff",useCORS:true,logging:false});
+  const receiptNo = (lastReceipt.payment.id || lastReceipt.payment.client_tx_id || "receipt").slice(0,8).toUpperCase();
+  const safeName = "AJSF-Receipt-" + receiptNo;
+  if (kind === "image") {
+    const blob = await new Promise(resolve => canvas.toBlob(resolve,"image/png"));
+    return new File([blob], safeName + ".png", {type:"image/png"});
+  }
+  await loadReceiptLibrary("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js", () => !!window.jspdf?.jsPDF);
+  const {jsPDF} = window.jspdf;
+  const pdf = new jsPDF({orientation:"portrait",unit:"mm",format:"a5"});
+  const width=138, height=canvas.height*width/canvas.width;
+  pdf.addImage(canvas.toDataURL("image/png"),"PNG",6,6,width,Math.min(height,198));
+  return new File([pdf.output("blob")],safeName+".pdf",{type:"application/pdf"});
+}
+async function shareReceipt(kind) {
+  const button = $(kind === "pdf" ? "shareReceiptPdfBtn" : "shareReceiptImageBtn");
+  setBusy(button,true,"रसीद तैयार हो रही है…");
+  try {
+    const file=await createReceiptFile(kind);
+    const title="AJSF Payment Receipt";
+    const textMsg="ARK JAN SAMRIDDHI FOUNDATION (AJSF) की भुगतान रसीद";
+    if (navigator.share && navigator.canShare && navigator.canShare({files:[file]})) {
+      await navigator.share({files:[file],title,text:textMsg});
+    } else {
+      const url=URL.createObjectURL(file);
+      const a=document.createElement("a"); a.href=url; a.download=file.name; a.click();
+      setTimeout(()=>URL.revokeObjectURL(url),60000);
+      const customer=lastReceipt.customer;
+      const digits=String(phone(customer?.contact_number)||"").replace(/\\D/g,"");
+      const wa="https://wa.me/"+(digits.length===10?"91"+digits:digits)+"?text="+encodeURIComponent(textMsg+"\n"+file.name+" डाउनलोड करके WhatsApp में attach करें।");
+      window.open(wa,"_blank","noopener,noreferrer");
+      showMessage("रसीद डाउनलोड हो गई है। WhatsApp में इसे attach करके भेजें।","success");
+    }
+  } catch(error) {
+    if (error?.name !== "AbortError") showMessage("Share नहीं हो पाया: "+(error?.message||String(error)),"warn");
+  } finally { setBusy(button,false); }
+}
 function printReceipt() {
   if (!lastReceipt) return showMessage("पहले भुगतान सेव करें।", "warn");
   const area = $("receiptContent");
@@ -1250,6 +1299,8 @@ async function boot() {
   $("statementCustomer").addEventListener("change", renderCustomerStatement);
   $("printStatementBtn").addEventListener("click", printCustomerStatement);
   $("printReceiptBtn").addEventListener("click", printReceipt);
+  $("shareReceiptPdfBtn").addEventListener("click", () => shareReceipt("pdf"));
+  $("shareReceiptImageBtn").addEventListener("click", () => shareReceipt("image"));
   $("closeReceiptBtn").addEventListener("click", () => $("receiptPanel").classList.add("hidden"));
 
   // Restore the existing Supabase session when the app is reopened or refreshed.
