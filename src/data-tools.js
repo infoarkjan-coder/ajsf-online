@@ -475,7 +475,7 @@ async function importCustomers(event) {
     document.dispatchEvent(new CustomEvent("ajsf:data-imported"));
   } catch(e) { say("Import असफल: "+e.message,"error"); }
 }
-async function downloadBackup() {
+async async function downloadBackup() {
   if (activeRole !== "admin") return say("Full Backup केवल Admin डाउनलोड कर सकता है।", "error");
   try {
     say("पूरा Backup तैयार हो रहा है…");
