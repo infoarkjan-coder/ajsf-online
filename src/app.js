@@ -854,7 +854,7 @@ async function processAdvanceForPayment(payment) {
     newRows.push({loan_id:loan.id,customer_id:customer.id,payment_id:payment.id,entry_type:"advance_received",amount:excess,event_date:payment.paid_at,source_week_no:info.week,collector_id:payment.collector_id||currentUser.id,idempotency_key:"advance-received:"+payment.client_tx_id,emi_amount_at_allocation:Number(loan.emi_amount||0),remarks:"Excess collection stored as advance"});
   }
   if(newRows.length){
-    const {data:inserted,error:insertError}=await supabase.from("advance_ledger").upsert(newRows,{onConflict:"idempotency_key"}).select("*");
+    const {data:inserted,error:insertError}=await supabase.from("advance_ledger").insert(newRows).select("*");
     if(insertError) throw insertError;
     advanceLedger=advanceLedger.filter(x=>x.loan_id!==loan.id).concat(inserted||[]);
     renderAdvanceBalanceInfo();
@@ -900,7 +900,7 @@ async function applyMaturedAdvances() {
       }
     }
     if(pending.length){
-      const {data:inserted,error:insertError}=await supabase.from("advance_ledger").upsert(pending,{onConflict:"idempotency_key"}).select("*");
+      const {data:inserted,error:insertError}=await supabase.from("advance_ledger").insert(pending).select("*");
       if(!insertError) advanceLedger=advanceLedger.filter(x=>x.loan_id!==loan.id).concat(inserted||[]);
     }
   }
