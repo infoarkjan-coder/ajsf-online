@@ -23,7 +23,6 @@ import android.webkit.JavascriptInterface;
 import android.widget.Toast;
 
 public class MainActivity extends Activity {
-    // Native Android PrintManager provides A4, page ranges, and Save as PDF.
     private static final String APP_URL = "https://ajsf-online.vercel.app/";
     private static final String APP_HOST = "ajsf-online.vercel.app";
     private static final int FILE_CHOOSER_REQUEST = 4102;
@@ -42,9 +41,6 @@ public class MainActivity extends Activity {
         webView.addJavascriptInterface(new AjsfPrintBridge(), "AJSFNativePrint");
         setContentView(webView);
 
-        // Receipt sharing is handled by the Web Share API in the AJSF WebView.
-        // Target SDK 35 draws edge-to-edge on Android 15+. Keep the WebView
-        // content below the status bar/camera cutout and above navigation UI.
         webView.setOnApplyWindowInsetsListener((view, insets) -> {
             int left, top, right, bottom;
             if (android.os.Build.VERSION.SDK_INT >= 30) {
@@ -82,20 +78,12 @@ public class MainActivity extends Activity {
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-                Uri uri = request.getUrl();
-                if ("https".equalsIgnoreCase(uri.getScheme()) && APP_HOST.equalsIgnoreCase(uri.getHost())) {
-                    return false;
-                }
-                if ("http".equalsIgnoreCase(uri.getScheme()) || "https".equalsIgnoreCase(uri.getScheme())
-                        || "tel".equalsIgnoreCase(uri.getScheme()) || "mailto".equalsIgnoreCase(uri.getScheme())) {
-                    try {
-                        startActivity(new Intent(Intent.ACTION_VIEW, uri));
-                    } catch (ActivityNotFoundException ignored) {
-                        Toast.makeText(MainActivity.this, "इस लिंक को खोलने के लिए ऐप उपलब्ध नहीं है", Toast.LENGTH_SHORT).show();
-                    }
-                    return true;
-                }
-                return true;
+                return handleExternalUrl(request.getUrl());
+            }
+
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                return handleExternalUrl(Uri.parse(url));
             }
 
             @Override
@@ -109,9 +97,6 @@ public class MainActivity extends Activity {
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onCreateWindow(WebView view, boolean isDialog, boolean isUserGesture, Message resultMsg) {
-                // The receipt print page is opened with window.open(). Keep it
-                // in a separate WebView so closing Android's print preview
-                // never replaces the authenticated AJSF screen.
                 if (printWebView != null) {
                     printWebView.stopLoading();
                     printWebView.destroy();
@@ -123,7 +108,12 @@ public class MainActivity extends Activity {
                 popupSettings.setLoadsImagesAutomatically(true);
                 popupSettings.setJavaScriptCanOpenWindowsAutomatically(true);
                 popupSettings.setSupportMultipleWindows(false);
-                printWebView.setWebViewClient(new WebViewClient());
+                printWebView.setWebViewClient(new WebViewClient() {
+                    @Override
+                    public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                        return handleExternalUrl(request.getUrl());
+                    }
+                });
                 printWebView.setWebChromeClient(new WebChromeClient() {
                     @Override
                     public void onCloseWindow(WebView window) {
@@ -155,34 +145,69 @@ public class MainActivity extends Activity {
             }
         });
 
-        webView.setDownloadListener(new DownloadListener() {
-            @Override
-            public void onDownloadStart(String url, String userAgent, String contentDisposition,
-                                        String mimeType, long contentLength) {
-                try {
-                    DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
-                    request.setMimeType(mimeType);
-                    String cookie = CookieManager.getInstance().getCookie(url);
-                    if (cookie != null) request.addRequestHeader("Cookie", cookie);
-                    request.addRequestHeader("User-Agent", userAgent);
-                    request.setTitle("AJSF Online डाउनलोड");
-                    request.setDescription("फाइल डाउनलोड हो रही है");
-                    request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
-                    request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS,
-                            android.webkit.URLUtil.guessFileName(url, contentDisposition, mimeType));
-                    ((DownloadManager) getSystemService(DOWNLOAD_SERVICE)).enqueue(request);
-                    Toast.makeText(MainActivity.this, "डाउनलोड शुरू हो गया है", Toast.LENGTH_SHORT).show();
-                } catch (Exception e) {
-                    Toast.makeText(MainActivity.this, "डाउनलोड शुरू नहीं हो पाया", Toast.LENGTH_LONG).show();
-                }
+        webView.setDownloadListener((url, userAgent, contentDisposition, mimeType, contentLength) -> {
+            try {
+                DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
+                request.setMimeType(mimeType);
+                String cookie = CookieManager.getInstance().getCookie(url);
+                if (cookie != null) request.addRequestHeader("Cookie", cookie);
+                request.addRequestHeader("User-Agent", userAgent);
+                request.setTitle("AJSF Online डाउनलोड");
+                request.setDescription("फाइल डाउनलोड हो रही है");
+                request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+                request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS,
+                        android.webkit.URLUtil.guessFileName(url, contentDisposition, mimeType));
+                ((DownloadManager) getSystemService(DOWNLOAD_SERVICE)).enqueue(request);
+                Toast.makeText(MainActivity.this, "डाउनलोड शुरू हो गया है", Toast.LENGTH_SHORT).show();
+            } catch (Exception e) {
+                Toast.makeText(MainActivity.this, "डाउनलोड शुरू नहीं हो पाया", Toast.LENGTH_LONG).show();
             }
         });
 
-        if (savedInstanceState == null) {
-            webView.loadUrl(APP_URL);
-        } else {
-            webView.restoreState(savedInstanceState);
+        if (savedInstanceState == null) webView.loadUrl(APP_URL);
+        else webView.restoreState(savedInstanceState);
+    }
+
+    // Never let WebView try to load app-specific schemes such as whatsapp://.
+    // Hand them to Android so the installed app can receive the deep link.
+    private boolean handleExternalUrl(Uri uri) {
+        String scheme = uri.getScheme();
+        if ("https".equalsIgnoreCase(scheme) && APP_HOST.equalsIgnoreCase(uri.getHost())) return false;
+
+        if ("whatsapp".equalsIgnoreCase(scheme) || "intent".equalsIgnoreCase(scheme)
+                || "tel".equalsIgnoreCase(scheme) || "mailto".equalsIgnoreCase(scheme)
+                || "http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme)) {
+            try {
+                Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+                if ("whatsapp".equalsIgnoreCase(scheme)) {
+                    intent.setPackage("com.whatsapp");
+                    try {
+                        startActivity(intent);
+                    } catch (ActivityNotFoundException missingWhatsApp) {
+                        intent.setPackage(null);
+                        Uri fallback = buildWhatsAppWebFallback(uri);
+                        if (fallback != null) startActivity(new Intent(Intent.ACTION_VIEW, fallback));
+                        else Toast.makeText(this, "WhatsApp इंस्टॉल नहीं है", Toast.LENGTH_LONG).show();
+                    }
+                } else {
+                    startActivity(intent);
+                }
+            } catch (ActivityNotFoundException e) {
+                Toast.makeText(this, "इस लिंक को खोलने के लिए ऐप उपलब्ध नहीं है", Toast.LENGTH_SHORT).show();
+            }
+            return true;
         }
+        return true;
+    }
+
+    private Uri buildWhatsAppWebFallback(Uri original) {
+        String phone = original.getQueryParameter("phone");
+        String message = original.getQueryParameter("text");
+        if (phone == null || phone.trim().isEmpty()) return null;
+        return new Uri.Builder().scheme("https").authority("wa.me")
+                .appendPath(phone.replaceAll("[^0-9]", ""))
+                .appendQueryParameter("text", message == null ? "" : message)
+                .build();
     }
 
     private class AjsfPrintBridge {
@@ -196,15 +221,10 @@ public class MainActivity extends Activity {
                             ? "AJSF Receipt" : jobName.trim();
                     PrintAttributes attributes = new PrintAttributes.Builder()
                             .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
-                            .setMinMargins(PrintAttributes.Margins.NO_MARGINS)
-                            .build();
-                    printManager.print(safeName,
-                            webView.createPrintDocumentAdapter(safeName),
-                            attributes);
+                            .setMinMargins(PrintAttributes.Margins.NO_MARGINS).build();
+                    printManager.print(safeName, webView.createPrintDocumentAdapter(safeName), attributes);
                 } catch (Exception e) {
-                    Toast.makeText(MainActivity.this,
-                            "Print Settings नहीं खुल पाईं: " + e.getMessage(),
-                            Toast.LENGTH_LONG).show();
+                    Toast.makeText(MainActivity.this, "Print Settings नहीं खुल पाईं: " + e.getMessage(), Toast.LENGTH_LONG).show();
                 }
             });
         }
@@ -216,9 +236,7 @@ public class MainActivity extends Activity {
             printWebView.destroy();
             printWebView = null;
         }
-        if (webView != null) {
-            setContentView(webView);
-        }
+        if (webView != null) setContentView(webView);
     }
 
     @Override
@@ -239,8 +257,6 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        // First close the separate receipt/print WebView and reveal the
-        // original AJSF payment screen. Do not navigate its history.
         if (printWebView != null) {
             closePrintWindow();
             return;
@@ -262,9 +278,7 @@ public class MainActivity extends Activity {
                 " return false;" +
                 "})()",
                 value -> {
-                    if (webView != null && !"true".equals(value)) {
-                        moveTaskToBack(true);
-                    }
+                    if (webView != null && !"true".equals(value)) moveTaskToBack(true);
                 }
         );
     }
