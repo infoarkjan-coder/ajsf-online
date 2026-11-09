@@ -377,13 +377,16 @@ function excelRowsToRecords(raw, existingCustomers, existingLoans, existingWeekl
     let loanRef=oldLoan?.loan_reference || hiddenLoanRef;
     if (!loanRef) loanRef="AJSF-XL-"+new Date().getFullYear()+"-"+crypto.randomUUID().slice(0,8).toUpperCase();
     const weeklyAmounts=[];
+    const weeklyTotalAmounts=[];
     for (let w=1;w<=24;w++) {
       const rawAmount=rowValue(row,"WEEK"+w,"W"+w);
       const amount=numericCell(rawAmount,"WEEK"+w,rowNo,false);
+      const totalWeekAmount=amount===null?0:amount;
       const ledgerApplied=rowAdvanceEntries.filter(entry=>Number(entry.applied_week_no)===w && ["cash_applied","advance_adjusted"].includes(entry.entry_type)).reduce((sum,entry)=>sum+Number(entry.amount||0),0);
-      weeklyAmounts.push(Math.max(0,(amount===null?0:amount)-ledgerApplied));
+      weeklyTotalAmounts.push(totalWeekAmount);
+      weeklyAmounts.push(Math.max(0,totalWeekAmount-ledgerApplied));
     }
-    const paidCount=weeklyAmounts.filter(amount=>amount>0).length;
+    const paidCount=weeklyTotalAmounts.filter(amount=>amount>0).length;
     const totalCollected=numericCell(rowValue(row,"Total Amount Collected"),"Total Amount Collected",rowNo,false);
     const osp=numericCell(rowValue(row,"Outstanding Balance (OSP)","Outstanding Balance"),"Outstanding Balance (OSP)",rowNo,false);
     const currentPaymentTotal=paymentTotals.get(loanId)||0;
