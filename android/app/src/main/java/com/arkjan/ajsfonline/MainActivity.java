@@ -204,12 +204,12 @@ public class MainActivity extends Activity {
                 "   var form = document.getElementById('paymentForm');" +
                 "   var section = form ? form.closest('section') : panel.previousElementSibling;" +
                 "   if (section) section.scrollIntoView({behavior:'smooth', block:'start'});" +
-                "   return 'receipt-closed';" +
+                "   return true;" +
                 " }" +
-                " return 'no-receipt';" +
+                " return false;" +
                 "})()",
                 value -> {
-                    if (webView != null && !"\\"receipt-closed\\"".equals(value)) {
+                    if (webView != null && !"true".equals(value)) {
                         moveTaskToBack(true);
                     }
                 }
