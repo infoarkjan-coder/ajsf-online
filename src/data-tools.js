@@ -159,9 +159,12 @@ function exportDate(value) {
 }
 function exportTrackerRow(customer, loan, weeklyByLoan, paidByLoan, loanFigures) {
   const weekly = weeklyByLoan.get(loan?.id) || new Map();
-  const flags = Array.from({length:24},(_,i)=>weekly.get(i+1) === true ? 1 : 0);
-  const paidCount = flags.reduce((n,v)=>n+v,0);
-  const paidPayments = loan ? (paidByLoan.get(loan.id) || 0) : 0;
+  const weeklyAmounts = Array.from({length:24},(_,i)=> {
+    const entry = weekly.get(i+1);
+    if (entry && entry.amount !== null && Number.isFinite(entry.amount)) return entry.amount;
+    return entry?.isPaid ? Number(loan?.emi_amount || 0) : 0;
+  });
+  const paidCount = weeklyAmounts.reduce((n,v)=>n+(v>0?1:0),0);
   const figures = loan ? loanFigures(loan, paidByLoan) : {collected:0,outstanding:0};
   return {
     "Customer Name":customer.full_name || "",
@@ -176,7 +179,7 @@ function exportTrackerRow(customer, loan, weeklyByLoan, paidByLoan, loanFigures)
     "Loan Amount":loan?.loan_amount ?? "",
     "EMI Amount":loan?.emi_amount ?? "",
     "Total EMIs Required":loan?.total_emis_required ?? "",
-    ...Object.fromEntries(flags.map((v,i)=>["WEEK"+(i+1),v])),
+    ...Object.fromEntries(weeklyAmounts.map((v,i)=>["WEEK"+(i+1),v])),
     "Total EMIs Paid":loan ? paidCount : "",
     "Total EMIs Pending":loan ? Math.max(0,Number(loan.total_emis_required || 0)-paidCount) : "",
     "Total Amount Collected":loan ? figures.collected : "",
@@ -213,7 +216,13 @@ async function exportCustomers() {
     const weeklyByLoan = new Map();
     allWeekly.forEach(w => {
       if (!weeklyByLoan.has(w.loan_id)) weeklyByLoan.set(w.loan_id,new Map());
-      weeklyByLoan.get(w.loan_id).set(Number(w.week_no),w.is_paid === true);
+      {
+        const rawAmount = w.source_marker === null || w.source_marker === undefined || String(w.source_marker).trim() === "" ? null : Number(String(w.source_marker).replace(/[,₹\s]/g,""));
+        weeklyByLoan.get(w.loan_id).set(Number(w.week_no),{
+          amount: rawAmount !== null && Number.isFinite(rawAmount) && rawAmount >= 0 ? rawAmount : null,
+          isPaid: w.is_paid === true
+        });
+      }
     });
     const paidByLoan = new Map();
     allPayments.filter(p=>!p.is_reversal && p.loan_id).forEach(p=>{
@@ -340,16 +349,13 @@ function excelRowsToRecords(raw, existingCustomers, existingLoans, existingWeekl
     const loanId=oldLoan?.id || hiddenLoanId || crypto.randomUUID();
     let loanRef=oldLoan?.loan_reference || hiddenLoanRef;
     if (!loanRef) loanRef="AJSF-XL-"+new Date().getFullYear()+"-"+crypto.randomUUID().slice(0,8).toUpperCase();
-    const paidFlags=[];
+    const weeklyAmounts=[];
     for (let w=1;w<=24;w++) {
-      const v=rowValue(row,"WEEK"+w,"W"+w);
-      const flag=v==="" ? false : ["1","true","yes","paid","✓"].includes(v.toLowerCase());
-      if (v!=="" && !["0","1","true","false","yes","no","paid","pending","✓","✗"].includes(v.toLowerCase())) {
-        problems.push("Row "+rowNo+": W"+w+" में केवल 1 या 0 लिखें"); return;
-      }
-      paidFlags.push(flag);
+      const rawAmount=rowValue(row,"WEEK"+w,"W"+w);
+      const amount=numericCell(rawAmount,"WEEK"+w,rowNo,false);
+      weeklyAmounts.push(amount === null ? 0 : amount);
     }
-    const paidCount=paidFlags.filter(Boolean).length;
+    const paidCount=weeklyAmounts.filter(amount=>amount>0).length;
     const totalCollected=numericCell(rowValue(row,"Total Amount Collected"),"Total Amount Collected",rowNo,false);
     const osp=numericCell(rowValue(row,"Outstanding Balance (OSP)","Outstanding Balance"),"Outstanding Balance (OSP)",rowNo,false);
     const currentPaymentTotal=paymentTotals.get(loanId)||0;
@@ -367,9 +373,12 @@ function excelRowsToRecords(raw, existingCustomers, existingLoans, existingWeekl
     };
     loans.push(loan);
     if (oldLoan) updateLoanCount++; else newLoanCount++;
-    paidFlags.forEach((isPaid,i)=>{
+    weeklyAmounts.forEach((amount,i)=>{
       const key=loanId+":"+(i+1), old=weeklyExisting.get(key);
-      weekly.push({id:old?.id || crypto.randomUUID(),loan_id:loanId,week_no:i+1,is_paid:isPaid,source_marker:old?.source_marker || null});
+      weekly.push({
+        id:old?.id || crypto.randomUUID(),loan_id:loanId,week_no:i+1,
+        is_paid:amount>0,source_marker:String(amount)
+      });
     });
   });
   return {customers:[...customers.values()],loans,weekly,problems,newCustomerCount,updateCustomerCount,newLoanCount,updateLoanCount};
