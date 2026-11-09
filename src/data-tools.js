@@ -362,10 +362,12 @@ function excelRowsToRecords(raw, existingCustomers, existingLoans, existingWeekl
     if (!oldLoan && disbursement) oldLoan=existingLoans.find(l=>l.customer_id===customerId && l.disbursement_date===disbursement && l.loan_type===loanType);
     const loanId=oldLoan?.id || hiddenLoanId || crypto.randomUUID();
     const ledgerJson=rowValue(row,"_AJSF Advance Ledger JSON");
+    let rowAdvanceEntries=[];
     if(ledgerJson){
       try{
         const imported=JSON.parse(ledgerJson);
         if(!Array.isArray(imported)) throw new Error("Advance Ledger JSON array नहीं है");
+        rowAdvanceEntries=imported;
         imported.forEach(entry=>{
           if(entry.loan_id!==loanId || !["advance_received","advance_adjusted","cash_applied"].includes(entry.entry_type) || !(Number(entry.amount)>0) || !entry.idempotency_key) throw new Error("Advance Ledger record गलत है");
           if(!knownAdvanceKeys.has(entry.idempotency_key)){advanceLedger.push(entry);knownAdvanceKeys.add(entry.idempotency_key);}
@@ -378,7 +380,8 @@ function excelRowsToRecords(raw, existingCustomers, existingLoans, existingWeekl
     for (let w=1;w<=24;w++) {
       const rawAmount=rowValue(row,"WEEK"+w,"W"+w);
       const amount=numericCell(rawAmount,"WEEK"+w,rowNo,false);
-      weeklyAmounts.push(amount === null ? 0 : amount);
+      const ledgerApplied=rowAdvanceEntries.filter(entry=>Number(entry.applied_week_no)===w && ["cash_applied","advance_adjusted"].includes(entry.entry_type)).reduce((sum,entry)=>sum+Number(entry.amount||0),0);
+      weeklyAmounts.push(Math.max(0,(amount===null?0:amount)-ledgerApplied));
     }
     const paidCount=weeklyAmounts.filter(amount=>amount>0).length;
     const totalCollected=numericCell(rowValue(row,"Total Amount Collected"),"Total Amount Collected",rowNo,false);
@@ -454,6 +457,7 @@ async function importCustomers(event) {
       const {error}=await db.from("loan_weekly_status").upsert(parsed.weekly.slice(i,i+100),{onConflict:"loan_id,week_no"});
       if(error) throw new Error("Weekly Status batch "+(Math.floor(i/100)+1)+": "+error.message);
     }
+    parsed.advanceLedger.sort((a,b)=>({advance_received:0,cash_applied:1,advance_adjusted:2}[a.entry_type]-({advance_received:0,cash_applied:1,advance_adjusted:2}[b.entry_type]));
     for(let i=0;i<parsed.advanceLedger.length;i+=100) {
       const {error}=await db.from("advance_ledger").insert(parsed.advanceLedger.slice(i,i+100));
       if(error) throw new Error("Advance Ledger batch "+(Math.floor(i/100)+1)+": "+error.message);
