@@ -834,16 +834,21 @@ async function processAdvanceForPayment(payment) {
     const marker=advanceMarkerAmount(loan,week);
     const weekEntries=entries.filter(x=>Number(x.applied_week_no)===week && ["cash_applied","advance_adjusted"].includes(x.entry_type));
     const weekEmi=Number(weekEntries.find(x=>Number(x.emi_amount_at_allocation)>0)?.emi_amount_at_allocation||loan.emi_amount||0);
-    const priorPayments=payments.filter(p=>p.loan_id===loan.id && !p.is_reversal && p.id!==payment.id && p.client_tx_id!==payment.client_tx_id).filter(p=>{
+    const priorPaymentRows=payments.filter(p=>p.loan_id===loan.id && !p.is_reversal && p.id!==payment.id && p.client_tx_id!==payment.client_tx_id).filter(p=>{
       const dt=new Date(p.paid_at);
       if(Number.isNaN(dt.getTime()) || dt<due || dt>=weekEnd) return false;
       const currentTime=new Date(payment.paid_at).getTime();
       const priorTime=dt.getTime();
       return priorTime<currentTime || (priorTime===currentTime && new Date(p.created_at||0)<new Date(payment.created_at||0));
-    }).reduce((n,p)=>n+Number(p.amount||0),0);
+    });
+    const priorPayments=priorPaymentRows.reduce((n,p)=>n+Number(p.amount||0),0);
+    const priorPaymentIds=new Set(priorPaymentRows.map(p=>p.id).filter(Boolean));
+    const cashAppliedForWeek=entries.filter(x=>x.entry_type==="cash_applied" && Number(x.applied_week_no)===week).reduce((n,x)=>n+Number(x.amount||0),0);
+    const cashAlreadyAllocatedFromWeek=entries.filter(x=>x.entry_type==="cash_applied" && priorPaymentIds.has(x.payment_id)).reduce((n,x)=>n+Number(x.amount||0),0);
     const receivedThisWeek=entries.filter(x=>x.entry_type==="advance_received" && Number(x.source_week_no)===week).reduce((n,x)=>n+Number(x.amount||0),0);
     const adjustedThisWeek=entries.filter(x=>x.entry_type==="advance_adjusted" && Number(x.applied_week_no)===week).reduce((n,x)=>n+Number(x.amount||0),0);
-    let dueLeft=Math.max(0,weekEmi-marker-Math.max(0,priorPayments-receivedThisWeek)-adjustedThisWeek);
+    const unallocatedPriorCash=Math.max(0,priorPayments-cashAlreadyAllocatedFromWeek-receivedThisWeek);
+    let dueLeft=Math.max(0,weekEmi-marker-cashAppliedForWeek-unallocatedPriorCash-adjustedThisWeek);
 
     for(const deposit of deposits){
       if(dueLeft<=0) break;
@@ -897,10 +902,15 @@ async function applyMaturedAdvances() {
       const weekEmi=Number(weekEntries.find(x=>Number(x.emi_amount_at_allocation)>0)?.emi_amount_at_allocation||loan.emi_amount||0);
       const marker=advanceMarkerAmount(loan,week);
       const start=new Date(due), end=new Date(due); end.setDate(end.getDate()+7);
-      const cash=payments.filter(p=>p.loan_id===loan.id && !p.is_reversal).filter(p=>{const dt=new Date(p.paid_at);return !Number.isNaN(dt.getTime())&&dt>=start&&dt<end;}).reduce((n,p)=>n+Number(p.amount||0),0);
+      const weekPaymentRows=payments.filter(p=>p.loan_id===loan.id && !p.is_reversal).filter(p=>{const dt=new Date(p.paid_at);return !Number.isNaN(dt.getTime())&&dt>=start&&dt<end;});
+      const cash=weekPaymentRows.reduce((n,p)=>n+Number(p.amount||0),0);
+      const weekPaymentIds=new Set(weekPaymentRows.map(p=>p.id).filter(Boolean));
+      const cashAppliedForWeek=entries.filter(x=>x.entry_type==="cash_applied"&&Number(x.applied_week_no)===week).reduce((n,x)=>n+Number(x.amount||0),0);
+      const cashAllocatedFromWeek=entries.filter(x=>x.entry_type==="cash_applied"&&weekPaymentIds.has(x.payment_id)).reduce((n,x)=>n+Number(x.amount||0),0);
       const receivedThisWeek=entries.filter(x=>x.entry_type==="advance_received"&&Number(x.source_week_no)===week).reduce((n,x)=>n+Number(x.amount||0),0);
       const adjusted=entries.filter(x=>x.entry_type==="advance_adjusted"&&Number(x.applied_week_no)===week).reduce((n,x)=>n+Number(x.amount||0),0);
-      let dueLeft=Math.max(0,weekEmi-marker-Math.max(0,cash-receivedThisWeek)-adjusted);
+      const unallocatedCash=Math.max(0,cash-cashAllocatedFromWeek-receivedThisWeek);
+      let dueLeft=Math.max(0,weekEmi-marker-cashAppliedForWeek-unallocatedCash-adjusted);
       for(const deposit of deposits){
         if(dueLeft<=0) break;
         const used=entries.filter(x=>x.entry_type==="advance_adjusted"&&x.source_entry_id===deposit.id).reduce((n,x)=>n+Number(x.amount||0),0)+pending.filter(x=>x.source_entry_id===deposit.id).reduce((n,x)=>n+Number(x.amount||0),0);
