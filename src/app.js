@@ -820,7 +820,8 @@ async function processAdvanceForPayment(payment) {
   const {data:rows,error}=await supabase.from("advance_ledger").select("*").eq("loan_id",loan.id).order("event_date");
   if(error) throw error;
   const entries=rows||[];
-  if(entries.some(x=>x.payment_id===payment.id && ["cash_applied","advance_received"].includes(x.entry_type))) return;
+  advanceLedger=advanceLedger.filter(x=>x.loan_id!==loan.id).concat(entries);
+  if(entries.some(x=>x.payment_id===payment.id && ["cash_applied","advance_received"].includes(x.entry_type))) { renderAdvanceBalanceInfo(); return; }
   const marker=advanceMarkerAmount(loan,info.week);
   const weekPayments=payments.filter(p=>p.loan_id===loan.id && !p.is_reversal && p.client_tx_id!==payment.client_tx_id && p.id!==payment.id).filter(p=>{
     const dt=new Date(p.paid_at); return !Number.isNaN(dt.getTime()) && dt>=info.start && dt<info.end;
