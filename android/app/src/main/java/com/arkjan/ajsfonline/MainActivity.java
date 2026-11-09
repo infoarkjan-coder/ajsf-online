@@ -145,7 +145,9 @@ public class MainActivity extends Activity {
         if (webView != null && webView.canGoBack()) {
             webView.goBack();
         } else {
-            super.onBackPressed();
+            // Keep the authenticated WebView alive in the background.
+            // Do not finish the Activity or return the user to the login screen.
+            moveTaskToBack(true);
         }
     }
 
