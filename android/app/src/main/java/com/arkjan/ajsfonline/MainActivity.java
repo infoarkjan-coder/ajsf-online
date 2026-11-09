@@ -23,7 +23,7 @@ import android.webkit.JavascriptInterface;
 import android.widget.Toast;
 
 public class MainActivity extends Activity {
-    // Rebuild APK with the iframe-based print flow from src/app.js.
+    // Native Android PrintManager provides A4, page ranges, and Save as PDF.
     private static final String APP_URL = "https://ajsf-online.vercel.app/";
     private static final String APP_HOST = "ajsf-online.vercel.app";
     private static final int FILE_CHOOSER_REQUEST = 4102;
