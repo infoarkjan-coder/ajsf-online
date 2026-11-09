@@ -126,18 +126,18 @@ function trackerHeaders() {
     "Customer Name","CENTER NAME","CONTACT NUMBER","CUSTOMER ID","AREA","ADDRESES",
     "Collection Day","FRESH/REPEAT","DATE OF DISBURSEMENT","Loan Amount","EMI Amount",
     "Total EMIs Required",
-    ...Array.from({length:24},(_,i)=>"WEEK"+(i+1)),
+    ...Array.from({length:24},(_,i)=>["WEEK"+(i+1),"ADVANCE"+(i+1),"ADVANCE ADJUSTED"+(i+1)]).flat(),
     "Total EMIs Paid","Total EMIs Pending","Total Amount Collected","Outstanding Balance (OSP)",
     "_AJSF Customer UUID","_AJSF Loan UUID","_AJSF Loan Ref","_AJSF Loan Status",
     "_AJSF Assigned Collector","_AJSF Customer Created By","_AJSF Loan Created By",
-    "_AJSF Customer Status","_AJSF Recovery Status","_AJSF Status Reason","_AJSF Status Date","_AJSF Status Notes","_AJSF Is Active"
+    "_AJSF Customer Status","_AJSF Recovery Status","_AJSF Status Reason","_AJSF Status Date","_AJSF Status Notes","_AJSF Is Active","_AJSF Advance Ledger JSON"
   ];
 }
 function sheetFromRows(rows) {
   const ws = XLSX.utils.json_to_sheet(rows, {header:trackerHeaders()});
   ws["!cols"] = trackerHeaders().map((h,i)=>({
-    wch: i < 12 ? [24,20,16,16,16,28,16,14,18,14,14,16][i] : (i < 36 ? 7 : (i < 40 ? 19 : 4)),
-    hidden: i >= 40
+    wch: i < 12 ? [24,20,16,16,16,28,16,14,18,14,14,16][i] : (i < 84 ? 12 : (i < 88 ? 19 : 4)),
+    hidden: i >= 88
   }));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "AJSF Weekly EMI Tracker");
@@ -157,14 +157,16 @@ function exportDate(value) {
   if (!value) return "";
   return String(value).slice(0,10);
 }
-function exportTrackerRow(customer, loan, weeklyByLoan, paidByLoan, loanFigures) {
+function exportTrackerRow(customer, loan, weeklyByLoan, paidByLoan, advanceByLoan, loanFigures) {
   const weekly = weeklyByLoan.get(loan?.id) || new Map();
   const weeklyAmounts = Array.from({length:24},(_,i)=> {
     const entry = weekly.get(i+1);
     if (entry && entry.amount !== null && Number.isFinite(entry.amount)) return entry.amount;
     return entry?.isPaid ? Number(loan?.emi_amount || 0) : 0;
   });
-  const paidCount = weeklyAmounts.reduce((n,v)=>n+(v>0?1:0),0);
+  const advance = advanceByLoan.get(loan?.id) || {received:new Map(),adjusted:new Map(),cashApplied:new Map(),entries:[]};
+  const allocatedAmounts = weeklyAmounts.map((v,i)=>v+Number(advance.cashApplied.get(i+1)||0)+Number(advance.adjusted.get(i+1)||0));
+  const paidCount = allocatedAmounts.reduce((n,v)=>n+(v>0?1:0),0);
   const figures = loan ? loanFigures(loan, paidByLoan) : {collected:0,outstanding:0};
   return {
     "Customer Name":customer.full_name || "",
@@ -179,7 +181,7 @@ function exportTrackerRow(customer, loan, weeklyByLoan, paidByLoan, loanFigures)
     "Loan Amount":loan?.loan_amount ?? "",
     "EMI Amount":loan?.emi_amount ?? "",
     "Total EMIs Required":loan?.total_emis_required ?? "",
-    ...Object.fromEntries(weeklyAmounts.map((v,i)=>["WEEK"+(i+1),v])),
+    ...Object.fromEntries(allocatedAmounts.flatMap((v,i)=>[["WEEK"+(i+1),v],["ADVANCE"+(i+1),Number(advance.received.get(i+1)||0)],["ADVANCE ADJUSTED"+(i+1),Number(advance.adjusted.get(i+1)||0)]])),
     "Total EMIs Paid":loan ? paidCount : "",
     "Total EMIs Pending":loan ? Math.max(0,Number(loan.total_emis_required || 0)-paidCount) : "",
     "Total Amount Collected":loan ? figures.collected : "",
@@ -196,23 +198,34 @@ function exportTrackerRow(customer, loan, weeklyByLoan, paidByLoan, loanFigures)
     "_AJSF Status Reason":customer.status_reason || "",
     "_AJSF Status Date":exportDate(customer.status_changed_at),
     "_AJSF Status Notes":customer.status_notes || "",
-    "_AJSF Is Active":customer.is_active !== false
+    "_AJSF Is Active":customer.is_active !== false,
+    "_AJSF Advance Ledger JSON":JSON.stringify(advance.entries)
   };
 }
 async function exportCustomers() {
   try {
     say("पूरा Excel तैयार हो रहा है…");
-    const [allCustomers, fetchedLoans, fetchedWeekly, fetchedPayments] = await Promise.all([
+    const [allCustomers, fetchedLoans, fetchedWeekly, fetchedPayments, fetchedAdvance] = await Promise.all([
       fetchAllRows("customers"),
       fetchAllRows("loans"),
       fetchAllRows("loan_weekly_status"),
-      fetchAllRows("payments","id,loan_id,amount,is_reversal")
+      fetchAllRows("payments","id,loan_id,amount,is_reversal"),
+      fetchAllRows("advance_ledger")
     ]);
     const customerIds = new Set(allCustomers.map(c=>c.id));
     const allLoans = fetchedLoans.filter(l=>customerIds.has(l.customer_id));
     const loanIds = new Set(allLoans.map(l=>l.id));
     const allWeekly = fetchedWeekly.filter(w=>loanIds.has(w.loan_id));
     const allPayments = fetchedPayments.filter(p=>loanIds.has(p.loan_id));
+    const allAdvance = fetchedAdvance.filter(p=>loanIds.has(p.loan_id));
+    const advanceByLoan = new Map();
+    allAdvance.forEach(entry=>{
+      if(!advanceByLoan.has(entry.loan_id)) advanceByLoan.set(entry.loan_id,{received:new Map(),adjusted:new Map(),cashApplied:new Map(),entries:[]});
+      const target=advanceByLoan.get(entry.loan_id); target.entries.push(entry);
+      const key=entry.entry_type==="advance_received"?"received":entry.entry_type==="advance_adjusted"?"adjusted":entry.entry_type==="cash_applied"?"cashApplied":null;
+      const week=entry.entry_type==="advance_received"?Number(entry.source_week_no):Number(entry.applied_week_no);
+      if(key && week){const map=target[key];map.set(week,(map.get(week)||0)+Number(entry.amount||0));}
+    });
     const weeklyByLoan = new Map();
     allWeekly.forEach(w => {
       if (!weeklyByLoan.has(w.loan_id)) weeklyByLoan.set(w.loan_id,new Map());
@@ -236,8 +249,8 @@ async function exportCustomers() {
     const rows = [];
     allCustomers.forEach(c=>{
       const customerLoans = loanByCustomer.get(c.id) || [];
-      if (!customerLoans.length) rows.push(exportTrackerRow(c,null,weeklyByLoan,paidByLoan,(l,p)=>({collected:0,outstanding:0})));
-      else customerLoans.forEach(l=>rows.push(exportTrackerRow(c,l,weeklyByLoan,paidByLoan,(loan,payments)=>{
+      if (!customerLoans.length) rows.push(exportTrackerRow(c,null,weeklyByLoan,paidByLoan,advanceByLoan,(l,p)=>({collected:0,outstanding:0})));
+      else customerLoans.forEach(l=>rows.push(exportTrackerRow(c,l,weeklyByLoan,paidByLoan,advanceByLoan,(loan,payments)=>{
         const collected = Number(loan.source_total_collected||0) + Number(payments.get(loan.id)||0);
         const baseline = loan.source_osp == null ? Math.max(0,Number(loan.loan_amount||0)-Number(loan.source_total_collected||0)) : Number(loan.source_osp);
         return {collected,outstanding:Math.max(0,baseline-Number(payments.get(loan.id)||0))};
@@ -437,7 +450,7 @@ async function downloadBackup() {
   if (activeRole !== "admin") return say("Full Backup केवल Admin डाउनलोड कर सकता है।", "error");
   try {
     say("पूरा Backup तैयार हो रहा है…");
-    const tables = ["customers","loans","payments","loan_weekly_status"];
+    const tables = ["customers","loans","payments","loan_weekly_status","advance_ledger"];
     const backup = {app:"AJSF Online",format_version:1,created_at:new Date().toISOString(),project_ref:"hruklvyvrdnivulqhfsq",tables:{}};
     for (const table of tables) {
       const rows = [];
@@ -462,7 +475,7 @@ async function restoreBackup(event) {
   try {
     const backup = JSON.parse(await file.text());
     if (backup.app !== "AJSF Online" || backup.format_version !== 1 || !backup.tables) throw new Error("यह AJSF का मान्य Backup नहीं है।");
-    const order = ["customers","loans","payments","loan_weekly_status"];
+    const order = ["customers","loans","payments","loan_weekly_status","advance_ledger"];
     for (const table of order) if (!Array.isArray(backup.tables[table])) throw new Error("Backup में "+table+" डेटा नहीं है।");
     const total = order.reduce((n,t)=>n+backup.tables[t].length,0);
     if (!confirm("Restore से पहले वर्तमान डेटा का नया Backup डाउनलोड होगा।\n\nचुनी गई फ़ाइल से "+total+" records ID के आधार पर जोड़ेंगे/अपडेट करेंगे।\nमौजूदा अतिरिक्त रिकॉर्ड delete नहीं होंगे।\n\nक्या आगे बढ़ें?")) return;
