@@ -42,6 +42,7 @@ public class MainActivity extends Activity {
         webView.addJavascriptInterface(new AjsfPrintBridge(), "AJSFNativePrint");
         setContentView(webView);
 
+        // Receipt sharing is handled by the Web Share API in the AJSF WebView.
         // Target SDK 35 draws edge-to-edge on Android 15+. Keep the WebView
         // content below the status bar/camera cutout and above navigation UI.
         webView.setOnApplyWindowInsetsListener((view, insets) -> {
