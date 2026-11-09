@@ -822,45 +822,60 @@ async function processAdvanceForPayment(payment) {
   const entries=rows||[];
   advanceLedger=advanceLedger.filter(x=>x.loan_id!==loan.id).concat(entries);
   if(entries.some(x=>x.payment_id===payment.id && ["cash_applied","advance_received"].includes(x.entry_type))) { renderAdvanceBalanceInfo(); return; }
-  const marker=advanceMarkerAmount(loan,info.week);
-  const weekPayments=payments.filter(p=>p.loan_id===loan.id && !p.is_reversal && p.client_tx_id!==payment.client_tx_id && p.id!==payment.id).filter(p=>{
-    const dt=new Date(p.paid_at); return !Number.isNaN(dt.getTime()) && dt>=info.start && dt<info.end;
-  }).reduce((n,p)=>n+Number(p.amount||0),0);
-  const weekAdvanceReceived=entries.filter(x=>x.entry_type==="advance_received" && Number(x.source_week_no)===info.week).reduce((n,x)=>n+Number(x.amount||0),0);
-  const weekEntries=entries.filter(x=>Number(x.applied_week_no)===info.week && ["cash_applied","advance_adjusted"].includes(x.entry_type));
-  const weekEmi=Number(weekEntries.find(x=>Number(x.emi_amount_at_allocation)>0)?.emi_amount_at_allocation||loan.emi_amount||0);
-  const weekAdvanceAdjusted=entries.filter(x=>x.entry_type==="advance_adjusted" && Number(x.applied_week_no)===info.week).reduce((n,x)=>n+Number(x.amount||0),0);
-  let dueLeft=Math.max(0,weekEmi-marker-Math.max(0,weekPayments-weekAdvanceReceived)-weekAdvanceAdjusted);
+
   const deposits=entries.filter(x=>x.entry_type==="advance_received").sort((a,b)=>new Date(a.event_date)-new Date(b.event_date));
+  const firstDue=new Date(info.start); firstDue.setDate(firstDue.getDate()-(info.week-1)*7);
+  let cashLeft=Number(payment.amount||0);
   const newRows=[];
-  for(const deposit of deposits){
-    if(dueLeft<=0) break;
-    const used=entries.filter(x=>x.entry_type==="advance_adjusted" && x.source_entry_id===deposit.id).reduce((n,x)=>n+Number(x.amount||0),0);
-    const available=Math.max(0,Number(deposit.amount||0)-used);
-    if(!available) continue;
-    const amount=Math.min(available,dueLeft);
-    const key="advance-adjusted:"+deposit.id+":"+info.week;
-    if(!entries.some(x=>x.idempotency_key===key)){
-      newRows.push({loan_id:loan.id,customer_id:customer.id,payment_id:payment.id,entry_type:"advance_adjusted",amount,event_date:payment.paid_at,source_week_no:deposit.source_week_no,applied_week_no:info.week,source_entry_id:deposit.id,collector_id:payment.collector_id||currentUser.id,idempotency_key:key,emi_amount_at_allocation:weekEmi,due_date:info.due.toISOString().slice(0,10),remarks:"Auto-adjusted against next due EMI"});
+
+  for(let week=1;week<=info.week;week++){
+    const due=new Date(firstDue); due.setDate(firstDue.getDate()+(week-1)*7);
+    const weekEnd=new Date(due); weekEnd.setDate(due.getDate()+7);
+    const marker=advanceMarkerAmount(loan,week);
+    const weekEntries=entries.filter(x=>Number(x.applied_week_no)===week && ["cash_applied","advance_adjusted"].includes(x.entry_type));
+    const weekEmi=Number(weekEntries.find(x=>Number(x.emi_amount_at_allocation)>0)?.emi_amount_at_allocation||loan.emi_amount||0);
+    const priorPayments=payments.filter(p=>p.loan_id===loan.id && !p.is_reversal && p.id!==payment.id && p.client_tx_id!==payment.client_tx_id).filter(p=>{
+      const dt=new Date(p.paid_at);
+      if(Number.isNaN(dt.getTime()) || dt<due || dt>=weekEnd) return false;
+      const currentTime=new Date(payment.paid_at).getTime();
+      const priorTime=dt.getTime();
+      return priorTime<currentTime || (priorTime===currentTime && new Date(p.created_at||0)<new Date(payment.created_at||0));
+    }).reduce((n,p)=>n+Number(p.amount||0),0);
+    const receivedThisWeek=entries.filter(x=>x.entry_type==="advance_received" && Number(x.source_week_no)===week).reduce((n,x)=>n+Number(x.amount||0),0);
+    const adjustedThisWeek=entries.filter(x=>x.entry_type==="advance_adjusted" && Number(x.applied_week_no)===week).reduce((n,x)=>n+Number(x.amount||0),0);
+    let dueLeft=Math.max(0,weekEmi-marker-Math.max(0,priorPayments-receivedThisWeek)-adjustedThisWeek);
+
+    for(const deposit of deposits){
+      if(dueLeft<=0) break;
+      const used=entries.filter(x=>x.entry_type==="advance_adjusted" && x.source_entry_id===deposit.id).reduce((n,x)=>n+Number(x.amount||0),0)+newRows.filter(x=>x.entry_type==="advance_adjusted" && x.source_entry_id===deposit.id).reduce((n,x)=>n+Number(x.amount||0),0);
+      const available=Math.max(0,Number(deposit.amount||0)-used);
+      if(!available) continue;
+      const amount=Math.min(available,dueLeft);
+      const key="advance-adjusted:"+deposit.id+":"+week;
+      if(!entries.some(x=>x.idempotency_key===key) && !newRows.some(x=>x.idempotency_key===key)){
+        newRows.push({loan_id:loan.id,customer_id:customer.id,payment_id:payment.id,entry_type:"advance_adjusted",amount,event_date:payment.paid_at,source_week_no:deposit.source_week_no,applied_week_no:week,source_entry_id:deposit.id,collector_id:payment.collector_id||currentUser.id,idempotency_key:key,emi_amount_at_allocation:weekEmi,due_date:due.toISOString().slice(0,10),remarks:"Auto-adjusted against next due EMI"});
+      }
+      dueLeft-=amount;
     }
-    dueLeft-=amount;
+
+    if(cashLeft>0 && dueLeft>0){
+      const amount=Math.min(cashLeft,dueLeft);
+      const key="cash-applied:"+payment.client_tx_id+":"+week;
+      newRows.push({loan_id:loan.id,customer_id:customer.id,payment_id:payment.id,entry_type:"cash_applied",amount,event_date:payment.paid_at,applied_week_no:week,collector_id:payment.collector_id||currentUser.id,idempotency_key:key,emi_amount_at_allocation:weekEmi,due_date:due.toISOString().slice(0,10),remarks:"Cash allocated to installment"});
+      cashLeft-=amount;
+    }
   }
-  const cashApplied=Math.min(Number(payment.amount||0),dueLeft);
-  if(cashApplied>0){
-    newRows.push({loan_id:loan.id,customer_id:customer.id,payment_id:payment.id,entry_type:"cash_applied",amount:cashApplied,event_date:payment.paid_at,applied_week_no:info.week,collector_id:payment.collector_id||currentUser.id,idempotency_key:"cash-applied:"+payment.client_tx_id+":"+info.week,emi_amount_at_allocation:weekEmi,due_date:info.due.toISOString().slice(0,10),remarks:"Cash applied to weekly EMI"});
-  }
-  const excess=Math.max(0,Number(payment.amount||0)-cashApplied);
-  if(excess>0){
-    newRows.push({loan_id:loan.id,customer_id:customer.id,payment_id:payment.id,entry_type:"advance_received",amount:excess,event_date:payment.paid_at,source_week_no:info.week,collector_id:payment.collector_id||currentUser.id,idempotency_key:"advance-received:"+payment.client_tx_id,emi_amount_at_allocation:Number(loan.emi_amount||0),remarks:"Excess collection stored as advance"});
+
+  if(cashLeft>0){
+    newRows.push({loan_id:loan.id,customer_id:customer.id,payment_id:payment.id,entry_type:"advance_received",amount:cashLeft,event_date:payment.paid_at,source_week_no:info.week,collector_id:payment.collector_id||currentUser.id,idempotency_key:"advance-received:"+payment.client_tx_id,emi_amount_at_allocation:Number(loan.emi_amount||0),remarks:"Excess collection stored as advance"});
   }
   if(newRows.length){
     const {data:inserted,error:insertError}=await supabase.from("advance_ledger").insert(newRows).select("*");
     if(insertError) throw insertError;
-    advanceLedger=advanceLedger.filter(x=>x.loan_id!==loan.id).concat(inserted||[]);
+    advanceLedger=advanceLedger.filter(x=>x.loan_id!==loan.id).concat(entries,inserted||[]);
     renderAdvanceBalanceInfo();
   }
 }
-
 
 async function applyMaturedAdvances() {
   if(!navigator.onLine || !currentUser) return;
