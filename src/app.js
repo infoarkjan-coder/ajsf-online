@@ -796,20 +796,50 @@ function advanceMarkerAmount(loan, weekNo) {
   return row?.is_paid ? Number(loan.emi_amount||0) : 0;
 }
 
-function advanceWeekInfo(loan, customer, paidAt) {
+function addAdvanceMonths(date, months) {
+  const base = new Date(date.getFullYear(), date.getMonth(), 1);
+  base.setMonth(base.getMonth() + months);
+  const lastDay = new Date(base.getFullYear(), base.getMonth() + 1, 0).getDate();
+  return new Date(base.getFullYear(), base.getMonth(), Math.min(date.getDate(), lastDay));
+}
+function advanceDueDate(loan, customer, installmentNo) {
+  if (!loan?.disbursement_date || !Number.isFinite(Number(installmentNo)) || Number(installmentNo) < 1) return null;
+  const parts = String(loan.disbursement_date).slice(0,10).split("-").map(Number);
+  const disbursement = new Date(parts[0], parts[1]-1, parts[2]);
+  disbursement.setHours(0,0,0,0);
+  if (customer?.collection_day === "MONTHLY") return addAdvanceMonths(disbursement, Number(installmentNo));
   const days={Sunday:0,Monday:1,Tuesday:2,Wednesday:3,Thursday:4,Friday:5,Saturday:6};
-  if(!loan?.disbursement_date || days[customer?.collection_day]===undefined) return null;
-  const parts=String(loan.disbursement_date).slice(0,10).split("-").map(Number);
-  const first=new Date(parts[0],parts[1]-1,parts[2]);
-  let delta=(days[customer.collection_day]-first.getDay()+7)%7;
+  if (days[customer?.collection_day] === undefined) return null;
+  let delta=(days[customer.collection_day]-disbursement.getDay()+7)%7;
   if(delta===0) delta=7;
-  first.setDate(first.getDate()+delta); first.setHours(0,0,0,0);
-  const date=new Date(paidAt); if(Number.isNaN(date.getTime())) return null; date.setHours(0,0,0,0);
-  const week=Math.max(1,Math.min(Number(loan.total_emis_required||24),Math.floor((date-first)/604800000)+1));
-  const start=new Date(first); start.setDate(first.getDate()+(week-1)*7);
-  const end=new Date(start); end.setDate(start.getDate()+7);
-  const due=new Date(start);
-  return {week,start,end,due};
+  const first=new Date(disbursement);
+  first.setDate(first.getDate()+delta+((Number(installmentNo)-1)*7));
+  return first;
+}
+function advanceWeekInfo(loan, customer, paidAt) {
+  if (!loan?.disbursement_date) return null;
+  const monthly = customer?.collection_day === "MONTHLY";
+  const days={Sunday:0,Monday:1,Tuesday:2,Wednesday:3,Thursday:4,Friday:5,Saturday:6};
+  if (!monthly && days[customer?.collection_day] === undefined) return null;
+  const date=new Date(paidAt);
+  if(Number.isNaN(date.getTime())) return null;
+  date.setHours(0,0,0,0);
+  const parts=String(loan.disbursement_date).slice(0,10).split("-").map(Number);
+  const disbursement=new Date(parts[0],parts[1]-1,parts[2]);
+  disbursement.setHours(0,0,0,0);
+  let installmentNo=1;
+  if (monthly) {
+    const monthDiff=(date.getFullYear()-disbursement.getFullYear())*12+(date.getMonth()-disbursement.getMonth());
+    installmentNo=Math.max(1, monthDiff-(date.getDate()<disbursement.getDate()?1:0));
+  } else {
+    const first=advanceDueDate(loan,customer,1);
+    installmentNo=Math.max(1,Math.floor((date-first)/604800000)+1);
+  }
+  installmentNo=Math.min(Number(loan.total_emis_required||24),installmentNo);
+  const start=advanceDueDate(loan,customer,installmentNo);
+  const end=advanceDueDate(loan,customer,installmentNo+1);
+  if(!start||!end) return null;
+  return {week:installmentNo,start,end,due:new Date(start),monthly};
 }
 async function processAdvanceForPayment(payment) {
   if(!payment?.id || !payment.loan_id || payment.is_reversal) return;
@@ -824,13 +854,12 @@ async function processAdvanceForPayment(payment) {
   if(entries.some(x=>x.payment_id===payment.id && ["cash_applied","advance_received"].includes(x.entry_type))) { renderAdvanceBalanceInfo(); return; }
 
   const deposits=entries.filter(x=>x.entry_type==="advance_received").sort((a,b)=>new Date(a.event_date)-new Date(b.event_date));
-  const firstDue=new Date(info.start); firstDue.setDate(firstDue.getDate()-(info.week-1)*7);
   let cashLeft=Number(payment.amount||0);
   const newRows=[];
 
   for(let week=1;week<=info.week;week++){
-    const due=new Date(firstDue); due.setDate(firstDue.getDate()+(week-1)*7);
-    const weekEnd=new Date(due); weekEnd.setDate(due.getDate()+7);
+    const due=advanceDueDate(loan,customer,week);
+    const weekEnd=advanceDueDate(loan,customer,week+1);
     const marker=advanceMarkerAmount(loan,week);
     const weekEntries=entries.filter(x=>Number(x.applied_week_no)===week && ["cash_applied","advance_adjusted"].includes(x.entry_type));
     const weekEmi=Number(weekEntries.find(x=>Number(x.emi_amount_at_allocation)>0)?.emi_amount_at_allocation||loan.emi_amount||0);
@@ -891,17 +920,15 @@ async function applyMaturedAdvances() {
     if(!current) continue;
     const {data:entries,error}=await supabase.from("advance_ledger").select("*").eq("loan_id",loan.id).order("event_date");
     if(error || !entries?.length) continue;
-    const first=advanceWeekInfo(loan,customer,loan.disbursement_date);
-    if(!first) continue;
     const deposits=entries.filter(x=>x.entry_type==="advance_received").sort((a,b)=>new Date(a.event_date)-new Date(b.event_date));
     const pending=[];
     for(let week=1;week<=current.week;week++){
-      const due=new Date(first.start); due.setDate(due.getDate()+(week-1)*7);
-      if(due>today) continue;
+      const due=advanceDueDate(loan,customer,week);
+      if(!due || due>today) continue;
       const weekEntries=entries.filter(x=>Number(x.applied_week_no)===week && ["cash_applied","advance_adjusted"].includes(x.entry_type));
       const weekEmi=Number(weekEntries.find(x=>Number(x.emi_amount_at_allocation)>0)?.emi_amount_at_allocation||loan.emi_amount||0);
       const marker=advanceMarkerAmount(loan,week);
-      const start=new Date(due), end=new Date(due); end.setDate(end.getDate()+7);
+      const start=due, end=advanceDueDate(loan,customer,week+1);
       const weekPaymentRows=payments.filter(p=>p.loan_id===loan.id && !p.is_reversal).filter(p=>{const dt=new Date(p.paid_at);return !Number.isNaN(dt.getTime())&&dt>=start&&dt<end;});
       const cash=weekPaymentRows.reduce((n,p)=>n+Number(p.amount||0),0);
       const weekPaymentIds=new Set(weekPaymentRows.map(p=>p.id).filter(Boolean));
