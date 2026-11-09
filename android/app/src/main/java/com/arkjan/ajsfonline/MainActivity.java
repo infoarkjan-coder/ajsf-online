@@ -146,15 +146,26 @@ public class MainActivity extends Activity {
             moveTaskToBack(true);
             return;
         }
-        // First let the web app dismiss an open receipt. Only navigate back
-        // when no receipt panel is visible.
+
+        // Inspect the actual production page DOM. The APK loads the hosted
+        // site, so a JavaScript helper added only to this source branch may
+        // not exist in the live page.
         webView.evaluateJavascript(
-                "(function(){return !!(window.__ajsfHandleAndroidBack && window.__ajsfHandleAndroidBack());})()",
+                "(function() {" +
+                " var panel = document.getElementById('receiptPanel');" +
+                " if (panel && !panel.classList.contains('hidden')) {" +
+                "   panel.classList.add('hidden');" +
+                "   var form = document.getElementById('paymentForm');" +
+                "   var section = form ? form.closest('section') : panel.previousElementSibling;" +
+                "   if (section) section.scrollIntoView({behavior:'smooth', block:'start'});" +
+                "   return 'receipt-closed';" +
+                " }" +
+                " return 'no-receipt';" +
+                "})()",
                 value -> {
-                    if ("true".equals(value)) return;
-                    if (webView != null && webView.canGoBack()) {
-                        webView.goBack();
-                    } else {
+                    // Never WebView.goBack() here: the hosted SPA's history can
+                    // contain the login document. Back should not log the user out.
+                    if (webView != null) {
                         moveTaskToBack(true);
                     }
                 }
