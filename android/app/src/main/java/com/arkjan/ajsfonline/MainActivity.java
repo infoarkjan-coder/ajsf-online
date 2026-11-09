@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Message;
 import android.webkit.CookieManager;
 import android.webkit.DownloadListener;
 import android.webkit.ValueCallback;
@@ -25,6 +26,7 @@ public class MainActivity extends Activity {
     private static final int FILE_CHOOSER_REQUEST = 4102;
 
     private WebView webView;
+    private WebView printWebView;
     private ValueCallback<Uri[]> filePathCallback;
 
     @Override
@@ -41,8 +43,8 @@ public class MainActivity extends Activity {
         settings.setDomStorageEnabled(true);
         settings.setDatabaseEnabled(true);
         settings.setLoadsImagesAutomatically(true);
-        settings.setJavaScriptCanOpenWindowsAutomatically(false);
-        settings.setSupportMultipleWindows(false);
+        settings.setJavaScriptCanOpenWindowsAutomatically(true);
+        settings.setSupportMultipleWindows(true);
         settings.setAllowFileAccess(false);
         settings.setAllowContentAccess(true);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
@@ -77,6 +79,36 @@ public class MainActivity extends Activity {
         });
 
         webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onCreateWindow(WebView view, boolean isDialog, boolean isUserGesture, Message resultMsg) {
+                // The receipt print page is opened with window.open(). Keep it
+                // in a separate WebView so closing Android's print preview
+                // never replaces the authenticated AJSF screen.
+                if (printWebView != null) {
+                    printWebView.stopLoading();
+                    printWebView.destroy();
+                }
+                printWebView = new WebView(MainActivity.this);
+                WebSettings popupSettings = printWebView.getSettings();
+                popupSettings.setJavaScriptEnabled(true);
+                popupSettings.setDomStorageEnabled(true);
+                popupSettings.setLoadsImagesAutomatically(true);
+                popupSettings.setJavaScriptCanOpenWindowsAutomatically(true);
+                popupSettings.setSupportMultipleWindows(false);
+                printWebView.setWebViewClient(new WebViewClient());
+                printWebView.setWebChromeClient(new WebChromeClient() {
+                    @Override
+                    public void onCloseWindow(WebView window) {
+                        closePrintWindow();
+                    }
+                });
+                setContentView(printWebView);
+                WebView.WebViewTransport transport = (WebView.WebViewTransport) resultMsg.obj;
+                transport.setWebView(printWebView);
+                resultMsg.sendToTarget();
+                return true;
+            }
+
             @Override
             public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params) {
                 if (filePathCallback != null) filePathCallback.onReceiveValue(null);
@@ -125,6 +157,17 @@ public class MainActivity extends Activity {
         }
     }
 
+    private void closePrintWindow() {
+        if (printWebView != null) {
+            printWebView.stopLoading();
+            printWebView.destroy();
+            printWebView = null;
+        }
+        if (webView != null) {
+            setContentView(webView);
+        }
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -143,14 +186,16 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
+        // First close the separate receipt/print WebView and reveal the
+        // original AJSF payment screen. Do not navigate its history.
+        if (printWebView != null) {
+            closePrintWindow();
+            return;
+        }
         if (webView == null) {
             moveTaskToBack(true);
             return;
         }
-
-        // Inspect the actual production page DOM. The APK loads the hosted
-        // site, so a JavaScript helper added only to this source branch may
-        // not exist in the live page.
         webView.evaluateJavascript(
                 "(function() {" +
                 " var panel = document.getElementById('receiptPanel');" +
@@ -164,10 +209,7 @@ public class MainActivity extends Activity {
                 " return 'no-receipt';" +
                 "})()",
                 value -> {
-                    // If the receipt was visible, it is now dismissed and we
-                    // remain on Payment Entry. Otherwise background the app;
-                    // never navigate WebView history back to the login document.
-                    if (webView != null && !"\"receipt-closed\"".equals(value)) {
+                    if (webView != null && !"\\"receipt-closed\\"".equals(value)) {
                         moveTaskToBack(true);
                     }
                 }
@@ -177,6 +219,11 @@ public class MainActivity extends Activity {
     @Override
     protected void onDestroy() {
         if (filePathCallback != null) filePathCallback.onReceiveValue(null);
+        if (printWebView != null) {
+            printWebView.stopLoading();
+            printWebView.destroy();
+            printWebView = null;
+        }
         if (webView != null) {
             webView.stopLoading();
             webView.destroy();
