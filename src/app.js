@@ -380,6 +380,7 @@ function renderData() {
   }).join("") || `<tr><td colspan="6" class="empty">अभी भुगतान उपलब्ध नहीं हैं।</td></tr>`;
   renderCustomerMIS();
   renderCollectorDemand();
+  renderAdvanceBalanceInfo();
 }
 
 
@@ -781,11 +782,22 @@ function formatDate(value) {
   const d = new Date(value);
   return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
 }
+function renderAdvanceBalanceInfo() {
+  const el=$("advanceBalanceInfo");
+  if(!el) return;
+  const loanId=$("payLoan")?.value;
+  if(!loanId){el.textContent="Advance Balance: लोन चुनें";return;}
+  const rows=advanceLedger.filter(x=>x.loan_id===loanId);
+  const received=rows.filter(x=>x.entry_type==="advance_received").reduce((n,x)=>n+Number(x.amount||0),0);
+  const adjusted=rows.filter(x=>x.entry_type==="advance_adjusted").reduce((n,x)=>n+Number(x.amount||0),0);
+  el.textContent="Advance Received: "+money(received)+" · Adjusted: "+money(adjusted)+" · Available Balance: "+money(Math.max(0,received-adjusted));
+}
 function refreshLoanOptions() {
   const customerId = $("payCustomer")?.value;
   const eligible = loans.filter(l => (!customerId || l.customer_id === customerId) && l.status === "active");
   $("payLoan").innerHTML = `<option value="">लोन चुनें</option>` + eligible.map(l => `<option value="${esc(l.id)}">${esc(l.loan_reference)} · ${money(l.loan_amount)}</option>`).join("");
 }
+
 function showReceipt(payment, customer, loan) {
   lastReceipt = { payment, customer, loan };
   const receiptNo = payment.id ? payment.id.slice(0, 8).toUpperCase() : payment.client_tx_id.slice(0, 8).toUpperCase();
@@ -978,6 +990,7 @@ async function boot() {
     activateTab("collector-demand");
   });
   $("payCustomer").addEventListener("change", refreshLoanOptions);
+  $("payLoan").addEventListener("change", renderAdvanceBalanceInfo);
   $("reminderCustomer").addEventListener("change", updateReminderLoanOptions);
   $("reminderLoan").addEventListener("change", buildReminderMessage);
   $("sendWhatsAppReminder").addEventListener("click", () => openReminder("whatsapp"));
