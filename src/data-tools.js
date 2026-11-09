@@ -123,10 +123,10 @@ function escapeHtml(v) {
 }
 function trackerHeaders() {
   return [
-    "Customer Name","CENTER NAME","CONTACT NUMBER","CUSTOMER ID","AREA","ADDRESS",
+    "Customer Name","CENTER NAME","CONTACT NUMBER","CUSTOMER ID","AREA","ADDRESES",
     "Collection Day","FRESH/REPEAT","DATE OF DISBURSEMENT","Loan Amount","EMI Amount",
     "Total EMIs Required",
-    ...Array.from({length:24},(_,i)=>"W"+(i+1)),
+    ...Array.from({length:24},(_,i)=>"WEEK"+(i+1)),
     "Total EMIs Paid","Total EMIs Pending","Total Amount Collected","Outstanding Balance (OSP)",
     "_AJSF Customer UUID","_AJSF Loan UUID","_AJSF Loan Ref","_AJSF Loan Status",
     "_AJSF Assigned Collector","_AJSF Customer Created By","_AJSF Loan Created By",
@@ -169,14 +169,14 @@ function exportTrackerRow(customer, loan, weeklyByLoan, paidByLoan, loanFigures)
     "CONTACT NUMBER":customer.contact_number || "",
     "CUSTOMER ID":customer.customer_code || "",
     "AREA":customer.area || "",
-    "ADDRESS":customer.address || "",
+    "ADDRESES":customer.address || "",
     "Collection Day":customer.collection_day || "",
     "FRESH/REPEAT":loan?.loan_type || "",
     "DATE OF DISBURSEMENT":exportDate(loan?.disbursement_date),
     "Loan Amount":loan?.loan_amount ?? "",
     "EMI Amount":loan?.emi_amount ?? "",
     "Total EMIs Required":loan?.total_emis_required ?? "",
-    ...Object.fromEntries(flags.map((v,i)=>["W"+(i+1),v])),
+    ...Object.fromEntries(flags.map((v,i)=>["WEEK"+(i+1),v])),
     "Total EMIs Paid":loan ? paidCount : "",
     "Total EMIs Pending":loan ? Math.max(0,Number(loan.total_emis_required || 0)-paidCount) : "",
     "Total Amount Collected":loan ? figures.collected : "",
@@ -307,7 +307,7 @@ function excelRowsToRecords(raw, existingCustomers, existingLoans, existingWeekl
       center_name:rowValue(row,"CENTER NAME","Center Name") || null,
       contact_number:rowValue(row,"CONTACT NUMBER","Contact Number","Mobile") || null,
       area:rowValue(row,"AREA","Area") || null,
-      address:rowValue(row,"ADDRESS","Address","ADDRESES") || null,
+      address:rowValue(row,"ADDRESES","ADDRESS","Address") || null,
       collection_day:day || null,
       customer_status:status,
       recovery_status:rowValue(row,"_AJSF Recovery Status") || existingCustomer.recovery_status || (status==="ACTIVE"?"NOT_REQUIRED":"PENDING"),
@@ -342,7 +342,7 @@ function excelRowsToRecords(raw, existingCustomers, existingLoans, existingWeekl
     if (!loanRef) loanRef="AJSF-XL-"+new Date().getFullYear()+"-"+crypto.randomUUID().slice(0,8).toUpperCase();
     const paidFlags=[];
     for (let w=1;w<=24;w++) {
-      const v=rowValue(row,"W"+w);
+      const v=rowValue(row,"WEEK"+w,"W"+w);
       const flag=v==="" ? false : ["1","true","yes","paid","✓"].includes(v.toLowerCase());
       if (v!=="" && !["0","1","true","false","yes","no","paid","pending","✓","✗"].includes(v.toLowerCase())) {
         problems.push("Row "+rowNo+": W"+w+" में केवल 1 या 0 लिखें"); return;
