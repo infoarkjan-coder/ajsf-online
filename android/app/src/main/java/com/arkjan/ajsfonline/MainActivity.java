@@ -6,6 +6,10 @@ import android.print.PrintAttributes;
 import android.print.PrintManager;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.content.ContentValues;
+import android.provider.MediaStore;
+import android.util.Base64;
+import java.io.OutputStream;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
@@ -39,6 +43,7 @@ public class MainActivity extends Activity {
 
         webView = new WebView(this);
         webView.addJavascriptInterface(new AjsfPrintBridge(), "AJSFNativePrint");
+        webView.addJavascriptInterface(new AjsfDownloadBridge(), "AJSFNativeDownload");
         setContentView(webView);
 
         webView.setOnApplyWindowInsetsListener((view, insets) -> {
@@ -208,6 +213,41 @@ public class MainActivity extends Activity {
                 .appendPath(phone.replaceAll("[^0-9]", ""))
                 .appendQueryParameter("text", message == null ? "" : message)
                 .build();
+    }
+
+    private class AjsfDownloadBridge {
+        @JavascriptInterface
+        public String saveBase64(String base64, String fileName, String mimeType) {
+            try {
+                if (android.os.Build.VERSION.SDK_INT < 29) {
+                    return "इस Android version में सुरक्षित Downloads save उपलब्ध नहीं है।";
+                }
+                String safeName = (fileName == null ? "AJSF-Receipt.pdf" : fileName)
+                        .replaceAll("[^A-Za-z0-9._-]", "_");
+                byte[] bytes = Base64.decode(base64, Base64.DEFAULT);
+                ContentValues values = new ContentValues();
+                values.put(MediaStore.Downloads.DISPLAY_NAME, safeName);
+                values.put(MediaStore.Downloads.MIME_TYPE,
+                        mimeType == null ? "application/pdf" : mimeType);
+                values.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/AJSF Receipts");
+                values.put(MediaStore.Downloads.IS_PENDING, 1);
+                Uri uri = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+                if (uri == null) return "Downloads में फाइल बनाने में समस्या हुई।";
+                try (OutputStream output = getContentResolver().openOutputStream(uri)) {
+                    if (output == null) throw new IllegalStateException("फाइल नहीं खुली");
+                    output.write(bytes);
+                    output.flush();
+                }
+                ContentValues done = new ContentValues();
+                done.put(MediaStore.Downloads.IS_PENDING, 0);
+                getContentResolver().update(uri, done, null, null);
+                runOnUiThread(() -> Toast.makeText(MainActivity.this,
+                        "Receipt Downloads/AJSF Receipts में सेव हो गई", Toast.LENGTH_LONG).show());
+                return "OK";
+            } catch (Exception e) {
+                return "PDF सेव नहीं हो पाई: " + e.getMessage();
+            }
+        }
     }
 
     private class AjsfPrintBridge {
