@@ -358,7 +358,7 @@ function renderCollectorDemand() {
   $("collectorDemandPeriod").textContent = isMonthly ? "इस महीने की शेष मांग" : "इस सप्ताह की शेष मांग";
   body.innerHTML = rows.map(row => `<tr>
     <td>${esc(row.customer.customer_code || "—")}</td>
-    <td><strong>${esc(row.customer.full_name || "—")}</strong><small class="demand-subline">${esc(row.customer.contact_number || "")}</small></td>
+    <td><strong>${esc(row.customer.full_name || "—")}</strong><small class="demand-subline">${esc(phone(row.customer.contact_number) || "")}</small></td>
     <td>${esc(row.customer.center_name || "—")}</td>
     <td>${esc(row.loan.loan_reference || "—")}</td>
     <td>${money(row.emi)}</td>
@@ -1037,7 +1037,7 @@ function showReceipt(payment, customer, loan) {
       <div><small>Customer ID</small><b>${esc(customer.customer_code)}</b></div>
       <div><small>Customer Name</small><b>${esc(customer.full_name)}</b></div>
       <div><small>Center</small><b>${esc(customer.center_name || "—")}</b></div>
-      <div><small>Mobile</small><b>${esc(customer.contact_number || "—")}</b></div>
+      <div><small>Mobile</small><b>${esc(phone(customer.contact_number) || "—")}</b></div>
       <div><small>Loan Reference</small><b>${esc(loan.loan_reference)}</b></div>
       <div><small>Payment Mode</small><b>${esc(payment.payment_mode.toUpperCase().replace("_", " "))}</b></div>
     </div>
