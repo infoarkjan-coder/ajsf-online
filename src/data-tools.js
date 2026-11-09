@@ -127,6 +127,7 @@ function trackerHeaders() {
     "Collection Day","FRESH/REPEAT","DATE OF DISBURSEMENT","Loan Amount","EMI Amount",
     "Total EMIs Required",
     ...Array.from({length:24},(_,i)=>["WEEK"+(i+1),"ADVANCE"+(i+1),"ADVANCE ADJUSTED"+(i+1)]).flat(),
+    "Total Advance Received","Total Advance Adjusted","Available Advance Balance",
     "Total EMIs Paid","Total EMIs Pending","Total Amount Collected","Outstanding Balance (OSP)",
     "_AJSF Customer UUID","_AJSF Loan UUID","_AJSF Loan Ref","_AJSF Loan Status",
     "_AJSF Assigned Collector","_AJSF Customer Created By","_AJSF Loan Created By",
@@ -136,8 +137,8 @@ function trackerHeaders() {
 function sheetFromRows(rows) {
   const ws = XLSX.utils.json_to_sheet(rows, {header:trackerHeaders()});
   ws["!cols"] = trackerHeaders().map((h,i)=>({
-    wch: i < 12 ? [24,20,16,16,16,28,16,14,18,14,14,16][i] : (i < 84 ? 12 : (i < 88 ? 19 : 4)),
-    hidden: i >= 88
+    wch: i < 12 ? [24,20,16,16,16,28,16,14,18,14,14,16][i] : (i < 84 ? 12 : (i < 91 ? 19 : 4)),
+    hidden: i >= 91
   }));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "AJSF Weekly EMI Tracker");
@@ -182,6 +183,9 @@ function exportTrackerRow(customer, loan, weeklyByLoan, paidByLoan, advanceByLoa
     "EMI Amount":loan?.emi_amount ?? "",
     "Total EMIs Required":loan?.total_emis_required ?? "",
     ...Object.fromEntries(allocatedAmounts.flatMap((v,i)=>[["WEEK"+(i+1),v],["ADVANCE"+(i+1),Number(advance.received.get(i+1)||0)],["ADVANCE ADJUSTED"+(i+1),Number(advance.adjusted.get(i+1)||0)]])),
+    "Total Advance Received":[...advance.received.values()].reduce((n,v)=>n+Number(v||0),0),
+    "Total Advance Adjusted":[...advance.adjusted.values()].reduce((n,v)=>n+Number(v||0),0),
+    "Available Advance Balance":Math.max(0,[...advance.received.values()].reduce((n,v)=>n+Number(v||0),0)-[...advance.adjusted.values()].reduce((n,v)=>n+Number(v||0),0)),
     "Total EMIs Paid":loan ? paidCount : "",
     "Total EMIs Pending":loan ? Math.max(0,Number(loan.total_emis_required || 0)-paidCount) : "",
     "Total Amount Collected":loan ? figures.collected : "",
