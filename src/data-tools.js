@@ -457,7 +457,8 @@ async function importCustomers(event) {
       const {error}=await db.from("loan_weekly_status").upsert(parsed.weekly.slice(i,i+100),{onConflict:"loan_id,week_no"});
       if(error) throw new Error("Weekly Status batch "+(Math.floor(i/100)+1)+": "+error.message);
     }
-    parsed.advanceLedger.sort((a,b)=>({advance_received:0,cash_applied:1,advance_adjusted:2}[a.entry_type]-({advance_received:0,cash_applied:1,advance_adjusted:2}[b.entry_type]));
+    const advanceRank={advance_received:0,cash_applied:1,advance_adjusted:2};
+    parsed.advanceLedger.sort((a,b)=>(advanceRank[a.entry_type]??9)-(advanceRank[b.entry_type]??9));
     for(let i=0;i<parsed.advanceLedger.length;i+=100) {
       const {error}=await db.from("advance_ledger").insert(parsed.advanceLedger.slice(i,i+100));
       if(error) throw new Error("Advance Ledger batch "+(Math.floor(i/100)+1)+": "+error.message);
