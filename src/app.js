@@ -46,7 +46,7 @@ function amountInWords(value, hindi=false) {
 
 const phone = (v) => { const s = String(v ?? "").trim(); return /^\d+\.0+$/.test(s) ? s.replace(/\.0+$/, "") : s; };
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-let supabase, currentUser, profile, customers = [], loans = [], payments = [], weeklyStatuses = [], lastReceipt = null;
+let supabase, currentUser, profile, customers = [], loans = [], payments = [], weeklyStatuses = [], advanceLedger = [], lastReceipt = null;
 let offlineDbPromise;
 function offlineDb() {
   if (!("indexedDB" in window)) return Promise.reject(new Error("इस browser में offline storage उपलब्ध नहीं है।"));
@@ -107,12 +107,13 @@ async function syncQueuedPayments() {
       if (!existing.error && existing.data) { data = existing.data; error = null; }
     }
     if (error) continue;
+    try { await processAdvanceForPayment(data); } catch (advanceError) { console.warn("Advance ledger update pending",advanceError); }
     await removeQueuedPayment(item.client_tx_id);
     payments = payments.filter(p => p.client_tx_id !== item.client_tx_id);
     payments.unshift(data);
   }
   renderData();
-  try { await cacheSnapshot(`user:${currentUser.id}`, {customers, loans, payments, weeklyStatuses}); } catch {}
+  try { await cacheSnapshot(`user:${currentUser.id}`, {customers, loans, payments, weeklyStatuses, advanceLedger}); } catch {}
   await refreshConnectionStatus();
 }
 
@@ -213,14 +214,14 @@ async function loadAll() {
     .order("full_name");
   if (!canAdmin()) customerQuery = customerQuery.eq("assigned_collector", currentUser.id);
   let c, l, w;
-  const weeklyQuery = canAdmin()
-    ? Promise.resolve({data:[], error:null})
-    : supabase.from("loan_weekly_status").select("loan_id, week_no, is_paid");
-  try { [c, l, w] = await Promise.all([
+  const weeklyQuery = supabase.from("loan_weekly_status").select("loan_id, week_no, is_paid, source_marker");
+  let adv;
+  try { [c, l, w, adv] = await Promise.all([
     customerQuery,
     supabase.from("loans").select("id, loan_reference, customer_id, loan_type, disbursement_date, loan_amount, emi_amount, total_emis_required, status, source_total_collected, source_osp, source_emis_paid, source_emis_pending").order("created_at", {ascending:false}),
-    weeklyQuery
-  ]); } catch (networkError) { c = {error:networkError}; l = {error:networkError}; w = {error:networkError}; }
+    weeklyQuery,
+    supabase.from("advance_ledger").select("*")
+  ]); } catch (networkError) { c = {error:networkError}; l = {error:networkError}; w = {error:networkError}; adv = {error:networkError}; }
   if (c.error || l.error) {
     const cached = await readSnapshot(`user:${currentUser.id}`);
     if (!cached?.value) throw new Error("डेटा ऑनलाइन लोड नहीं हुआ और इस डिवाइस पर Offline Backup भी नहीं मिला।");
@@ -228,6 +229,7 @@ async function loadAll() {
     loans = cached.value.loans || [];
     payments = cached.value.payments || [];
     weeklyStatuses = cached.value.weeklyStatuses || [];
+    advanceLedger = cached.value.advanceLedger || [];
     const pendingOffline = (await readPaymentQueue()).filter(item => item.collector_id === currentUser.id);
     payments.push(...pendingOffline.map(item => ({...item.payload, id:null, offline_pending:true})));
     renderData();
@@ -238,6 +240,7 @@ async function loadAll() {
   }
   customers = c.data || []; loans = l.data || [];
   weeklyStatuses = w && !w.error ? (w.data || []) : [];
+  advanceLedger = adv && !adv.error ? (adv.data || []) : [];
   payments = [];
   for (let start = 0; ; start += 1000) {
     const { data, error } = await supabase.from("payments").select("*").order("created_at", {ascending:false}).range(start, start + 999);
@@ -245,8 +248,9 @@ async function loadAll() {
     payments.push(...(data || []));
     if (!data || data.length < 1000) break;
   }
-  try { await cacheSnapshot(`user:${currentUser.id}`, {customers, loans, payments, weeklyStatuses}); } catch (cacheError) { console.warn("Offline cache unavailable", cacheError); }
+  try { await cacheSnapshot(`user:${currentUser.id}`, {customers, loans, payments, weeklyStatuses, advanceLedger}); } catch (cacheError) { console.warn("Offline cache unavailable", cacheError); }
   renderData();
+  await applyMaturedAdvances();
   await syncQueuedPayments();
   await refreshConnectionStatus();
   showMessage("डेटा सफलतापूर्वक लोड हुआ। जमा राशि में आयातित पुरानी वसूली और नए भुगतान शामिल हैं; बकाया में नए भुगतान घटाए गए हैं।", "success");
@@ -298,7 +302,8 @@ function renderCollectorDemand() {
     if (pendingCount <= 0) return;
     const emi = Number(loan.emi_amount || 0);
     const collectedThisPeriod = Number(paidByLoan[loan.id] || 0);
-    const receivable = Math.max(0, Math.round((emi - collectedThisPeriod) * 100) / 100);
+    const advanceAdjustedThisPeriod = advanceLedger.filter(x=>x.loan_id===loan.id && x.entry_type==="advance_adjusted" && x.due_date && new Date(x.due_date+"T00:00:00")>=periodStart && new Date(x.due_date+"T00:00:00")<periodEnd).reduce((sum,x)=>sum+Number(x.amount||0),0);
+    const receivable = Math.max(0, Math.round((emi - collectedThisPeriod - advanceAdjustedThisPeriod) * 100) / 100);
     if (receivable <= 0) return;
     rows.push({customer, loan, emi, collectedThisPeriod, receivable});
   });
@@ -378,6 +383,7 @@ function renderData() {
   }).join("") || `<tr><td colspan="6" class="empty">अभी भुगतान उपलब्ध नहीं हैं।</td></tr>`;
   renderCustomerMIS();
   renderCollectorDemand();
+  renderAdvanceBalanceInfo();
 }
 
 
@@ -779,11 +785,169 @@ function formatDate(value) {
   const d = new Date(value);
   return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
 }
+
+
+function advanceMarkerAmount(loan, weekNo) {
+  const row=weeklyStatuses.find(x=>x.loan_id===loan.id && Number(x.week_no)===weekNo);
+  if(row?.source_marker!==null && row?.source_marker!==undefined && String(row.source_marker).trim()!==""){
+    const n=Number(String(row.source_marker).replace(/[,₹\s]/g,""));
+    if(Number.isFinite(n)&&n>=0) return n;
+  }
+  return row?.is_paid ? Number(loan.emi_amount||0) : 0;
+}
+
+function advanceWeekInfo(loan, customer, paidAt) {
+  const days={Sunday:0,Monday:1,Tuesday:2,Wednesday:3,Thursday:4,Friday:5,Saturday:6};
+  if(!loan?.disbursement_date || days[customer?.collection_day]===undefined) return null;
+  const parts=String(loan.disbursement_date).slice(0,10).split("-").map(Number);
+  const first=new Date(parts[0],parts[1]-1,parts[2]);
+  let delta=(days[customer.collection_day]-first.getDay()+7)%7;
+  if(delta===0) delta=7;
+  first.setDate(first.getDate()+delta); first.setHours(0,0,0,0);
+  const date=new Date(paidAt); if(Number.isNaN(date.getTime())) return null; date.setHours(0,0,0,0);
+  const week=Math.max(1,Math.min(Number(loan.total_emis_required||24),Math.floor((date-first)/604800000)+1));
+  const start=new Date(first); start.setDate(first.getDate()+(week-1)*7);
+  const end=new Date(start); end.setDate(start.getDate()+7);
+  const due=new Date(start);
+  return {week,start,end,due};
+}
+async function processAdvanceForPayment(payment) {
+  if(!payment?.id || !payment.loan_id || payment.is_reversal) return;
+  const loan=loans.find(x=>x.id===payment.loan_id);
+  const customer=customers.find(x=>x.id===payment.customer_id);
+  const info=advanceWeekInfo(loan,customer,payment.paid_at);
+  if(!info) return;
+  const {data:rows,error}=await supabase.from("advance_ledger").select("*").eq("loan_id",loan.id).order("event_date");
+  if(error) throw error;
+  const entries=rows||[];
+  advanceLedger=advanceLedger.filter(x=>x.loan_id!==loan.id).concat(entries);
+  if(entries.some(x=>x.payment_id===payment.id && ["cash_applied","advance_received"].includes(x.entry_type))) { renderAdvanceBalanceInfo(); return; }
+
+  const deposits=entries.filter(x=>x.entry_type==="advance_received").sort((a,b)=>new Date(a.event_date)-new Date(b.event_date));
+  const firstDue=new Date(info.start); firstDue.setDate(firstDue.getDate()-(info.week-1)*7);
+  let cashLeft=Number(payment.amount||0);
+  const newRows=[];
+
+  for(let week=1;week<=info.week;week++){
+    const due=new Date(firstDue); due.setDate(firstDue.getDate()+(week-1)*7);
+    const weekEnd=new Date(due); weekEnd.setDate(due.getDate()+7);
+    const marker=advanceMarkerAmount(loan,week);
+    const weekEntries=entries.filter(x=>Number(x.applied_week_no)===week && ["cash_applied","advance_adjusted"].includes(x.entry_type));
+    const weekEmi=Number(weekEntries.find(x=>Number(x.emi_amount_at_allocation)>0)?.emi_amount_at_allocation||loan.emi_amount||0);
+    const priorPaymentRows=payments.filter(p=>p.loan_id===loan.id && !p.is_reversal && p.id!==payment.id && p.client_tx_id!==payment.client_tx_id).filter(p=>{
+      const dt=new Date(p.paid_at);
+      if(Number.isNaN(dt.getTime()) || dt<due || dt>=weekEnd) return false;
+      const currentTime=new Date(payment.paid_at).getTime();
+      const priorTime=dt.getTime();
+      return priorTime<currentTime || (priorTime===currentTime && new Date(p.created_at||0)<new Date(payment.created_at||0));
+    });
+    const priorPayments=priorPaymentRows.reduce((n,p)=>n+Number(p.amount||0),0);
+    const priorPaymentIds=new Set(priorPaymentRows.map(p=>p.id).filter(Boolean));
+    const cashAppliedForWeek=entries.filter(x=>x.entry_type==="cash_applied" && Number(x.applied_week_no)===week).reduce((n,x)=>n+Number(x.amount||0),0);
+    const cashAlreadyAllocatedFromWeek=entries.filter(x=>x.entry_type==="cash_applied" && priorPaymentIds.has(x.payment_id)).reduce((n,x)=>n+Number(x.amount||0),0);
+    const receivedThisWeek=entries.filter(x=>x.entry_type==="advance_received" && Number(x.source_week_no)===week).reduce((n,x)=>n+Number(x.amount||0),0);
+    const adjustedThisWeek=entries.filter(x=>x.entry_type==="advance_adjusted" && Number(x.applied_week_no)===week).reduce((n,x)=>n+Number(x.amount||0),0);
+    const unallocatedPriorCash=Math.max(0,priorPayments-cashAlreadyAllocatedFromWeek-receivedThisWeek);
+    let dueLeft=Math.max(0,weekEmi-marker-cashAppliedForWeek-unallocatedPriorCash-adjustedThisWeek);
+
+    for(const deposit of deposits){
+      if(dueLeft<=0) break;
+      const used=entries.filter(x=>x.entry_type==="advance_adjusted" && x.source_entry_id===deposit.id).reduce((n,x)=>n+Number(x.amount||0),0)+newRows.filter(x=>x.entry_type==="advance_adjusted" && x.source_entry_id===deposit.id).reduce((n,x)=>n+Number(x.amount||0),0);
+      const available=Math.max(0,Number(deposit.amount||0)-used);
+      if(!available) continue;
+      const amount=Math.min(available,dueLeft);
+      const key="advance-adjusted:"+deposit.id+":"+week;
+      if(!entries.some(x=>x.idempotency_key===key) && !newRows.some(x=>x.idempotency_key===key)){
+        newRows.push({loan_id:loan.id,customer_id:customer.id,payment_id:payment.id,entry_type:"advance_adjusted",amount,event_date:payment.paid_at,source_week_no:deposit.source_week_no,applied_week_no:week,source_entry_id:deposit.id,collector_id:payment.collector_id||currentUser.id,idempotency_key:key,emi_amount_at_allocation:weekEmi,due_date:due.toISOString().slice(0,10),remarks:"Auto-adjusted against next due EMI"});
+      }
+      dueLeft-=amount;
+    }
+
+    if(cashLeft>0 && dueLeft>0){
+      const amount=Math.min(cashLeft,dueLeft);
+      const key="cash-applied:"+payment.client_tx_id+":"+week;
+      newRows.push({loan_id:loan.id,customer_id:customer.id,payment_id:payment.id,entry_type:"cash_applied",amount,event_date:payment.paid_at,applied_week_no:week,collector_id:payment.collector_id||currentUser.id,idempotency_key:key,emi_amount_at_allocation:weekEmi,due_date:due.toISOString().slice(0,10),remarks:"Cash allocated to installment"});
+      cashLeft-=amount;
+    }
+  }
+
+  if(cashLeft>0){
+    newRows.push({loan_id:loan.id,customer_id:customer.id,payment_id:payment.id,entry_type:"advance_received",amount:cashLeft,event_date:payment.paid_at,source_week_no:info.week,collector_id:payment.collector_id||currentUser.id,idempotency_key:"advance-received:"+payment.client_tx_id,emi_amount_at_allocation:Number(loan.emi_amount||0),remarks:"Excess collection stored as advance"});
+  }
+  if(newRows.length){
+    const {data:inserted,error:insertError}=await supabase.from("advance_ledger").insert(newRows).select("*");
+    if(insertError) throw insertError;
+    advanceLedger=advanceLedger.filter(x=>x.loan_id!==loan.id).concat(entries,inserted||[]);
+    renderAdvanceBalanceInfo();
+  }
+}
+
+async function applyMaturedAdvances() {
+  if(!navigator.onLine || !currentUser) return;
+  const today=new Date(); today.setHours(0,0,0,0);
+  for(const loan of loans){
+    const customer=customers.find(c=>c.id===loan.customer_id);
+    const current=advanceWeekInfo(loan,customer,today);
+    if(!current) continue;
+    const {data:entries,error}=await supabase.from("advance_ledger").select("*").eq("loan_id",loan.id).order("event_date");
+    if(error || !entries?.length) continue;
+    const first=advanceWeekInfo(loan,customer,loan.disbursement_date);
+    if(!first) continue;
+    const deposits=entries.filter(x=>x.entry_type==="advance_received").sort((a,b)=>new Date(a.event_date)-new Date(b.event_date));
+    const pending=[];
+    for(let week=1;week<=current.week;week++){
+      const due=new Date(first.start); due.setDate(due.getDate()+(week-1)*7);
+      if(due>today) continue;
+      const weekEntries=entries.filter(x=>Number(x.applied_week_no)===week && ["cash_applied","advance_adjusted"].includes(x.entry_type));
+      const weekEmi=Number(weekEntries.find(x=>Number(x.emi_amount_at_allocation)>0)?.emi_amount_at_allocation||loan.emi_amount||0);
+      const marker=advanceMarkerAmount(loan,week);
+      const start=new Date(due), end=new Date(due); end.setDate(end.getDate()+7);
+      const weekPaymentRows=payments.filter(p=>p.loan_id===loan.id && !p.is_reversal).filter(p=>{const dt=new Date(p.paid_at);return !Number.isNaN(dt.getTime())&&dt>=start&&dt<end;});
+      const cash=weekPaymentRows.reduce((n,p)=>n+Number(p.amount||0),0);
+      const weekPaymentIds=new Set(weekPaymentRows.map(p=>p.id).filter(Boolean));
+      const cashAppliedForWeek=entries.filter(x=>x.entry_type==="cash_applied"&&Number(x.applied_week_no)===week).reduce((n,x)=>n+Number(x.amount||0),0);
+      const cashAllocatedFromWeek=entries.filter(x=>x.entry_type==="cash_applied"&&weekPaymentIds.has(x.payment_id)).reduce((n,x)=>n+Number(x.amount||0),0);
+      const receivedThisWeek=entries.filter(x=>x.entry_type==="advance_received"&&Number(x.source_week_no)===week).reduce((n,x)=>n+Number(x.amount||0),0);
+      const adjusted=entries.filter(x=>x.entry_type==="advance_adjusted"&&Number(x.applied_week_no)===week).reduce((n,x)=>n+Number(x.amount||0),0);
+      const unallocatedCash=Math.max(0,cash-cashAllocatedFromWeek-receivedThisWeek);
+      let dueLeft=Math.max(0,weekEmi-marker-cashAppliedForWeek-unallocatedCash-adjusted);
+      for(const deposit of deposits){
+        if(dueLeft<=0) break;
+        const used=entries.filter(x=>x.entry_type==="advance_adjusted"&&x.source_entry_id===deposit.id).reduce((n,x)=>n+Number(x.amount||0),0)+pending.filter(x=>x.source_entry_id===deposit.id).reduce((n,x)=>n+Number(x.amount||0),0);
+        const available=Math.max(0,Number(deposit.amount||0)-used);
+        if(!available) continue;
+        const amount=Math.min(available,dueLeft);
+        const key="advance-adjusted:"+deposit.id+":"+week;
+        if(!entries.some(x=>x.idempotency_key===key)&&!pending.some(x=>x.idempotency_key===key)){
+          pending.push({loan_id:loan.id,customer_id:customer.id,payment_id:null,entry_type:"advance_adjusted",amount,event_date:due.toISOString(),source_week_no:deposit.source_week_no,applied_week_no:week,source_entry_id:deposit.id,collector_id:currentUser.id,idempotency_key:key,emi_amount_at_allocation:weekEmi,due_date:due.toISOString().slice(0,10),remarks:"Automatic scheduled advance adjustment"});
+        }
+        dueLeft-=amount;
+      }
+    }
+    if(pending.length){
+      const {data:inserted,error:insertError}=await supabase.from("advance_ledger").insert(pending).select("*");
+      if(!insertError) advanceLedger=advanceLedger.filter(x=>x.loan_id!==loan.id).concat(inserted||[]);
+    }
+  }
+  renderAdvanceBalanceInfo();
+}
+
+function renderAdvanceBalanceInfo() {
+  const el=$("advanceBalanceInfo");
+  if(!el) return;
+  const loanId=$("payLoan")?.value;
+  if(!loanId){el.textContent="Advance Balance: लोन चुनें";return;}
+  const rows=advanceLedger.filter(x=>x.loan_id===loanId);
+  const received=rows.filter(x=>x.entry_type==="advance_received").reduce((n,x)=>n+Number(x.amount||0),0);
+  const adjusted=rows.filter(x=>x.entry_type==="advance_adjusted").reduce((n,x)=>n+Number(x.amount||0),0);
+  el.textContent="Advance Received: "+money(received)+" · Adjusted: "+money(adjusted)+" · Available Balance: "+money(Math.max(0,received-adjusted));
+}
 function refreshLoanOptions() {
   const customerId = $("payCustomer")?.value;
   const eligible = loans.filter(l => (!customerId || l.customer_id === customerId) && l.status === "active");
   $("payLoan").innerHTML = `<option value="">लोन चुनें</option>` + eligible.map(l => `<option value="${esc(l.id)}">${esc(l.loan_reference)} · ${money(l.loan_amount)}</option>`).join("");
 }
+
 function showReceipt(payment, customer, loan) {
   lastReceipt = { payment, customer, loan };
   const receiptNo = payment.id ? payment.id.slice(0, 8).toUpperCase() : payment.client_tx_id.slice(0, 8).toUpperCase();
@@ -800,6 +964,7 @@ function showReceipt(payment, customer, loan) {
       <div><small>Payment Mode</small><b>${esc(payment.payment_mode.toUpperCase().replace("_", " "))}</b></div>
     </div>
     <div class="receipt-amount"><small>Amount Received / प्राप्त राशि</small><strong>${money(payment.amount)}</strong><div class="receipt-amount-words"><b>In Words:</b> ${esc(amountInWords(payment.amount))}<br><b>शब्दों में:</b> ${esc(amountInWords(payment.amount,true))}</div></div>
+    <p class="receipt-remarks">Advance Added: ${money(advanceLedger.filter(x=>x.payment_id===payment.id && x.entry_type==="advance_received").reduce((sum,x)=>sum+Number(x.amount||0),0))} · Advance Adjusted: ${money(advanceLedger.filter(x=>x.payment_id===payment.id && x.entry_type==="advance_adjusted").reduce((sum,x)=>sum+Number(x.amount||0),0))}</p>
     <p class="receipt-remarks">Remarks: ${esc(payment.remarks || "—")}</p>
     <div class="receipt-footer"><span>Customer Signature</span><span>Authorized Collector</span></div>
     <p class="receipt-note">${payment.offline_pending ? "यह Offline Entry है। इंटरनेट आने पर भुगतान AJSF ONLINE में Sync होगा।" : "यह कंप्यूटर जनरेटेड रसीद है। भुगतान रिकॉर्ड AJSF ONLINE में सेव है।"}</p>`;
@@ -870,6 +1035,7 @@ async function submitPayment(event) {
     setBusy(btn, false);
     return showMessage("भुगतान सेव नहीं हुआ: " + error.message, "error");
   }
+  try { await processAdvanceForPayment(data); } catch (advanceError) { console.error("Advance ledger update failed",advanceError); }
   payments = payments.filter(p => p.client_tx_id !== data.client_tx_id);
   payments.unshift(data);
   renderData();
@@ -976,6 +1142,7 @@ async function boot() {
     activateTab("collector-demand");
   });
   $("payCustomer").addEventListener("change", refreshLoanOptions);
+  $("payLoan").addEventListener("change", renderAdvanceBalanceInfo);
   $("reminderCustomer").addEventListener("change", updateReminderLoanOptions);
   $("reminderLoan").addEventListener("change", buildReminderMessage);
   $("sendWhatsAppReminder").addEventListener("click", () => openReminder("whatsapp"));
