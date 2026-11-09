@@ -17,7 +17,7 @@ const headers = [
   "Customer ID","Customer Name","Center Name","Contact Number","Area","Address",
   "Collection Day","Status","Recovery Status","Status Date","Status Reason","Notes"
 ];
-const dayValues = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday","MONTHLY"];
+const dayValues = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","MONTHLY"];
 const statusValues = ["ACTIVE","ABSCONDED","DECEASED"];
 
 function say(message, type="info") {
@@ -399,15 +399,16 @@ async function importCustomers(event) {
     const parsed=excelRowsToRecords(raw,allCustomers,allLoans,allWeekly,allPayments);
     if (parsed.problems.length) throw new Error("Import रोक दिया गया। "+parsed.problems.slice(0,8).join(" | ")+(parsed.problems.length>8?" | और "+(parsed.problems.length-8)+" त्रुटियाँ":""));
     if (!parsed.customers.length) throw new Error("कोई Import योग्य Customer नहीं मिला।");
+    const uniqueCustomerCount=parsed.customers.length;
     const preview="Excel में "+raw.length+" rows हैं।\n"+
-      "नए ग्राहक: "+parsed.newCustomerCount+" · अपडेट ग्राहक: "+parsed.updateCustomerCount+"\n"+
+      "Customer records: "+uniqueCustomerCount+" (नए/अपडेट मिलाकर)\n"+
       "नए Loan: "+parsed.newLoanCount+" · अपडेट Loan: "+parsed.updateLoanCount+"\n"+
       "Weekly Status: "+parsed.weekly.length+" rows\n\n"+
       "मौजूदा Payment Transactions delete या duplicate नहीं होंगे। Excel के W1–W24 और Loan totals अपडेट होंगे।\n"+
       "Excel में न होने वाले पुराने रिकॉर्ड delete नहीं होंगे।\n\nक्या Import जारी रखें?";
     if (!confirm(preview)) return say("Import रद्द किया गया।");
     for(let i=0;i<parsed.customers.length;i+=50) {
-      const {error}=await db.from("customers").upsert(parsed.customers.slice(i,i+50),{onConflict:"customer_code"});
+      const {error}=await db.from("customers").upsert(parsed.customers.slice(i,i+50),{onConflict:"id"});
       if(error) throw new Error("Customer batch "+(Math.floor(i/50)+1)+": "+error.message);
     }
     for(let i=0;i<parsed.loans.length;i+=50) {
