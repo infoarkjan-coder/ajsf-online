@@ -298,7 +298,7 @@ function numericCell(value, label, rowNo, required=false) {
   if (!Number.isFinite(n) || n<0) throw new Error("Row "+rowNo+": "+label+" सही संख्या नहीं है।");
   return n;
 }
-function excelRowsToRecords(raw, existingCustomers, existingLoans, existingWeekly, existingPayments) {
+function excelRowsToRecords(raw, existingCustomers, existingLoans, existingWeekly, existingPayments, existingAdvance) {
   const customerByCode = new Map(existingCustomers.map(c=>[String(c.customer_code||"").trim(),c]));
   const customerById = new Map(existingCustomers.map(c=>[c.id,c]));
   const loanById = new Map(existingLoans.map(l=>[l.id,l]));
@@ -307,7 +307,8 @@ function excelRowsToRecords(raw, existingCustomers, existingLoans, existingWeekl
   existingPayments.filter(p=>!p.is_reversal && p.loan_id).forEach(p=>paymentTotals.set(p.loan_id,(paymentTotals.get(p.loan_id)||0)+Number(p.amount||0)));
   const weeklyExisting = new Map();
   existingWeekly.forEach(w=>weeklyExisting.set(w.loan_id+":"+w.week_no,w));
-  const customers = new Map(), loans = [], weekly = [], problems=[];
+  const customers = new Map(), loans = [], weekly = [], advanceLedger = [], problems=[];
+  const knownAdvanceKeys = new Set((existingAdvance||[]).map(x=>x.idempotency_key));
   let newCustomerCount=0, updateCustomerCount=0, newLoanCount=0, updateLoanCount=0;
   raw.forEach((source,index)=>{
     const rowNo=index+2, row=headerMap(source);
@@ -360,6 +361,17 @@ function excelRowsToRecords(raw, existingCustomers, existingLoans, existingWeekl
     let oldLoan=loanById.get(hiddenLoanId) || (hiddenLoanRef ? loanByRef.get(hiddenLoanRef) : null);
     if (!oldLoan && disbursement) oldLoan=existingLoans.find(l=>l.customer_id===customerId && l.disbursement_date===disbursement && l.loan_type===loanType);
     const loanId=oldLoan?.id || hiddenLoanId || crypto.randomUUID();
+    const ledgerJson=rowValue(row,"_AJSF Advance Ledger JSON");
+    if(ledgerJson){
+      try{
+        const imported=JSON.parse(ledgerJson);
+        if(!Array.isArray(imported)) throw new Error("Advance Ledger JSON array नहीं है");
+        imported.forEach(entry=>{
+          if(entry.loan_id!==loanId || !["advance_received","advance_adjusted","cash_applied"].includes(entry.entry_type) || !(Number(entry.amount)>0) || !entry.idempotency_key) throw new Error("Advance Ledger record गलत है");
+          if(!knownAdvanceKeys.has(entry.idempotency_key)){advanceLedger.push(entry);knownAdvanceKeys.add(entry.idempotency_key);}
+        });
+      }catch(e){problems.push("Row "+rowNo+": Advance Ledger डेटा गलत है ("+e.message+")");return;}
+    }
     let loanRef=oldLoan?.loan_reference || hiddenLoanRef;
     if (!loanRef) loanRef="AJSF-XL-"+new Date().getFullYear()+"-"+crypto.randomUUID().slice(0,8).toUpperCase();
     const weeklyAmounts=[];
@@ -394,7 +406,7 @@ function excelRowsToRecords(raw, existingCustomers, existingLoans, existingWeekl
       });
     });
   });
-  return {customers:[...customers.values()],loans,weekly,problems,newCustomerCount,updateCustomerCount,newLoanCount,updateLoanCount};
+  return {customers:[...customers.values()],loans,weekly,advanceLedger,problems,newCustomerCount,updateCustomerCount,newLoanCount,updateLoanCount};
 }
 async function importCustomers(event) {
   const file=event.target.files?.[0];
@@ -412,20 +424,21 @@ async function importCustomers(event) {
     if (!headers.includes("customer name") || !(headers.includes("customer id") || headers.includes("customer code"))) {
       throw new Error("यह AJSF Weekly EMI Tracker format नहीं है। Full Excel Export से मिली फ़ाइल इस्तेमाल करें।");
     }
-    const [allCustomers,allLoans,allWeekly,allPayments]=await Promise.all([
+    const [allCustomers,allLoans,allWeekly,allPayments,allAdvance]=await Promise.all([
       fetchAllRows("customers"),
       fetchAllRows("loans"),
       fetchAllRows("loan_weekly_status"),
-      fetchAllRows("payments","id,loan_id,amount,is_reversal")
+      fetchAllRows("payments","id,loan_id,amount,is_reversal"),
+      fetchAllRows("advance_ledger")
     ]);
-    const parsed=excelRowsToRecords(raw,allCustomers,allLoans,allWeekly,allPayments);
+    const parsed=excelRowsToRecords(raw,allCustomers,allLoans,allWeekly,allPayments,allAdvance);
     if (parsed.problems.length) throw new Error("Import रोक दिया गया। "+parsed.problems.slice(0,8).join(" | ")+(parsed.problems.length>8?" | और "+(parsed.problems.length-8)+" त्रुटियाँ":""));
     if (!parsed.customers.length) throw new Error("कोई Import योग्य Customer नहीं मिला।");
     const uniqueCustomerCount=parsed.customers.length;
     const preview="Excel में "+raw.length+" rows हैं।\n"+
       "Customer records: "+uniqueCustomerCount+" (नए/अपडेट मिलाकर)\n"+
       "नए Loan: "+parsed.newLoanCount+" · अपडेट Loan: "+parsed.updateLoanCount+"\n"+
-      "Weekly Status: "+parsed.weekly.length+" rows\n\n"+
+      "Weekly Status: "+parsed.weekly.length+" rows\nAdvance Ledger: "+parsed.advanceLedger.length+" new rows\n\n"+
       "मौजूदा Payment Transactions delete या duplicate नहीं होंगे। Excel के W1–W24 और Loan totals अपडेट होंगे।\n"+
       "Excel में न होने वाले पुराने रिकॉर्ड delete नहीं होंगे।\n\nक्या Import जारी रखें?";
     if (!confirm(preview)) return say("Import रद्द किया गया।");
@@ -441,8 +454,12 @@ async function importCustomers(event) {
       const {error}=await db.from("loan_weekly_status").upsert(parsed.weekly.slice(i,i+100),{onConflict:"loan_id,week_no"});
       if(error) throw new Error("Weekly Status batch "+(Math.floor(i/100)+1)+": "+error.message);
     }
+    for(let i=0;i<parsed.advanceLedger.length;i+=100) {
+      const {error}=await db.from("advance_ledger").insert(parsed.advanceLedger.slice(i,i+100));
+      if(error) throw new Error("Advance Ledger batch "+(Math.floor(i/100)+1)+": "+error.message);
+    }
     await refreshCustomers();
-    say("Import पूरा हुआ। Customer: "+parsed.customers.length+" · Loan: "+parsed.loans.length+" · W1–W24: "+parsed.weekly.length+". Dashboard Refresh करें।","success");
+    say("Import पूरा हुआ। Customer: "+parsed.customers.length+" · Loan: "+parsed.loans.length+" · W1–W24: "+parsed.weekly.length+" · Advance Ledger: "+parsed.advanceLedger.length+". Dashboard Refresh करें।","success");
     document.dispatchEvent(new CustomEvent("ajsf:data-imported"));
   } catch(e) { say("Import असफल: "+e.message,"error"); }
 }
