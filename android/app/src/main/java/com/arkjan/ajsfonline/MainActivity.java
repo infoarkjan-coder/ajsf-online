@@ -166,7 +166,7 @@ public class MainActivity extends Activity {
                     // If the receipt was visible, it is now dismissed and we
                     // remain on Payment Entry. Otherwise background the app;
                     // never navigate WebView history back to the login document.
-                    if (webView != null && !"\\"receipt-closed\\"".equals(value)) {
+                    if (webView != null && !"\"receipt-closed\"".equals(value)) {
                         moveTaskToBack(true);
                     }
                 }
