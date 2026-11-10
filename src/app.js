@@ -1098,7 +1098,7 @@ async function downloadElementPdf(element, fileName, options = {}) {
     onclone: clonedDoc => {
       const root = clonedDoc.getElementById(element.id);
       if (!root) return;
-      root.style.cssText += (element.id === "repaymentSchedulePrint" ? ";display:grid!important;grid-template-columns:55% 45%!important;grid-template-rows:auto 1fr!important;align-items:stretch!important;" : ";display:block!important;") + "width:1100px!important;max-width:none!important;min-width:1100px!important;padding:30px!important;margin:0!important;box-sizing:border-box!important;background:#fff!important;color:#20352d!important;font-family:Arial,sans-serif!important;font-size:14px!important;line-height:1.35!important;overflow:visible!important;border:0!important;border-radius:0!important";
+      root.style.cssText += ";display:block!important;width:1100px!important;max-width:none!important;min-width:1100px!important;height:auto!important;min-height:0!important;max-height:none!important;padding:30px!important;margin:0!important;box-sizing:border-box!important;background:#fff!important;color:#20352d!important;font-family:Arial,sans-serif!important;font-size:14px!important;line-height:1.35!important;overflow:visible!important;border:0!important;border-radius:0!important";
       const style = clonedDoc.createElement("style");
       style.textContent = `
         #ledgerPrintArea .ledger-print-brand,#statementPrintArea .statement-brand{display:flex!important;align-items:center!important;justify-content:flex-start!important;gap:22px!important;padding:0 0 18px!important;margin:0 0 20px!important;border-bottom:4px solid #174b3c!important}
@@ -1122,7 +1122,7 @@ async function downloadElementPdf(element, fileName, options = {}) {
         #repaymentSchedulePrint .schedule-brand img{width:76px!important;height:76px!important;max-width:76px!important;max-height:76px!important}
         #repaymentSchedulePrint .schedule-left,#repaymentSchedulePrint .schedule-right{display:block!important;width:100%!important;min-width:0!important;padding:14px!important;border:0!important}
         #repaymentSchedulePrint .schedule-left table{width:100%!important;table-layout:fixed!important;font-size:11px!important}#repaymentSchedulePrint .schedule-right{border-top:3px solid #174b3c!important;margin-top:18px!important}#repaymentSchedulePrint .schedule-left th,#repaymentSchedulePrint .schedule-left td{padding:7px!important;line-height:1.25!important}
-        #repaymentSchedulePrint .schedule-left th,#repaymentSchedulePrint .schedule-left td{padding:4px!important;line-height:1.1!important}
+        #repaymentSchedulePrint .schedule-left th,#repaymentSchedulePrint .schedule-left td{padding:7px!important;line-height:1.25!important}
         #repaymentSchedulePrint .schedule-summary{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important}
         #repaymentSchedulePrint .customer-detail{padding:5px!important}
         #repaymentSchedulePrint .customer-detail b{font-size:11px!important}
