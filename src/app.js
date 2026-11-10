@@ -345,7 +345,7 @@ function renderData() {
     String(a.center_name || "").localeCompare(String(b.center_name || "")) ||
     String(a.full_name || "").localeCompare(String(b.full_name || ""))
   );
-  $("customerRows").innerHTML = customerRegisterRows.map((c,i) => "<tr data-center=\"" + esc(c.center_name || "") + "\" data-day=\"" + esc(c.collection_day || "") + "\"><td>" + (i+1) + "</td><td>" + esc(c.center_name || "—") + "</td><td>" + esc(c.full_name || "—") + "</td><td>" + esc(phone(c.contact_number) || "—") + "</td><td>" + esc(c.customer_code || "—") + "</td><td>" + esc(c.area || "—") + "</td><td>" + esc(c.address || "—") + "</td><td>" + esc(c.collection_day || "—") + "</td><td>" + esc(c.customer_status || "—") + "</td><td>" + (canAdmin() ? "<button type=\"button\" class=\"customer-remove secondary\" data-customer-id=\"" + esc(c.id) + "\">हटाएँ</button>" : "—") + "</td></tr>").join("") || "<tr><td colspan=\"10\" class=\"empty\">कोई ग्राहक नहीं मिला।</td></tr>";
+  $("customerRows").innerHTML = customerRegisterRows.map((c,i) => "<tr data-center=\"" + esc(c.center_name || "") + "\" data-day=\"" + esc(c.collection_day || "") + "\"><td>" + (i+1) + "</td><td>" + esc(c.center_name || "—") + "</td><td>" + esc(c.full_name || "—") + "</td><td>" + esc(phone(c.contact_number) || "—") + "</td><td>" + esc(c.customer_code || "—") + "</td><td>" + esc(c.area || "—") + "</td><td>" + esc(c.address || "—") + "</td><td>" + esc(c.collection_day || "—") + "</td><td>" + esc(c.customer_status || "—") + "</td><td>" + (canAdmin() ? "<button type=\"button\" class=\"customer-account-create secondary\" data-customer-id=\"" + esc(c.id) + "\">Customer Login बनाएँ</button> <button type=\"button\" class=\"customer-remove secondary\" data-customer-id=\"" + esc(c.id) + "\">हटाएँ</button>" : "—") + "</td></tr>").join("") || "<tr><td colspan=\"10\" class=\"empty\">कोई ग्राहक नहीं मिला।</td></tr>";
   const centerFilter = $("customerCenterFilter");
   if (centerFilter) {
     const selectedCenter = centerFilter.value;
@@ -439,6 +439,30 @@ function renderCustomerMIS() {
     (!term || [c.customer_code,c.full_name,c.center_name,c.contact_number].some(v => String(v || "").toLowerCase().includes(term))));
   body.innerHTML = rows.map(c => `<tr data-mis-customer="${esc(c.id)}"><td>${esc(c.customer_code || "—")}</td><td>${esc(c.full_name || "—")}</td><td>${esc(c.center_name || "—")}</td><td>${esc(phone(c.contact_number) || "—")}</td><td><select class="mis-status" ${canAdmin() ? "" : "disabled"}><option value="ACTIVE" ${(c.customer_status || "ACTIVE")==="ACTIVE"?"selected":""}>ACTIVE</option><option value="ABSCONDED" ${c.customer_status==="ABSCONDED"?"selected":""}>ABSCONDED</option><option value="DECEASED" ${c.customer_status==="DECEASED"?"selected":""}>DECEASED</option></select>${c.is_active === false ? '<small class="inactive-flag">INACTIVE</small>' : ""}</td><td><input class="mis-date" type="date" value="${esc(c.status_changed_at || "")}" ${canAdmin()?"":"disabled"}></td><td><input class="mis-reason" value="${esc(c.status_reason || "")}" placeholder="जैसे: संपर्क नहीं / मृत्यु" ${canAdmin()?"":"disabled"}></td><td><input class="mis-notes" value="${esc(c.status_notes || "")}" placeholder="विवरण" ${canAdmin()?"":"disabled"}></td><td><div class="mis-actions"><button type="button" class="mis-save" ${canAdmin()?"":"disabled"}>सेव</button>${canAdmin() ? `<button type="button" class="customer-remove secondary" data-customer-id="${esc(c.id)}">हटाएँ</button>` : ""}</div></td></tr>`).join("") || `<tr><td colspan="9" class="empty">कोई रिकॉर्ड नहीं मिला।</td></tr>`;
 }
+async function createCustomerPortalAccount(customerId, button) {
+  if (!canAdmin()) return showMessage("Customer Login बनाने का अधिकार केवल Admin को है।", "warn");
+  if (!navigator.onLine) return showMessage("Customer Login बनाने के लिए इंटरनेट आवश्यक है।", "warn");
+  const customer = customers.find(c => c.id === customerId);
+  if (!customer) return showMessage("ग्राहक रिकॉर्ड नहीं मिला। Refresh करें।", "error");
+  if (!/^[0-9]{10}$/.test(String(customer.contact_number || "").replace(/[^0-9]/g, ""))) {
+    return showMessage("पहले ग्राहक का सही 10 अंकों का मोबाइल नंबर Customer Register में अपडेट करें।", "warn");
+  }
+  if (!window.confirm(`${customer.full_name} (${customer.customer_code}) के लिए Customer Portal Login बनाना है? Login ID उनका registered mobile number होगा।`)) return;
+  setBusy(button, true, "Login बन रहा है…");
+  try {
+    const { data, error } = await supabase.functions.invoke("admin-create-customer-account", { body: { customer_id: customerId } });
+    if (error) throw error;
+    if (!data?.success) throw new Error(data?.error || "Customer Login नहीं बना।");
+    showMessage(`Customer Login बन गया। Login ID: ${data.phone}. शुरुआती Password Admin द्वारा सुरक्षित तरीके से ग्राहक को दें।`, "success");
+    button.textContent = "Login बन गया";
+    button.disabled = true;
+  } catch (error) {
+    showMessage("Customer Login नहीं बन पाया: " + (error?.message || "Edge Function / Default Password configuration जाँचें।"), "error");
+  } finally {
+    setBusy(button, false);
+  }
+}
+
 async function removeCustomerRecord(customerId, button) {
   if (!canAdmin()) return showMessage("ग्राहक हटाने का अधिकार केवल Admin को है।", "warn");
   if (!navigator.onLine) return showMessage("ग्राहक हटाने के लिए इंटरनेट कनेक्शन आवश्यक है।", "warn");
@@ -1525,7 +1549,7 @@ async function boot() {
   $("misStatusFilter")?.addEventListener("change", renderCustomerMIS);
   $("misSearch")?.addEventListener("input", renderCustomerMIS);
   $("customerMisRows")?.addEventListener("click", event => { const removeBtn = event.target.closest(".customer-remove"); if (removeBtn) return removeCustomerRecord(removeBtn.dataset.customerId, removeBtn); const btn = event.target.closest(".mis-save"); if (btn) saveCustomerMISRow(btn.closest("tr")); });
-  $("customerRows")?.addEventListener("click", event => { const btn = event.target.closest(".customer-remove"); if (btn) removeCustomerRecord(btn.dataset.customerId, btn); });
+  $("customerRows")?.addEventListener("click", event => { const accountBtn = event.target.closest(".customer-account-create"); if (accountBtn) return createCustomerPortalAccount(accountBtn.dataset.customerId, accountBtn); const btn = event.target.closest(".customer-remove"); if (btn) removeCustomerRecord(btn.dataset.customerId, btn); });
   $("ledgerCustomer").addEventListener("change", loadCustomerLedger);
   $("ledgerSearch").addEventListener("input", filterLedgerCustomers);
   $("downloadLedgerPdfBtn").addEventListener("click", () => handleDocumentPdf("downloadLedgerPdfBtn","ledgerPrintArea","AJSF-Customer-Ledger.pdf","Customer Ledger PDF Downloads में सेव हो गई है।",{fitOnePage:true,pageMarginMm:3}));
