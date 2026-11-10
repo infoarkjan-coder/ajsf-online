@@ -1072,13 +1072,25 @@ function localDateValue() {
 }
 async function loadReceiptLibrary(src, test) {
   if (test()) return;
-  await new Promise((resolve, reject) => {
-    const script = document.createElement("script");
-    script.src = src;
-    script.onload = resolve;
-    script.onerror = () => reject(new Error("रसीद बनाने की लाइब्रेरी लोड नहीं हुई।"));
-    document.head.appendChild(script);
-  });
+  const mirrors = [src, src.replace("https://cdnjs.cloudflare.com/ajax/libs/","https://cdn.jsdelivr.net/npm/")];
+  let lastError;
+  for (const url of mirrors) {
+    if (test()) return;
+    try {
+      await new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        const timer = setTimeout(() => { script.remove(); reject(new Error("PDF library load timed out")); },12000);
+        script.src = url;
+        script.async = true;
+        script.onload = () => { clearTimeout(timer); resolve(); };
+        script.onerror = () => { clearTimeout(timer); script.remove(); reject(new Error("PDF library could not load")); };
+        document.head.appendChild(script);
+      });
+      if (test()) return;
+      throw new Error("PDF library loaded but is not available");
+    } catch (error) { lastError = error; }
+  }
+  throw new Error("PDF बनाने की लाइब्रेरी इंटरनेट से लोड नहीं हुई। इंटरनेट जाँचें और दोबारा प्रयास करें। " + (lastError?.message || ""));
 }
 async function downloadElementPdf(element, fileName, options = {}) {
   if (!element || !element.innerHTML.trim()) throw new Error("पहले संबंधित विवरण तैयार करें।");
