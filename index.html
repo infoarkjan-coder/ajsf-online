@@ -1,8 +1,24 @@
 <!doctype html>
 <html lang="hi">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AJSF Online</title><link rel="manifest" href="./manifest.webmanifest"><meta name="theme-color" content="#123f35"><link rel="stylesheet" href="./style.css"></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AJSF Online</title><link rel="manifest" href="./manifest.webmanifest"><meta name="theme-color" content="#123f35"><meta name="description" content="ARK JAN SAMRIDDHI FOUNDATION — digital collection and customer support platform."><link rel="stylesheet" href="./style.css"></head>
 <body><main class="shell wide" id="appShell">
-<header class="brand"><img class="brand-logo" src="./assets/ajsf-logo.png" alt="AJSF Logo"><div><h1>ARK JAN SAMRIDDHI FOUNDATION</h1><p>SAPNE AAPKE SATH HAMARA</p></div></header>
+<header class="brand"><img class="brand-logo" src="./assets/ajsf-logo.png" alt="AJSF Logo"><div><h1>ARK JAN SAMRIDDHI FOUNDATION</h1><p>SAPNE AAPKE SAATH HAMARA HAI</p></div></header>
+<section class="public-hero" aria-labelledby="publicTitle">
+  <div class="public-hero-copy">
+    <span class="eyebrow">AJSF · DIGITAL FOUNDATION</span>
+    <h2 id="publicTitle">सपनों को मिले सहयोग, प्रगति को नई दिशा</h2>
+    <p>ARK JAN SAMRIDDHI FOUNDATION का डिजिटल प्लेटफॉर्म। ग्राहक सहायता, साप्ताहिक किस्त प्रबंधन और सुरक्षित भुगतान रिकॉर्ड — एक ही जगह।</p>
+    <div class="public-actions"><a class="public-primary" href="#loginCard">Staff Login</a><button class="public-secondary" id="installAppBtn" type="button" hidden>मोबाइल में ऐप Install करें</button></div>
+  </div>
+  <div class="public-hero-mark"><img src="./assets/ajsf-logo.png" alt="AJSF Foundation Logo"><strong>सहयोग · विश्वास · समृद्धि</strong><span>एक बेहतर कल की ओर</span></div>
+</section>
+<section class="public-highlights" aria-label="AJSF platform features">
+  <article><span>01</span><h3>सुरक्षित प्रबंधन</h3><p>Admin और अधिकृत Collector के लिए अलग-अलग लॉगिन और भूमिका के अनुसार पहुँच।</p></article>
+  <article><span>02</span><h3>कलेक्शन ट्रैकिंग</h3><p>ग्राहक, लोन, साप्ताहिक EMI, भुगतान इतिहास और स्टेटमेंट का रिकॉर्ड।</p></article>
+  <article><span>03</span><h3>मोबाइल + कंप्यूटर</h3><p>Responsive वेबसाइट और Installable Android-friendly वेब ऐप अनुभव।</p></article>
+</section>
+<section class="public-payment" aria-label="Payment information"><div><span class="eyebrow">PAYMENT CENTER</span><h3>आसान और सुरक्षित भुगतान</h3><p>Foundation का आधिकारिक Static UPI QR Code यहाँ जोड़ा जाएगा। QR उपलब्ध होने तक भुगतान की पुष्टि केवल अधिकृत स्टाफ से करें।</p></div><div class="qr-placeholder"><span class="qr-placeholder-icon">▦</span><strong>UPI QR CODE</strong><small>जल्द उपलब्ध होगा</small></div></section>
+<section class="public-login-note"><div><h3>Staff Portal</h3><p>Admin और Collector अपने अधिकृत खाते से लॉगिन करें।</p></div><a href="#loginCard">लॉगिन पर जाएँ <span aria-hidden="true">→</span></a></section>
 <section class="card" id="loginCard"><span class="eyebrow">SECURE STAFF ACCESS</span><h2>लॉगिन करें</h2><p class="muted">Admin और अधिकृत Collector के लिए</p><form id="loginForm"><label for="email">ईमेल</label><input id="email" type="email" autocomplete="username" required><label for="password">पासवर्ड</label><input id="password" type="password" autocomplete="current-password" required><button id="loginBtn" type="submit">लॉगिन करें</button></form><p id="loginMessage" class="message" role="status"></p><p class="small">अपना पासवर्ड किसी के साथ साझा न करें।</p></section>
 <section class="hidden" id="dashboardCard">
 <div class="dashhead"><div><span class="eyebrow">AJSF ONLINE</span><h2>नमस्ते, <span id="staffName">Staff</span></h2><p class="muted"><span id="staffCode"></span> · <span id="staffRole"></span> — <span id="roleNote"></span></p></div><button class="secondary" id="logoutBtn">लॉगआउट</button></div>
@@ -59,4 +75,10 @@
 <p id="reminderInfo" class="muted" role="status">पहले ग्राहक चुनें।</p>
 </section>
 <section class="card panel hidden" data-panel="payments"><h2>Payment History</h2><div class="tablewrap"><table><thead><tr><th>Payment ID</th><th>Date</th><th>Customer</th><th>Loan Ref</th><th>Amount</th><th>Mode</th></tr></thead><tbody id="paymentRows"></tbody></table></div></section>
-</div></div></section><footer>AJSF ONLINE · Collection Management System</footer></main><script type="module" src="./src/app.js"></script><script type="module" src="./src/data-tools.js"></script></body></html>
+</div></div></section><footer>AJSF ONLINE · Collection Management System</footer></main><script type="module" src="./src/app.js"></script><script type="module" src="./src/data-tools.js"></script><script>
+let ajsfInstallPrompt=null;
+const ajsfInstallButton=document.getElementById("installAppBtn");
+window.addEventListener("beforeinstallprompt",event=>{event.preventDefault();ajsfInstallPrompt=event;if(ajsfInstallButton)ajsfInstallButton.hidden=false;});
+ajsfInstallButton?.addEventListener("click",async()=>{if(!ajsfInstallPrompt)return;ajsfInstallPrompt.prompt();await ajsfInstallPrompt.userChoice;ajsfInstallPrompt=null;ajsfInstallButton.hidden=true;});
+window.addEventListener("appinstalled",()=>{if(ajsfInstallButton)ajsfInstallButton.hidden=true;});
+</script></body></html>
