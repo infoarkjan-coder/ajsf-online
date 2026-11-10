@@ -19,7 +19,7 @@ self.addEventListener("fetch", event => {
     return;
   }
   if (url.origin === self.location.origin || url.hostname === "esm.sh") {
-    const isAppCode = url.origin === self.location.origin && /\\.(js|css)$/.test(url.pathname);
+    const isAppCode = url.origin === self.location.origin && /\.(js|css)$/.test(url.pathname);
     if (isAppCode) {
       event.respondWith(fetch(request).then(response => {
         if (response && response.ok) caches.open(CACHE_NAME).then(cache => cache.put(request, response.clone()));
