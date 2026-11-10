@@ -1117,11 +1117,11 @@ async function downloadElementPdf(element, fileName, options = {}) {
         #ledgerPrintArea table,#statementPrintArea table{width:100%!important;table-layout:fixed!important;border-collapse:collapse!important;font-size:12px!important;margin:10px 0 16px!important}
         #ledgerPrintArea th,#ledgerPrintArea td,#statementPrintArea th,#statementPrintArea td{border:1px solid #cbd8d0!important;padding:9px 8px!important;text-align:left!important;vertical-align:middle!important;white-space:normal!important;overflow-wrap:anywhere!important}
         #ledgerPrintArea th,#statementPrintArea th{background:#eaf3ee!important;color:#174b3c!important;font-weight:700!important}
-        #repaymentSchedulePrint{display:grid!important;grid-template-columns:55% 45%!important;grid-template-rows:105px 1fr!important;align-items:stretch!important;width:1100px!important;min-height:0!important;height:740px!important;overflow:visible!important;border:2px solid #244b3c!important}
-        #repaymentSchedulePrint .schedule-brand-center{grid-column:1/3!important;grid-row:1!important;display:flex!important;align-items:center!important;justify-content:center!important;padding:12px!important}
+        #repaymentSchedulePrint{display:block!important;width:1100px!important;height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important;border:2px solid #244b3c!important}
+        #repaymentSchedulePrint .schedule-brand-center{display:flex!important;align-items:center!important;justify-content:center!important;padding:12px!important}
         #repaymentSchedulePrint .schedule-brand img{width:76px!important;height:76px!important;max-width:76px!important;max-height:76px!important}
-        #repaymentSchedulePrint .schedule-left{grid-column:1!important;grid-row:2!important;min-width:0!important;padding:14px!important}#repaymentSchedulePrint .schedule-right{grid-column:2!important;grid-row:2!important;min-width:0!important;padding:14px!important}
-        #repaymentSchedulePrint .schedule-left table{width:100%!important;table-layout:fixed!important;font-size:10px!important}
+        #repaymentSchedulePrint .schedule-left,#repaymentSchedulePrint .schedule-right{display:block!important;width:100%!important;min-width:0!important;padding:14px!important;border:0!important}
+        #repaymentSchedulePrint .schedule-left table{width:100%!important;table-layout:fixed!important;font-size:11px!important}#repaymentSchedulePrint .schedule-right{border-top:3px solid #174b3c!important;margin-top:18px!important}#repaymentSchedulePrint .schedule-left th,#repaymentSchedulePrint .schedule-left td{padding:7px!important;line-height:1.25!important}
         #repaymentSchedulePrint .schedule-left th,#repaymentSchedulePrint .schedule-left td{padding:4px!important;line-height:1.1!important}
         #repaymentSchedulePrint .schedule-summary{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important}
         #repaymentSchedulePrint .customer-detail{padding:5px!important}
@@ -1132,14 +1132,14 @@ async function downloadElementPdf(element, fileName, options = {}) {
     }
   });
   const {jsPDF} = window.jspdf;
-  const pdf = new jsPDF({orientation:"landscape",unit:"mm",format:"a4",compress:true});
-  const pageW = 297, pageH = 210, margin = 7, usableW = pageW - margin*2, usableH = pageH - margin*2;
+  const pdf = new jsPDF({orientation:options.orientation || "landscape",unit:"mm",format:"a4",compress:true});
+  const pageW = options.orientation === "portrait" ? 210 : 297, pageH = options.orientation === "portrait" ? 297 : 210, margin = 7, usableW = pageW - margin*2, usableH = pageH - margin*2;
   if (options.fitOnePage) {
     const ratio = Math.min(usableW/canvas.width,usableH/canvas.height);
     const w = canvas.width*ratio, h = canvas.height*ratio;
     pdf.addImage(canvas.toDataURL("image/jpeg",0.94),"JPEG",(pageW-w)/2,(pageH-h)/2,w,h,undefined,"FAST");
   } else {
-    const sliceHeight = Math.floor(canvas.width * usableH / usableW);
+    const sliceHeight = options.targetPages ? Math.ceil(canvas.height / options.targetPages) : Math.floor(canvas.width * usableH / usableW);
     let y = 0, page = 0;
     while (y < canvas.height) {
       const h = Math.min(sliceHeight,canvas.height-y);
@@ -1148,7 +1148,8 @@ async function downloadElementPdf(element, fileName, options = {}) {
       slice.getContext("2d").drawImage(canvas,0,y,canvas.width,h,0,0,canvas.width,h);
       if (page > 0) pdf.addPage("a4","landscape");
       const renderedH = h * usableW / canvas.width;
-      pdf.addImage(slice.toDataURL("image/jpeg",0.94),"JPEG",margin,margin,usableW,renderedH,undefined,"FAST");
+      if (renderedH > usableH) { const scale = usableH / renderedH; pdf.addImage(slice.toDataURL("image/jpeg",0.94),"JPEG",margin,margin,usableW*scale,usableH,undefined,"FAST"); }
+      else pdf.addImage(slice.toDataURL("image/jpeg",0.94),"JPEG",margin,margin,usableW,renderedH,undefined,"FAST");
       y += h; page++;
     }
   }
@@ -1322,14 +1323,14 @@ async function boot() {
   $("customerRows")?.addEventListener("click", event => { const btn = event.target.closest(".customer-remove"); if (btn) removeCustomerRecord(btn.dataset.customerId, btn); });
   $("ledgerCustomer").addEventListener("change", loadCustomerLedger);
   $("ledgerSearch").addEventListener("input", filterLedgerCustomers);
-  $("downloadLedgerPdfBtn").addEventListener("click", () => handleDocumentPdf("downloadLedgerPdfBtn","ledgerPrintArea","AJSF-Customer-Ledger.pdf","Customer Ledger PDF Downloads में सेव हो गई है।"));
+  $("downloadLedgerPdfBtn").addEventListener("click", () => handleDocumentPdf("downloadLedgerPdfBtn","ledgerPrintArea","AJSF-Customer-Ledger.pdf","Customer Ledger PDF Downloads में सेव हो गई है।",{fitOnePage:true}));
   $("printLedgerBtn").addEventListener("click", printCustomerLedger);
   $("scheduleSearch").addEventListener("input", filterScheduleCustomers);
   $("scheduleCustomer").addEventListener("change", populateScheduleLoans);
   $("scheduleLoan").addEventListener("change", renderRepaymentSchedule);
   $("downloadSchedulePdfBtn").addEventListener("click", () => {
     if (!$("scheduleLoan").value) return showMessage("पहले ग्राहक और लोन चुनें।","warn");
-    handleDocumentPdf("downloadSchedulePdfBtn","repaymentSchedulePrint","AJSF-Repayment-Schedule.pdf","Repayment Schedule PDF Downloads में सेव हो गई है।",{fitOnePage:true});
+    handleDocumentPdf("downloadSchedulePdfBtn","repaymentSchedulePrint","AJSF-Repayment-Schedule.pdf","Repayment Schedule PDF Downloads में सेव हो गई है।",{targetPages:2});
   });
   $("printScheduleBtn").addEventListener("click", printRepaymentSchedule);
   $("customerFilter").addEventListener("input", filterCustomerRows);
@@ -1340,7 +1341,7 @@ async function boot() {
   $("downloadStatementPdfBtn").addEventListener("click", () => {
     if (!$("statementCustomer").value) return showMessage("पहले ग्राहक चुनें।","warn");
     renderCustomerStatement();
-    handleDocumentPdf("downloadStatementPdfBtn","statementPrintArea","AJSF-Customer-Loan-Statement.pdf","Loan Statement PDF Downloads में सेव हो गई है।");
+    handleDocumentPdf("downloadStatementPdfBtn","statementPrintArea","AJSF-Customer-Loan-Statement.pdf","Loan Statement PDF Downloads में सेव हो गई है।",{fitOnePage:true});
   });
   $("printStatementBtn").addEventListener("click", printCustomerStatement);
   $("printReceiptBtn").addEventListener("click", printReceipt);
