@@ -42,8 +42,8 @@ Deno.serve(async (req) => {
     if (customerError || !customer) throw new Error("Customer record not found.");
     if (customer.is_active === false || (customer.customer_status && customer.customer_status !== "ACTIVE")) throw new Error("Only active customers can receive portal accounts.");
 
-    const digits = String(customer.contact_number || "").replace(/\\D/g, "");
-    if (!/^\\d{10}$/.test(digits)) throw new Error("Customer must have a valid 10-digit registered mobile number.");
+    const digits = String(customer.contact_number || "").replace(/[^0-9]/g, "");
+    if (!/^[0-9]{10}$/.test(digits)) throw new Error("Customer must have a valid 10-digit registered mobile number.");
     const phone = "+91" + digits;
 
     const { data: existing } = await adminClient.from("customer_accounts").select("id,is_active").eq("customer_id", customerId).maybeSingle();
