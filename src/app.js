@@ -1092,7 +1092,45 @@ async function downloadElementPdf(element, fileName, options = {}) {
   if (!element || !element.innerHTML.trim()) throw new Error("पहले संबंधित विवरण तैयार करें।");
   await loadReceiptLibrary("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js", () => typeof window.html2canvas === "function");
   await loadReceiptLibrary("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js", () => !!window.jspdf?.jsPDF);
-  const canvas = await window.html2canvas(element, {scale:2,backgroundColor:"#ffffff",useCORS:true,logging:false,windowWidth:Math.max(element.scrollWidth,element.clientWidth)});
+  const canvas = await window.html2canvas(element, {
+    scale:2, backgroundColor:"#ffffff", useCORS:true, logging:false,
+    windowWidth:1180,
+    onclone: clonedDoc => {
+      const root = clonedDoc.getElementById(element.id);
+      if (!root) return;
+      root.style.cssText += ";display:block!important;width:1100px!important;max-width:none!important;min-width:1100px!important;padding:30px!important;margin:0!important;box-sizing:border-box!important;background:#fff!important;color:#20352d!important;font-family:Arial,sans-serif!important;font-size:14px!important;line-height:1.35!important;overflow:visible!important;border:0!important;border-radius:0!important";
+      const style = clonedDoc.createElement("style");
+      style.textContent = `
+        #ledgerPrintArea .ledger-print-brand,#statementPrintArea .statement-brand{display:flex!important;align-items:center!important;justify-content:flex-start!important;gap:22px!important;padding:0 0 18px!important;margin:0 0 20px!important;border-bottom:4px solid #174b3c!important}
+        #ledgerPrintArea .ledger-print-brand img,#statementPrintArea .statement-brand img{width:88px!important;height:88px!important;min-width:88px!important;max-width:88px!important;object-fit:contain!important;flex:0 0 88px!important}
+        #ledgerPrintArea .ledger-print-brand h2,#statementPrintArea .statement-brand h1{font-size:27px!important;line-height:1.2!important;margin:0 0 5px!important;color:#174b3c!important}
+        #ledgerPrintArea .ledger-print-brand p,#statementPrintArea .statement-brand p{font-size:13px!important;margin:3px 0!important;letter-spacing:1px!important}
+        #ledgerPrintArea .ledger-print-brand strong{font-size:18px!important}
+        #ledgerPrintArea .ledger-print-customer,#ledgerPrintArea .ledger-print-totals{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:14px!important;padding:14px!important;margin:12px 0!important;background:#f1f6f3!important}
+        #ledgerPrintArea .ledger-print-customer span,#ledgerPrintArea .ledger-print-totals span{display:flex!important;flex-direction:column!important;gap:5px!important;min-width:0!important;padding:7px!important}
+        #ledgerPrintArea small,#statementPrintArea small{display:block!important;font-size:12px!important;color:#65776e!important;margin-bottom:4px!important}
+        #ledgerPrintArea b,#statementPrintArea b{font-size:15px!important;overflow-wrap:anywhere!important}
+        #statementPrintArea .statement-title{text-align:center!important;font-size:22px!important;margin:16px 0!important;color:#174b3c!important}
+        #statementPrintArea .statement-customer{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:12px!important;padding:14px!important;margin:12px 0!important;background:#f7f9f7!important}
+        #statementPrintArea .statement-totals{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:14px!important;padding:18px!important;margin:12px 0!important;background:#eaf3ee!important}
+        #ledgerPrintArea h3,#statementPrintArea h3{font-size:18px!important;margin:18px 0 8px!important;color:#174b3c!important}
+        #ledgerPrintArea table,#statementPrintArea table{width:100%!important;table-layout:fixed!important;border-collapse:collapse!important;font-size:12px!important;margin:10px 0 16px!important}
+        #ledgerPrintArea th,#ledgerPrintArea td,#statementPrintArea th,#statementPrintArea td{border:1px solid #cbd8d0!important;padding:9px 8px!important;text-align:left!important;vertical-align:middle!important;white-space:normal!important;overflow-wrap:anywhere!important}
+        #ledgerPrintArea th,#statementPrintArea th{background:#eaf3ee!important;color:#174b3c!important;font-weight:700!important}
+        #repaymentSchedulePrint{display:grid!important;grid-template-columns:55% 45%!important;grid-template-rows:auto 1fr!important;width:1100px!important;min-height:0!important;overflow:visible!important;border:2px solid #244b3c!important}
+        #repaymentSchedulePrint .schedule-brand-center{grid-column:1/3!important;display:flex!important;align-items:center!important;justify-content:center!important;padding:12px!important}
+        #repaymentSchedulePrint .schedule-brand img{width:76px!important;height:76px!important;max-width:76px!important;max-height:76px!important}
+        #repaymentSchedulePrint .schedule-left,#repaymentSchedulePrint .schedule-right{min-width:0!important;padding:14px!important}
+        #repaymentSchedulePrint .schedule-left table{width:100%!important;table-layout:fixed!important;font-size:10px!important}
+        #repaymentSchedulePrint .schedule-left th,#repaymentSchedulePrint .schedule-left td{padding:4px!important;line-height:1.1!important}
+        #repaymentSchedulePrint .schedule-summary{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important}
+        #repaymentSchedulePrint .customer-detail{padding:5px!important}
+        #repaymentSchedulePrint .customer-detail b{font-size:11px!important}
+        .tablewrap{overflow:visible!important}
+      `;
+      clonedDoc.head.appendChild(style);
+    }
+  });
   const {jsPDF} = window.jspdf;
   const pdf = new jsPDF({orientation:"landscape",unit:"mm",format:"a4",compress:true});
   const pageW = 297, pageH = 210, margin = 7, usableW = pageW - margin*2, usableH = pageH - margin*2;
