@@ -587,30 +587,36 @@ function renderRepaymentSchedule() {
     else if (due < today) status = "Overdue";
     rows.push(`<tr><td>${i+1}</td><td>${weekday}</td><td>${displayDueDate(due)}</td><td>${money(emi)}</td><td><span class="schedule-status ${status.toLowerCase()}">${status}</span></td><td class="staff-sign-cell"><span class="staff-sign-line"></span></td></tr>`);
   }
-  output.innerHTML = `<div id="repaymentSchedulePrint" class="schedule-print-sheet">
-    <header class="schedule-brand schedule-brand-center"><img src="./assets/ajsf-logo.png" alt="AJSF Logo"><div><h2>ARK JAN SAMRIDDHI FOUNDATION</h2><p>SAPNE AAPKE SATH HAMARA</p><strong>WEEKLY REPAYMENT SCHEDULE</strong></div></header>
-    <section class="schedule-left">
-      <div class="schedule-summary"><span><small>Total Installments</small><b>${count}</b></span><span><small>Total Scheduled Amount</small><b>${money(count*emi)}</b></span><span><small>First Due Date</small><b>${displayDueDate(first)}</b></span><span><small>Last Due Date</small><b>${displayDueDate(new Date(first.getFullYear(),first.getMonth(),first.getDate()+(count-1)*7))}</b></span></div>
-      <h3>INSTALLMENT DETAILS</h3><div class="tablewrap"><table><colgroup><col style="width:7%"><col style="width:14%"><col style="width:20%"><col style="width:11%"><col style="width:14%"><col style="width:34%"></colgroup><thead><tr><th>Week</th><th>Day</th><th>Due Date</th><th>EMI</th><th>Status</th><th>Staff Signature</th></tr></thead><tbody>${rows.join("")}</tbody></table></div>
-      <p class="schedule-note">Status is calculated from actual dated payment transactions, applied to installments in due-date order. Imported W1–W24 markers are not treated as dated receipts.</p>
-    </section>
-    <aside class="schedule-right">
-      <h2>CUSTOMER & LOAN DETAILS</h2>
-      <div class="customer-detail"><small>Customer Name</small><b>${esc(customer?.full_name || "—")}</b></div>
-      <div class="customer-detail"><small>Customer ID</small><b>${esc(customer?.customer_code || "—")}</b></div>
-      <div class="customer-detail"><small>Mobile Number</small><b>${esc(phone(customer?.contact_number) || "—")}</b></div>
-      <div class="customer-detail"><small>Center Name</small><b>${esc(customer?.center_name || "—")}</b></div>
-      <div class="customer-detail"><small>Area</small><b>${esc(customer?.area || "—")}</b></div>
-      <div class="customer-detail"><small>Address</small><b>${esc(customer?.address || "—")}</b></div>
-      <div class="customer-detail"><small>Loan Reference / Type</small><b>${esc(loan.loan_reference || "—")} · ${esc(loan.loan_type || "—")}</b></div>
-      <div class="customer-detail"><small>Disbursement Date</small><b>${displayDueDate(disb)}</b></div>
-      <div class="customer-detail"><small>Loan Amount / Weekly EMI</small><b>${money(loan.loan_amount)} / ${money(emi)}</b></div>
-      <div class="customer-detail"><small>Collection Day / Total Installments</small><b>${weekday} / ${count} Weeks</b></div>
-      <div class="customer-detail"><small>Current Outstanding (OSP)</small><b>${money(loanFigures(loan, paymentsByLoan()).outstanding)}</b></div>
-      <div class="customer-signatures"><div><small>Borrower Signature / Thumb Impression</small><span></span></div><div><small>Collector Name & Staff Code</small><b>${esc(profile?.full_name || "—")} · ${esc(profile?.staff_code || "—")}</b></div><div><small>Collector Signature</small><span></span></div></div>
-      <p class="schedule-generated">Generated: ${new Date().toLocaleDateString("en-IN")}</p>
-    </aside>
+  const lastDue = new Date(first.getFullYear(),first.getMonth(),first.getDate()+(count-1)*7);
+  output.innerHTML = `<div id="repaymentSchedulePrint" class="schedule-passbook">
+    <div class="passbook-top">
+      <header class="passbook-brand"><img src="./assets/ajsf-logo.png" alt="AJSF Logo"><div><h1>ARK JAN SAMRIDDHI FOUNDATION</h1><p>SAPNE AAPKE SATH HAMARA</p><strong>WEEKLY LOAN PASSBOOK / साप्ताहिक ऋण पासबुक</strong></div></header>
+      <section class="passbook-customer">
+        <div><small>Customer Name / ग्राहक</small><b>${esc(customer?.full_name || "—")}</b></div>
+        <div><small>Customer ID / ग्राहक आईडी</small><b>${esc(customer?.customer_code || "—")}</b></div>
+        <div><small>Mobile / मोबाइल</small><b>${esc(phone(customer?.contact_number) || "—")}</b></div>
+        <div><small>Center / केंद्र</small><b>${esc(customer?.center_name || "—")}</b></div>
+        <div><small>Loan Ref. / लोन नंबर</small><b>${esc(loan.loan_reference || "—")}</b></div>
+        <div><small>Loan Amount / ऋण राशि</small><b>${money(loan.loan_amount)}</b></div>
+        <div><small>Weekly EMI / साप्ताहिक किस्त</small><b>${money(emi)}</b></div>
+        <div><small>Collection Day / वसूली दिन</small><b>${esc(weekday)}</b></div>
+      </section>
+    </div>
+    <div class="passbook-summary">
+      <span><small>Total Installments</small><b>${count}</b></span>
+      <span><small>First Due Date</small><b>${displayDueDate(first)}</b></span>
+      <span><small>Last Due Date</small><b>${displayDueDate(lastDue)}</b></span>
+      <span><small>Total Scheduled</small><b>${money(count*emi)}</b></span>
+      <span><small>Current OSP</small><b>${money(loanFigures(loan, paymentsByLoan()).outstanding)}</b></span>
+    </div>
+    <h2 class="passbook-table-title">INSTALLMENT PAYMENT RECORD / किस्त भुगतान रिकॉर्ड</h2>
+    <table class="passbook-table"><colgroup><col style="width:6%"><col style="width:16%"><col style="width:14%"><col style="width:14%"><col style="width:25%"><col style="width:25%"></colgroup>
+      <thead><tr><th>Wk.</th><th>Due Date</th><th>EMI Amount</th><th>Status</th><th>Payment Date</th><th>Collector Signature</th></tr></thead>
+      <tbody>${rows.map((row,idx)=>row.replace('<td class="staff-sign-cell"><span class="staff-sign-line"></span></td>','<td class="passbook-paid-date"></td><td class="passbook-sign"></td>')).join("")}</tbody>
+    </table>
+    <footer class="passbook-footer"><div><small>Customer Signature / ग्राहक हस्ताक्षर</small><span></span></div><div><small>Authorized Collector / अधिकृत कलेक्टर</small><span></span></div><div class="passbook-generated">Generated: ${new Date().toLocaleDateString("en-IN")}<br>Keep this passbook safe and bring it on every collection day.</div></footer>
   </div>`;
+
 }
 function printRepaymentSchedule() {
   if (!$("scheduleLoan").value) return showMessage("पहले ग्राहक और लोन चुनें।","warn");
