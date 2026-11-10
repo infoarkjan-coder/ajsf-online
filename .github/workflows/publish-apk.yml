@@ -29,18 +29,25 @@ jobs:
         run: |
           set -euo pipefail
           API="https://api.github.com/repos/infoarkjan-coder/ajsf-online"
-          RUN_ID="$(curl --fail --silent --show-error \
+          RUNS="$(curl --fail --silent --show-error \
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github+json" \
-            "$API/actions/workflows/android-apk.yml/runs?branch=android-apk%2Finitial-wrapper&status=success&per_page=1" \
-            | jq -r '.workflow_runs[0].id // empty')"
-          test -n "$RUN_ID" || { echo "No successful Android APK build found."; exit 1; }
-          ARTIFACT_ID="$(curl --fail --silent --show-error \
-            -H "Authorization: Bearer $GH_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            "$API/actions/runs/$RUN_ID/artifacts" \
-            | jq -r '.artifacts[] | select(.name=="AJSF-Online-Android-APK" and .expired==false) | .id' | head -n 1)"
-          test -n "$ARTIFACT_ID" || { echo "APK artifact missing or expired for latest successful build."; exit 1; }
+            "$API/actions/workflows/android-apk.yml/runs?branch=android-apk%2Finitial-wrapper&status=success&per_page=20")"
+          ARTIFACT_ID=""
+          while IFS= read -r RUN_ID; do
+            [ -n "$RUN_ID" ] || continue
+            CANDIDATE="$(curl --fail --silent --show-error \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "$API/actions/runs/$RUN_ID/artifacts" \
+              | jq -r '.artifacts[] | select(.name=="AJSF-Online-Android-APK" and .expired==false) | .id' | head -n 1)"
+            if [ -n "$CANDIDATE" ]; then
+              ARTIFACT_ID="$CANDIDATE"
+              echo "Using APK artifact $ARTIFACT_ID from successful build $RUN_ID"
+              break
+            fi
+          done < <(printf '%s' "$RUNS" | jq -r '.workflow_runs[].id')
+          test -n "$ARTIFACT_ID" || { echo "No unexpired APK artifact found in the latest 20 successful Android builds."; exit 1; }
           echo "artifact_id=$ARTIFACT_ID" >> "$GITHUB_OUTPUT"
 
       - name: Download latest APK artifact
