@@ -585,7 +585,7 @@ function renderRepaymentSchedule() {
     if (cumulativePaid >= installmentTarget && emi > 0) status = "Paid";
     else if (cumulativePaid > previousTarget) status = "Partial";
     else if (due < today) status = "Overdue";
-    rows.push(`<tr><td>${i+1}</td><td>${weekday}</td><td>${displayDueDate(due)}</td><td>${money(emi)}</td><td><span class="schedule-status ${status.toLowerCase()}">${status}</span></td><td class="staff-sign-cell"><span class="staff-sign-line"></span></td></tr>`);
+    rows.push(`<tr><td>${i+1}</td><td>${displayDueDate(due)}</td><td>${money(emi)}</td><td><span class="schedule-status ${status.toLowerCase()}">${status}</span></td><td class="passbook-paid-date"></td><td class="passbook-sign"></td></tr>`);
   }
   const lastDue = new Date(first.getFullYear(),first.getMonth(),first.getDate()+(count-1)*7);
   output.innerHTML = `<div id="repaymentSchedulePrint" class="schedule-passbook">
@@ -612,7 +612,7 @@ function renderRepaymentSchedule() {
     <h2 class="passbook-table-title">INSTALLMENT PAYMENT RECORD / किस्त भुगतान रिकॉर्ड</h2>
     <table class="passbook-table"><colgroup><col style="width:6%"><col style="width:16%"><col style="width:14%"><col style="width:14%"><col style="width:25%"><col style="width:25%"></colgroup>
       <thead><tr><th>Wk.</th><th>Due Date</th><th>EMI Amount</th><th>Status</th><th>Payment Date</th><th>Collector Signature</th></tr></thead>
-      <tbody>${rows.map((row,idx)=>row.replace('<td class="staff-sign-cell"><span class="staff-sign-line"></span></td>','<td class="passbook-paid-date"></td><td class="passbook-sign"></td>')).join("")}</tbody>
+      <tbody>${rows.join("")}</tbody>
     </table>
     <footer class="passbook-footer"><div><small>Customer Signature / ग्राहक हस्ताक्षर</small><span></span></div><div><small>Authorized Collector / अधिकृत कलेक्टर</small><span></span></div><div class="passbook-generated">Generated: ${new Date().toLocaleDateString("en-IN")}<br>Keep this passbook safe and bring it on every collection day.</div></footer>
   </div>`;
