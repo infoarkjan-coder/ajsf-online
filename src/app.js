@@ -500,32 +500,23 @@ async function loadCustomerLedger() {
   }
   const paymentRows = data || [];
   const paid = paymentRows.reduce((s,p) => s + Number(p.amount || 0), 0);
-  const loanAmount = customerLoans.reduce((s,l) => s + Number(l.loan_amount || 0), 0);
   const importedCollected = customerLoans.reduce((s,l) => s + Number(l.source_total_collected || 0), 0);
-  const paymentTotals = paymentsByLoan();
-  const currentOsp = customerLoans.reduce((s,l) => s + loanFigures(l, paymentTotals).outstanding, 0);
   const totalCollected = importedCollected + paid;
+  const transactionRows = paymentRows.map(p => {
+    const loan = customerLoans.find(l => l.id === p.loan_id);
+    return `<tr><td>${esc(formatDate(p.paid_at))}</td><td>${esc((p.id || p.client_tx_id || "").slice(0,8).toUpperCase())}</td><td>${esc(loan?.loan_reference || "—")}</td><td>${esc((p.payment_mode || "—").toUpperCase().replace("_"," "))}</td><td>${money(p.amount)}</td></tr>`;
+  }).join("") || `<tr><td colspan="5" class="empty">इस ग्राहक का कोई नया payment transaction उपलब्ध नहीं है।</td></tr>`;
   summary.innerHTML = `<div id="ledgerPrintArea">
     <div class="ledger-print-brand"><img src="./assets/ajsf-logo.png" alt="AJSF Logo" width="72" height="72" style="width:72px;height:72px;max-width:72px;max-height:72px;object-fit:contain;flex:0 0 72px"><div><h2>ARK JAN SAMRIDDHI FOUNDATION</h2><p>SAPNE AAPKE SATH HAMARA</p><strong>CUSTOMER PAYMENT LEDGER / भुगतान खाता</strong></div></div>
     <div class="ledger-print-customer"><span><small>Customer ID</small><b>${esc(customer?.customer_code || "—")}</b></span><span><small>Customer Name</small><b>${esc(customer?.full_name || "—")}</b></span><span><small>Center</small><b>${esc(customer?.center_name || "—")}</b></span><span><small>Mobile</small><b>${esc(phone(customer?.contact_number) || "—")}</b></span></div>
     <div class="ledger-print-totals"><span><small>Recorded Transactions</small><b>${paymentRows.length.toLocaleString("en-IN")}</b></span><span><small>Total Payments Received</small><b>${money(paid)}</b></span><span><small>Imported Historical Collection</small><b>${money(importedCollected)}</b></span><span><small>All-time Collection</small><b>${money(totalCollected)}</b></span></div>
     <h3>Payment Transaction Register</h3>
     <p class="small muted">यहाँ केवल सिस्टम में दर्ज वास्तविक भुगतान की तारीख, रसीद, Loan Ref, Mode और राशि दिखाई जाती है। Loan balance और EMI summary के लिए Loan Statement खोलें।</p>
+    <table id="ledgerPaymentTable"><thead><tr><th>Date</th><th>Receipt / Transaction</th><th>Loan Ref</th><th>Mode</th><th>Amount</th></tr></thead><tbody>${transactionRows}</tbody></table>
+    <p class="ledger-generated">Statement Generated: ${new Date().toLocaleString("en-IN")}</p>
   </div>`;
-  rows.innerHTML = paymentRows.map(p => {
-    const loan = customerLoans.find(l => l.id === p.loan_id);
-    return `<tr><td>${esc(formatDate(p.paid_at))}</td><td>${esc((p.id || p.client_tx_id || "").slice(0,8).toUpperCase())}</td><td>${esc(loan?.loan_reference || "—")}</td><td>${esc((p.payment_mode || "—").toUpperCase().replace("_"," "))}</td><td>${money(p.amount)}</td></tr>`;
-  }).join("") || `<tr><td colspan="5" class="empty">इस ग्राहक का कोई नया payment transaction उपलब्ध नहीं है।</td></tr>`;
-  const table = document.querySelector('[data-panel="ledger"] #ledgerRows').closest("table");
-  table.id = "ledgerPaymentTable";
-  const generated = document.createElement("p");
-  generated.className = "ledger-generated";
-  generated.textContent = "Statement Generated: " + new Date().toLocaleString("en-IN");
-  $("ledgerPrintArea").appendChild(table.cloneNode(true));
-  $("ledgerPrintArea").appendChild(generated);
+  rows.innerHTML = transactionRows;
 }
-
-
 
 const WEEKDAY_INDEX = {Sunday:0,Monday:1,Tuesday:2,Wednesday:3,Thursday:4,Friday:5,Saturday:6};
 function localISODate(d) {
@@ -1072,9 +1063,16 @@ function localDateValue() {
 }
 async function loadReceiptLibrary(src, test) {
   if (test()) return;
-  const mirrors = [src, src.replace("https://cdnjs.cloudflare.com/ajax/libs/","https://cdn.jsdelivr.net/npm/")];
+  const mirrors = [src];
+  if (src.includes("/html2canvas/1.4.1/")) {
+    mirrors.push("https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js");
+    mirrors.push("https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js");
+  } else if (src.includes("/jspdf/2.5.1/")) {
+    mirrors.push("https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js");
+    mirrors.push("https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js");
+  }
   let lastError;
-  for (const url of mirrors) {
+  for (const url of [...new Set(mirrors)]) {
     if (test()) return;
     try {
       await new Promise((resolve, reject) => {
