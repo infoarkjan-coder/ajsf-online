@@ -1160,6 +1160,29 @@ async function downloadElementPdf(element, fileName, options = {}) {
         #repaymentSchedulePrint .repayment-right-footer{margin-top:36px!important;display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px 22px!important;font-size:12px!important;color:#52665c!important}
         #repaymentSchedulePrint .repayment-right-footer span{height:45px!important;border-bottom:1px solid #52665c!important}
         #repaymentSchedulePrint .repayment-fold-mark{position:absolute!important;left:50%!important;top:0!important;bottom:0!important;border-left:2px dashed #82958b!important;font-size:0!important}
+#repaymentSchedulePrint.repayment-fold-sheet{display:grid!important;grid-template-columns:1fr 1fr!important;grid-template-rows:1fr!important;align-items:stretch!important;width:1100px!important;height:740px!important;min-height:740px!important;max-height:740px!important;padding:18px!important;box-sizing:border-box!important;position:relative!important;overflow:hidden!important;border:2px solid #244b3c!important;background:#fff!important}
+        #repaymentSchedulePrint .repayment-left{display:block!important;grid-column:1!important;grid-row:1!important;width:auto!important;height:100%!important;padding:10px 18px 10px 6px!important;box-sizing:border-box!important;min-width:0!important}
+        #repaymentSchedulePrint .repayment-right{display:block!important;grid-column:2!important;grid-row:1!important;width:auto!important;height:100%!important;padding:30px 12px 12px 30px!important;box-sizing:border-box!important;min-width:0!important;border-left:2px dashed #71877b!important}
+        #repaymentSchedulePrint .repayment-left h2{font-size:17px!important;color:#174b3c!important;text-align:center!important;margin:0 0 10px!important;padding-bottom:7px!important;border-bottom:2px solid #174b3c!important}
+        #repaymentSchedulePrint .repayment-table{display:table!important;width:100%!important;border-collapse:collapse!important;table-layout:fixed!important;font-size:11px!important}
+        #repaymentSchedulePrint .repayment-table thead{display:table-header-group!important}
+        #repaymentSchedulePrint .repayment-table tbody{display:table-row-group!important}
+        #repaymentSchedulePrint .repayment-table tr{display:table-row!important;height:24px!important}
+        #repaymentSchedulePrint .repayment-table th,#repaymentSchedulePrint .repayment-table td{display:table-cell!important;border:1px solid #b9c9bf!important;padding:3px 4px!important;height:24px!important;line-height:1.1!important;text-align:center!important;vertical-align:middle!important;white-space:normal!important}
+        #repaymentSchedulePrint .repayment-table th{background:#e8f1ec!important;color:#174b3c!important;font-weight:700!important}
+        #repaymentSchedulePrint .repayment-table td.repayment-sign-cell{height:24px!important}
+        #repaymentSchedulePrint .repayment-brand{display:flex!important;align-items:center!important;gap:14px!important;padding:0 0 14px!important;border-bottom:3px solid #174b3c!important}
+        #repaymentSchedulePrint .repayment-brand img{display:block!important;width:76px!important;height:76px!important;max-width:76px!important;object-fit:contain!important;flex:0 0 76px!important}
+        #repaymentSchedulePrint .repayment-brand h1{font-size:20px!important;line-height:1.15!important;color:#174b3c!important;margin:0!important}
+        #repaymentSchedulePrint .repayment-brand p{font-size:11px!important;font-weight:700!important;letter-spacing:.5px!important;color:#60756b!important;margin:6px 0 0!important}
+        #repaymentSchedulePrint .repayment-customer-title{font-size:16px!important;color:#174b3c!important;margin:22px 0 10px!important}
+        #repaymentSchedulePrint .repayment-customer{display:grid!important;grid-template-columns:1fr 1fr!important;gap:12px 14px!important}
+        #repaymentSchedulePrint .repayment-customer div{display:block!important;min-height:38px!important;padding:3px 0!important;border-bottom:1px solid #d4dfd8!important;min-width:0!important}
+        #repaymentSchedulePrint .repayment-customer small{display:block!important;font-size:10px!important;color:#65776e!important;margin-bottom:4px!important}
+        #repaymentSchedulePrint .repayment-customer b{display:block!important;font-size:12px!important;overflow-wrap:anywhere!important}
+        #repaymentSchedulePrint .repayment-right-footer{margin-top:28px!important;display:grid!important;grid-template-columns:1fr 1fr!important;gap:7px 14px!important;font-size:10px!important;color:#52665c!important}
+        #repaymentSchedulePrint .repayment-right-footer span{display:block!important;height:34px!important;border-bottom:1px solid #52665c!important}
+        #repaymentSchedulePrint .repayment-fold-mark{display:block!important;position:absolute!important;left:50%!important;top:0!important;bottom:0!important;border-left:2px dashed #82958b!important;font-size:0!important;z-index:2!important}
         .tablewrap{overflow:visible!important}
       `;
       clonedDoc.head.appendChild(style);
