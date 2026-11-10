@@ -1190,6 +1190,37 @@ async function downloadElementPdf(element, fileName, options = {}) {
         #ledgerPrintArea h3,#statementPrintArea h3{margin:12px 0 6px!important}
         #ledgerPrintArea table,#statementPrintArea table{margin:6px 0 10px!important}
         #ledgerPrintArea th,#ledgerPrintArea td,#statementPrintArea th,#statementPrintArea td{padding:10px 9px!important;line-height:1.25!important}
+        /* Download-only: reproduce the proven Print layouts for both customer PDFs. */
+        #statementPrintArea{width:1065px!important;min-width:1065px!important;max-width:1065px!important;min-height:0!important;padding:0!important;margin:0!important;display:block!important}
+        #statementPrintArea .statement-brand{display:flex!important;align-items:center!important;justify-content:center!important;gap:10px!important;border-bottom:2px solid #123f35!important;padding-bottom:7px!important;margin:0!important}
+        #statementPrintArea .statement-brand img{width:17mm!important;height:17mm!important;max-width:17mm!important;max-height:17mm!important;min-width:17mm!important;min-height:17mm!important;flex:0 0 17mm!important}
+        #statementPrintArea .statement-brand h1{font-size:14pt!important;margin:0!important}
+        #statementPrintArea .statement-brand p{font-size:8pt!important;margin:2px 0!important}
+        #statementPrintArea .statement-title{text-align:center!important;font-size:12pt!important;margin:8px 0!important}
+        #statementPrintArea .statement-customer{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:7px!important;padding:7px 0!important;margin:0!important;background:transparent!important}
+        #statementPrintArea .statement-totals{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:8px!important;padding:8px!important;margin:0!important;background:#edf5f0!important}
+        #statementPrintArea .statement-customer small,#statementPrintArea .statement-totals small{display:block!important;font-size:7pt!important;margin-bottom:2px!important}
+        #statementPrintArea .statement-customer b,#statementPrintArea .statement-totals b{font-size:8pt!important}
+        #statementPrintArea h3{font-size:9pt!important;margin:9px 0 4px!important}
+        #statementPrintArea table{width:100%!important;border-collapse:collapse!important;font-size:7.5pt!important;margin:4px 0 8px!important;table-layout:auto!important}
+        #statementPrintArea th,#statementPrintArea td{border:1px solid #cbd8d0!important;padding:4px!important;text-align:left!important;white-space:normal!important;overflow-wrap:normal!important}
+        #statementPrintArea .statement-generated{text-align:right!important;font-size:7pt!important;margin-top:8px!important;padding:0!important}
+        #statementPrintArea .statement-note{font-size:6.5pt!important;margin-top:6px!important;line-height:normal!important}
+        #ledgerPrintArea{width:1065px!important;min-width:1065px!important;max-width:1065px!important;min-height:0!important;padding:0!important;margin:0!important;display:block!important}
+        #ledgerPrintArea .ledger-print-brand{display:flex!important;align-items:center!important;justify-content:center!important;gap:12px!important;border-bottom:2px solid #123f35!important;padding-bottom:8px!important;margin:0!important;text-align:left!important}
+        #ledgerPrintArea .ledger-print-brand img{display:block!important;width:18mm!important;height:18mm!important;max-width:18mm!important;max-height:18mm!important;min-width:18mm!important;min-height:18mm!important;flex:0 0 18mm!important;object-fit:contain!important}
+        #ledgerPrintArea .ledger-print-brand h2{font-size:15pt!important;margin:0!important;color:#123f35!important}
+        #ledgerPrintArea .ledger-print-brand p{font-size:8pt!important;margin:2px 0 5px!important}
+        #ledgerPrintArea .ledger-print-brand strong{font-size:10pt!important}
+        #ledgerPrintArea .ledger-print-customer{display:grid!important;grid-template-columns:repeat(4,1fr)!important;gap:8px!important;padding:9px 0!important;margin:0!important;background:transparent!important}
+        #ledgerPrintArea .ledger-print-totals{display:grid!important;grid-template-columns:repeat(4,1fr)!important;gap:8px!important;padding:9px!important;margin:0!important;background:#edf5f0!important}
+        #ledgerPrintArea .ledger-print-customer small,#ledgerPrintArea .ledger-print-totals small{display:block!important;font-size:8pt!important;margin-bottom:2px!important}
+        #ledgerPrintArea .ledger-print-customer b,#ledgerPrintArea .ledger-print-totals b{font-size:9pt!important}
+        #ledgerPrintArea h3{font-size:10pt!important;margin:10px 0 4px!important;color:#123f35!important}
+        #ledgerPrintArea table{width:100%!important;border-collapse:collapse!important;font-size:8pt!important;margin:5px 0 9px!important;table-layout:auto!important}
+        #ledgerPrintArea th,#ledgerPrintArea td{border:1px solid #cbd8d0!important;padding:5px!important;text-align:left!important;white-space:normal!important;overflow-wrap:normal!important}
+        #ledgerPrintArea th{background:#edf5f0!important}
+        #ledgerPrintArea .ledger-generated{text-align:right!important;font-size:8pt!important;margin-top:8px!important;padding:0!important}
         #repaymentSchedulePrint{display:block!important;width:1100px!important;height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important;border:2px solid #244b3c!important}
         #repaymentSchedulePrint .schedule-brand-center{display:flex!important;align-items:center!important;justify-content:center!important;padding:12px!important}
         #repaymentSchedulePrint .schedule-brand img{width:76px!important;height:76px!important;max-width:76px!important;max-height:76px!important}
