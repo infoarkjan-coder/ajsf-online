@@ -509,3 +509,19 @@ input,select,button{min-height:42px}
   #receiptContent .receipt-amount strong{font-size:21px}
   #receiptContent .receipt-amount-words{font-size:10px}
 }
+
+/* Keep Customer Register actions clickable and visible in the horizontally scrollable table. */
+#customerRows td:last-child{
+  position:sticky;
+  right:0;
+  z-index:3;
+  background:#fff;
+  box-shadow:-5px 0 8px rgba(18,63,53,.08);
+  pointer-events:auto;
+}
+#customerRows td:last-child button{
+  position:relative;
+  z-index:4;
+  pointer-events:auto;
+  cursor:pointer;
+}

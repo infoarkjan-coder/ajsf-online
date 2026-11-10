@@ -346,7 +346,21 @@ function renderData() {
     String(a.full_name || "").localeCompare(String(b.full_name || ""))
   );
   $("customerRows").innerHTML = customerRegisterRows.map((c,i) => "<tr data-center=\"" + esc(c.center_name || "") + "\" data-day=\"" + esc(c.collection_day || "") + "\"><td>" + (i+1) + "</td><td>" + esc(c.center_name || "—") + "</td><td>" + esc(c.full_name || "—") + "</td><td>" + esc(phone(c.contact_number) || "—") + "</td><td>" + esc(c.customer_code || "—") + "</td><td>" + esc(c.area || "—") + "</td><td>" + esc(c.address || "—") + "</td><td>" + esc(c.collection_day || "—") + "</td><td>" + esc(c.customer_status || "—") + "</td><td>" + (canAdmin() ? "<button type=\"button\" class=\"customer-account-create secondary\" data-customer-id=\"" + esc(c.id) + "\">Customer Login बनाएँ</button> <button type=\"button\" class=\"customer-remove secondary\" data-customer-id=\"" + esc(c.id) + "\">हटाएँ</button>" : "—") + "</td></tr>").join("") || "<tr><td colspan=\"10\" class=\"empty\">कोई ग्राहक नहीं मिला।</td></tr>";
-  $("customerRows").querySelectorAll(".customer-account-create").forEach(button => button.addEventListener("click", event => { event.preventDefault(); event.stopPropagation(); createCustomerPortalAccount(button.dataset.customerId, button); }));
+  // Bind actions directly on each freshly-rendered button; avoid delegated capture handlers.
+  $("customerRows").querySelectorAll(".customer-account-create").forEach(button => {
+    button.onclick = event => {
+      event.preventDefault();
+      event.stopPropagation();
+      createCustomerPortalAccount(button.dataset.customerId, button);
+    };
+  });
+  $("customerRows").querySelectorAll(".customer-remove").forEach(button => {
+    button.onclick = event => {
+      event.preventDefault();
+      event.stopPropagation();
+      removeCustomerRecord(button.dataset.customerId, button);
+    };
+  });
   const centerFilter = $("customerCenterFilter");
   if (centerFilter) {
     const selectedCenter = centerFilter.value;
@@ -1550,7 +1564,7 @@ async function boot() {
   $("misStatusFilter")?.addEventListener("change", renderCustomerMIS);
   $("misSearch")?.addEventListener("input", renderCustomerMIS);
   $("customerMisRows")?.addEventListener("click", event => { const removeBtn = event.target.closest(".customer-remove"); if (removeBtn) return removeCustomerRecord(removeBtn.dataset.customerId, removeBtn); const btn = event.target.closest(".mis-save"); if (btn) saveCustomerMISRow(btn.closest("tr")); });
-  document.addEventListener("click", event => { const target = event.target instanceof Element ? event.target : event.target?.parentElement; const accountBtn = target?.closest(".customer-account-create"); if (accountBtn) { event.preventDefault(); event.stopPropagation(); return createCustomerPortalAccount(accountBtn.dataset.customerId, accountBtn); } const removeBtn = target?.closest("#customerRows .customer-remove"); if (removeBtn) { event.preventDefault(); return removeCustomerRecord(removeBtn.dataset.customerId, removeBtn); } }, true);
+  // Customer Register actions are bound directly after each table render above.
   $("ledgerCustomer").addEventListener("change", loadCustomerLedger);
   $("ledgerSearch").addEventListener("input", filterLedgerCustomers);
   $("downloadLedgerPdfBtn").addEventListener("click", () => handleDocumentPdf("downloadLedgerPdfBtn","ledgerPrintArea","AJSF-Customer-Ledger.pdf","Customer Ledger PDF Downloads में सेव हो गई है।",{fitOnePage:true,pageMarginMm:3}));
