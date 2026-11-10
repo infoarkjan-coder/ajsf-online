@@ -444,7 +444,7 @@ async function createCustomerPortalAccount(customerId, button) {
   if (!navigator.onLine) return showMessage("Customer Login बनाने के लिए इंटरनेट आवश्यक है।", "warn");
   const customer = customers.find(c => c.id === customerId);
   if (!customer) return showMessage("ग्राहक रिकॉर्ड नहीं मिला। Refresh करें।", "error");
-  if (!/^\\d{10}$/.test(String(customer.contact_number || "").replace(/\\D/g, ""))) {
+  if (!/^[0-9]{10}$/.test(String(customer.contact_number || "").replace(/[^0-9]/g, ""))) {
     return showMessage("पहले ग्राहक का सही 10 अंकों का मोबाइल नंबर Customer Register में अपडेट करें।", "warn");
   }
   if (!window.confirm(`${customer.full_name} (${customer.customer_code}) के लिए Customer Portal Login बनाना है? Login ID उनका registered mobile number होगा।`)) return;
