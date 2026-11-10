@@ -30,7 +30,7 @@ function receipt(paymentId){
 async function loadCustomer(){
  const {data:account,error:accountError}=await supabase.from("customer_accounts").select("customer_id,is_active").eq("auth_user_id",currentUser.id).single();
  if(accountError||!account||!account.is_active)throw new Error("Customer account is not active. Please contact AJSF.");
- const [c,l,p,w]=await Promise.all([
+ const [c,l,p]=await Promise.all([
   supabase.from("customers").select("id,customer_code,full_name,contact_number,collection_day").eq("id",account.customer_id).single(),
   supabase.from("loans").select("id,loan_reference,customer_id,loan_amount,emi_amount,total_emis_required,status,disbursement_date").eq("customer_id",account.customer_id).order("created_at",{ascending:false}),
   supabase.from("payments").select("id,loan_id,amount,paid_at,created_at,payment_mode,is_reversal").eq("customer_id",account.customer_id).eq("is_reversal",false).order("paid_at",{ascending:false}),
@@ -45,7 +45,7 @@ async function loadCustomer(){
 $("customerLoginForm").addEventListener("submit",async e=>{
  e.preventDefault();const btn=$("customerLoginBtn");btn.disabled=true;btn.textContent="...";
  try{const mobile=$("mobile").value.replace(/\D/g,"");if(!/^\d{10,15}$/.test(mobile))throw new Error(t("badPhone"));
- const {data,error}=await supabase.auth.signInWithPassword({phone:mobile,password:$("password").value});if(error)throw error;currentUser=data.user;await loadCustomer();
+ const {data,error}=await supabase.auth.signInWithPassword({phone:mobile.length===10?"+91"+mobile:mobile,password:$("password").value});if(error)throw error;currentUser=data.user;await loadCustomer();
  }catch(err){message("customerLoginMessage",err.message||"Login failed","error");try{await supabase.auth.signOut({scope:"local"});}catch{}}
  finally{btn.disabled=false;btn.textContent=t("login");}
 });
