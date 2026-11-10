@@ -1549,7 +1549,7 @@ async function boot() {
   $("misStatusFilter")?.addEventListener("change", renderCustomerMIS);
   $("misSearch")?.addEventListener("input", renderCustomerMIS);
   $("customerMisRows")?.addEventListener("click", event => { const removeBtn = event.target.closest(".customer-remove"); if (removeBtn) return removeCustomerRecord(removeBtn.dataset.customerId, removeBtn); const btn = event.target.closest(".mis-save"); if (btn) saveCustomerMISRow(btn.closest("tr")); });
-  $("customerRows")?.addEventListener("click", event => { const accountBtn = event.target.closest(".customer-account-create"); if (accountBtn) return createCustomerPortalAccount(accountBtn.dataset.customerId, accountBtn); const btn = event.target.closest(".customer-remove"); if (btn) removeCustomerRecord(btn.dataset.customerId, btn); });
+  document.addEventListener("click", event => { const target = event.target instanceof Element ? event.target : event.target?.parentElement; const accountBtn = target?.closest(".customer-account-create"); if (accountBtn) { event.preventDefault(); event.stopPropagation(); return createCustomerPortalAccount(accountBtn.dataset.customerId, accountBtn); } const removeBtn = target?.closest("#customerRows .customer-remove"); if (removeBtn) { event.preventDefault(); return removeCustomerRecord(removeBtn.dataset.customerId, removeBtn); } }, true);
   $("ledgerCustomer").addEventListener("change", loadCustomerLedger);
   $("ledgerSearch").addEventListener("input", filterLedgerCustomers);
   $("downloadLedgerPdfBtn").addEventListener("click", () => handleDocumentPdf("downloadLedgerPdfBtn","ledgerPrintArea","AJSF-Customer-Ledger.pdf","Customer Ledger PDF Downloads में सेव हो गई है।",{fitOnePage:true,pageMarginMm:3}));
