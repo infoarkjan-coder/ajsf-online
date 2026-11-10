@@ -346,6 +346,7 @@ function renderData() {
     String(a.full_name || "").localeCompare(String(b.full_name || ""))
   );
   $("customerRows").innerHTML = customerRegisterRows.map((c,i) => "<tr data-center=\"" + esc(c.center_name || "") + "\" data-day=\"" + esc(c.collection_day || "") + "\"><td>" + (i+1) + "</td><td>" + esc(c.center_name || "—") + "</td><td>" + esc(c.full_name || "—") + "</td><td>" + esc(phone(c.contact_number) || "—") + "</td><td>" + esc(c.customer_code || "—") + "</td><td>" + esc(c.area || "—") + "</td><td>" + esc(c.address || "—") + "</td><td>" + esc(c.collection_day || "—") + "</td><td>" + esc(c.customer_status || "—") + "</td><td>" + (canAdmin() ? "<button type=\"button\" class=\"customer-account-create secondary\" data-customer-id=\"" + esc(c.id) + "\">Customer Login बनाएँ</button> <button type=\"button\" class=\"customer-remove secondary\" data-customer-id=\"" + esc(c.id) + "\">हटाएँ</button>" : "—") + "</td></tr>").join("") || "<tr><td colspan=\"10\" class=\"empty\">कोई ग्राहक नहीं मिला।</td></tr>";
+  $("customerRows").querySelectorAll(".customer-account-create").forEach(button => button.addEventListener("click", event => { event.preventDefault(); event.stopPropagation(); createCustomerPortalAccount(button.dataset.customerId, button); }));
   const centerFilter = $("customerCenterFilter");
   if (centerFilter) {
     const selectedCenter = centerFilter.value;
