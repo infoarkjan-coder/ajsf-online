@@ -6,7 +6,6 @@ on:
       - Build AJSF Android APK
     types:
       - completed
-  workflow_dispatch:
 
 permissions:
   actions: read
@@ -18,7 +17,7 @@ concurrency:
 
 jobs:
   publish:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout website branch
@@ -28,7 +27,6 @@ jobs:
           fetch-depth: 0
 
       - name: Download APK from completed Android build
-        if: github.event_name == 'workflow_run'
         uses: actions/download-artifact@v4
         with:
           name: AJSF-Online-Android-APK
