@@ -986,11 +986,11 @@ function showReceipt(payment, customer, loan) {
       <div><small>Customer ID</small><b>${esc(customer.customer_code)}</b></div>
       <div><small>Customer Name</small><b>${esc(customer.full_name)}</b></div>
       <div><small>Center</small><b>${esc(customer.center_name || "—")}</b></div>
-      <div><small>Mobile</small><b>${esc(customer.contact_number || "—")}</b></div>
+      <div><small>Mobile</small><b>${esc(phone(customer.contact_number) || "—")}</b></div>
       <div><small>Loan Reference</small><b>${esc(loan.loan_reference)}</b></div>
       <div><small>Payment Mode</small><b>${esc(payment.payment_mode.toUpperCase().replace("_", " "))}</b></div>
     </div>
-    <div class="receipt-amount"><small>Amount Received / प्राप्त राशि</small><strong>${money(payment.amount)}</strong><div class="receipt-amount-words"><b>In Words:</b> ${esc(amountInWords(payment.amount))}<br><b>शब्दों में:</b> ${esc(amountInWords(payment.amount,true))}</div></div>
+    <div class="receipt-amount"><div class="receipt-amount-label">AMOUNT RECEIVED <span>प्राप्त राशि</span></div><strong>${money(payment.amount)}</strong><div class="receipt-amount-words"><div><b>In Words:</b> ${esc(amountInWords(payment.amount))}</div><div><b>शब्दों में:</b> ${esc(amountInWords(payment.amount,true))}</div></div></div>
     <p class="receipt-remarks">Advance Added: ${money(advanceLedger.filter(x=>x.payment_id===payment.id && x.entry_type==="advance_received").reduce((sum,x)=>sum+Number(x.amount||0),0))} · Advance Adjusted: ${money(advanceLedger.filter(x=>x.payment_id===payment.id && x.entry_type==="advance_adjusted").reduce((sum,x)=>sum+Number(x.amount||0),0))}</p>
     <p class="receipt-remarks">Remarks: ${esc(payment.remarks || "—")}</p>
     <div class="receipt-footer"><span>Customer Signature</span><span>Authorized Collector</span></div>
