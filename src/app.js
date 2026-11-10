@@ -1140,7 +1140,7 @@ async function downloadElementPdf(element, fileName, options = {}) {
         #repaymentSchedulePrint .passbook-table-title{font-size:15px!important;color:#174b3c!important;margin:8px 0!important}
         #repaymentSchedulePrint .passbook-table{width:100%!important;border-collapse:collapse!important;table-layout:fixed!important;font-size:11px!important}
         #repaymentSchedulePrint .passbook-table th{background:#e8f1ec!important;color:#174b3c!important;font-weight:700!important}
-        #repaymentSchedulePrint .passbook-table th,#repaymentSchedulePrint .passbook-table td{border:1px solid #b9c9bf!important;padding:5px 6px!important;height:27px!important;text-align:left!important;vertical-align:middle!important;white-space:normal!important}
+        #repaymentSchedulePrint .passbook-table th,#repaymentSchedulePrint .passbook-table td{border:1px solid #b9c9bf!important;padding:5px 6px!important;height:22px!important;text-align:left!important;vertical-align:middle!important;white-space:normal!important}
         #repaymentSchedulePrint .passbook-table .schedule-status{font-size:10px!important;font-weight:700!important}
         #repaymentSchedulePrint .passbook-footer{display:grid!important;grid-template-columns:1fr 1fr 1.3fr!important;gap:25px!important;align-items:end!important;margin-top:16px!important}
         #repaymentSchedulePrint .passbook-footer div:not(.passbook-generated) span{display:block!important;height:30px!important;border-bottom:1px solid #52665c!important}
