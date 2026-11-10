@@ -3,13 +3,13 @@
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AJSF Online</title><link rel="manifest" href="./manifest.webmanifest"><meta name="theme-color" content="#123f35"><link rel="stylesheet" href="./style.css"></head>
 <body><main class="shell wide" id="appShell">
 <header class="brand"><img class="brand-logo" src="./assets/ajsf-logo.png" alt="AJSF Logo"><div><h1>ARK JAN SAMRIDDHI FOUNDATION</h1><p>SAPNE AAPKE SATH HAMARA</p></div></header>
-<script>/* Hide the APK promotion inside the installed Android WebView only; keep it visible in normal browsers. */if(window.AJSFNativePrint){document.documentElement.classList.add("ajs f-android-app");var downloadCard=document.getElementById("appDownloadCard");if(downloadCard)downloadCard.hidden=true;}</script>
 <section class="card app-download-card" id="appDownloadCard" aria-label="Android app download">
 <h2> AJSF Android App </h2>
 <p class="muted">मोबाइल में AJSF Online इस्तेमाल करने के लिए Android App डाउनलोड करें।</p>
 <a class="app-download-link" href="./AJSF-Online.apk" download="AJSF-Online.apk">⬇ Download AJSF Android App (APK)</a>
 <p class="small muted">Android 8.0 या उससे ऊपर · APK install करते समय अनुमति माँगी जा सकती है।</p>
 </section>
+<script>/* Hide APK download promotion only inside the installed Android WebView. */if(window.AJSFNativePrint){var downloadCard=document.getElementById("appDownloadCard");if(downloadCard)downloadCard.hidden=true;}</script>
 <section class="card" id="loginCard"><span class="eyebrow">SECURE STAFF ACCESS</span><h2>लॉगिन करें</h2><p class="muted">Admin और अधिकृत Collector के लिए</p><form id="loginForm"><label for="email">ईमेल</label><input id="email" type="email" autocomplete="username" required><label for="password">पासवर्ड</label><input id="password" type="password" autocomplete="current-password" required><button id="loginBtn" type="submit">लॉगिन करें</button></form><p id="loginMessage" class="message" role="status"></p><p class="small">अपना पासवर्ड किसी के साथ साझा न करें।</p></section>
 <section class="hidden" id="dashboardCard">
 <div class="dashhead"><div><span class="eyebrow">AJSF ONLINE</span><h2>नमस्ते, <span id="staffName">Staff</span></h2><p class="muted"><span id="staffCode"></span> · <span id="staffRole"></span> — <span id="roleNote"></span></p></div><button class="secondary" id="logoutBtn">लॉगआउट</button></div>
