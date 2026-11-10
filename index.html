@@ -9,7 +9,7 @@
 <a class="app-download-link" href="./AJSF-Online.apk" download="AJSF-Online.apk">⬇ Download AJSF Android App (APK)</a>
 <p class="small muted">Android 8.0 या उससे ऊपर · APK install करते समय अनुमति माँगी जा सकती है।</p>
 </section>
-<script>/* Hide APK download promotion only inside the installed Android WebView. */if(window.AJSFNativePrint){var downloadCard=document.getElementById("appDownloadCard");if(downloadCard)downloadCard.hidden=true;}</script>
+<script>/* Hide APK promotion inside the installed Android WebView only. */(function(){var isAndroidApp=typeof window.AJSFNativePrint!=="undefined";if(isAndroidApp){var card=document.getElementById("appDownloadCard");if(card){card.hidden=true;card.style.setProperty("display","none","important");}}})();</script>
 <section class="card" id="loginCard"><span class="eyebrow">SECURE STAFF ACCESS</span><h2>लॉगिन करें</h2><p class="muted">Admin और अधिकृत Collector के लिए</p><form id="loginForm"><label for="email">ईमेल</label><input id="email" type="email" autocomplete="username" required><label for="password">पासवर्ड</label><input id="password" type="password" autocomplete="current-password" required><button id="loginBtn" type="submit">लॉगिन करें</button></form><p id="loginMessage" class="message" role="status"></p><p class="small">अपना पासवर्ड किसी के साथ साझा न करें।</p></section>
 <section class="hidden" id="dashboardCard">
 <div class="dashhead"><div><span class="eyebrow">AJSF ONLINE</span><h2>नमस्ते, <span id="staffName">Staff</span></h2><p class="muted"><span id="staffCode"></span> · <span id="staffRole"></span> — <span id="roleNote"></span></p></div><button class="secondary" id="logoutBtn">लॉगआउट</button></div>
