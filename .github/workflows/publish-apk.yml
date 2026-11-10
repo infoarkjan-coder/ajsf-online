@@ -7,18 +7,12 @@ on:
     paths:
       - ".github/workflows/publish-apk.yml"
   workflow_dispatch:
-  workflow_run:
-    workflows: ["Build AJSF Android APK"]
-    types: [completed]
-    branches: ["android-apk/initial-wrapper"]
-
 permissions:
   contents: write
   actions: read
 
 jobs:
   publish:
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout website branch
