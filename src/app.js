@@ -1088,6 +1088,57 @@ async function loadReceiptLibrary(src, test) {
     document.head.appendChild(script);
   });
 }
+async function downloadElementPdf(element, fileName, options = {}) {
+  if (!element || !element.innerHTML.trim()) throw new Error("पहले संबंधित विवरण तैयार करें।");
+  await loadReceiptLibrary("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js", () => typeof window.html2canvas === "function");
+  await loadReceiptLibrary("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js", () => !!window.jspdf?.jsPDF);
+  const canvas = await window.html2canvas(element, {scale:2,backgroundColor:"#ffffff",useCORS:true,logging:false,windowWidth:Math.max(element.scrollWidth,element.clientWidth)});
+  const {jsPDF} = window.jspdf;
+  const pdf = new jsPDF({orientation:"landscape",unit:"mm",format:"a4",compress:true});
+  const pageW = 297, pageH = 210, margin = 7, usableW = pageW - margin*2, usableH = pageH - margin*2;
+  if (options.fitOnePage) {
+    const ratio = Math.min(usableW/canvas.width,usableH/canvas.height);
+    const w = canvas.width*ratio, h = canvas.height*ratio;
+    pdf.addImage(canvas.toDataURL("image/jpeg",0.94),"JPEG",(pageW-w)/2,(pageH-h)/2,w,h,undefined,"FAST");
+  } else {
+    const sliceHeight = Math.floor(canvas.width * usableH / usableW);
+    let y = 0, page = 0;
+    while (y < canvas.height) {
+      const h = Math.min(sliceHeight,canvas.height-y);
+      const slice = document.createElement("canvas");
+      slice.width = canvas.width; slice.height = h;
+      slice.getContext("2d").drawImage(canvas,0,y,canvas.width,h,0,0,canvas.width,h);
+      if (page > 0) pdf.addPage("a4","landscape");
+      const renderedH = h * usableW / canvas.width;
+      pdf.addImage(slice.toDataURL("image/jpeg",0.94),"JPEG",margin,margin,usableW,renderedH,undefined,"FAST");
+      y += h; page++;
+    }
+  }
+  const file = new File([pdf.output("blob")],fileName,{type:"application/pdf"});
+  if (window.AJSFNativeDownload?.saveBase64) {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    let binary = "";
+    for (let i=0;i<bytes.length;i+=0x8000) binary += String.fromCharCode(...bytes.subarray(i,i+0x8000));
+    const result = window.AJSFNativeDownload.saveBase64(btoa(binary),file.name,file.type);
+    if (result !== "OK") throw new Error(result || "Android में PDF सेव नहीं हो पाई।");
+  } else {
+    const url = URL.createObjectURL(file), a = document.createElement("a");
+    a.href=url; a.download=file.name; a.style.display="none";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),60000);
+  }
+}
+async function handleDocumentPdf(buttonId, elementId, fileName, successMessage, options = {}) {
+  const button = $(buttonId);
+  setBusy(button,true,"PDF तैयार हो रही है…");
+  try {
+    await downloadElementPdf($(elementId),fileName,options);
+    showMessage(successMessage,"success");
+  } catch(error) {
+    showMessage("PDF डाउनलोड नहीं हो पाई: "+(error?.message || String(error)),"warn");
+  } finally { setBusy(button,false); }
+}
+
 async function createReceiptPdf() {
   const area = $("receiptContent");
   if (!lastReceipt || !area || !area.innerHTML.trim()) throw new Error("पहले भुगतान सेव करें।");
@@ -1233,16 +1284,26 @@ async function boot() {
   $("customerRows")?.addEventListener("click", event => { const btn = event.target.closest(".customer-remove"); if (btn) removeCustomerRecord(btn.dataset.customerId, btn); });
   $("ledgerCustomer").addEventListener("change", loadCustomerLedger);
   $("ledgerSearch").addEventListener("input", filterLedgerCustomers);
+  $("downloadLedgerPdfBtn").addEventListener("click", () => handleDocumentPdf("downloadLedgerPdfBtn","ledgerPrintArea","AJSF-Customer-Ledger.pdf","Customer Ledger PDF Downloads में सेव हो गई है।"));
   $("printLedgerBtn").addEventListener("click", printCustomerLedger);
   $("scheduleSearch").addEventListener("input", filterScheduleCustomers);
   $("scheduleCustomer").addEventListener("change", populateScheduleLoans);
   $("scheduleLoan").addEventListener("change", renderRepaymentSchedule);
+  $("downloadSchedulePdfBtn").addEventListener("click", () => {
+    if (!$("scheduleLoan").value) return showMessage("पहले ग्राहक और लोन चुनें।","warn");
+    handleDocumentPdf("downloadSchedulePdfBtn","repaymentSchedulePrint","AJSF-Repayment-Schedule.pdf","Repayment Schedule PDF Downloads में सेव हो गई है।",{fitOnePage:true});
+  });
   $("printScheduleBtn").addEventListener("click", printRepaymentSchedule);
   $("customerFilter").addEventListener("input", filterCustomerRows);
   $("customerCenterFilter").addEventListener("change", filterCustomerRows);
   $("customerDayFilter").addEventListener("change", filterCustomerRows);
   $("statementSearch").addEventListener("input", filterStatementCustomers);
   $("statementCustomer").addEventListener("change", renderCustomerStatement);
+  $("downloadStatementPdfBtn").addEventListener("click", () => {
+    if (!$("statementCustomer").value) return showMessage("पहले ग्राहक चुनें।","warn");
+    renderCustomerStatement();
+    handleDocumentPdf("downloadStatementPdfBtn","statementPrintArea","AJSF-Customer-Loan-Statement.pdf","Loan Statement PDF Downloads में सेव हो गई है।");
+  });
   $("printStatementBtn").addEventListener("click", printCustomerStatement);
   $("printReceiptBtn").addEventListener("click", printReceipt);
   $("downloadReceiptPdfBtn").addEventListener("click", downloadReceiptPdf);
