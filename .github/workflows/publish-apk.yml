@@ -1,0 +1,59 @@
+name: Publish AJSF APK after Android build
+
+on:
+  workflow_run:
+    workflows:
+      - Build AJSF Android APK
+    types:
+      - completed
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: publish-ajs-apk
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout website branch
+        uses: actions/checkout@v4
+        with:
+          ref: release/receipt-whatsapp-only
+          fetch-depth: 0
+
+      - name: Download APK from completed Android build
+        if: github.event_name == 'workflow_run'
+        uses: actions/download-artifact@v4
+        with:
+          name: AJSF-Online-Android-APK
+          path: ./apk-artifact
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Locate and install APK
+        run: |
+          set -euo pipefail
+          APK_PATH="$(find ./apk-artifact -type f -name '*.apk' -print -quit)"
+          test -n "$APK_PATH" || { echo "APK artifact was not found."; exit 1; }
+          cp "$APK_PATH" ./AJSF-Online.apk
+          test -s ./AJSF-Online.apk
+          file ./AJSF-Online.apk
+
+      - name: Commit APK to website branch
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add AJSF-Online.apk
+          if git diff --cached --quiet; then
+            echo "The published APK is already up to date."
+            exit 0
+          fi
+          git commit -m "Publish latest AJSF Android APK"
+          git push origin HEAD:release/receipt-whatsapp-only
