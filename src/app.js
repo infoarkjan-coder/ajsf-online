@@ -1246,8 +1246,7 @@ async function downloadElementPdf(element, fileName, options = {}) {
     for (let i=0;i<bytes.length;i+=0x8000) binary += String.fromCharCode(...bytes.subarray(i,i+0x8000));
     const result = await Promise.resolve(window.AJSFNativeDownload.saveBase64(btoa(binary),file.name,file.type));
     if (result && result !== "OK") throw new Error(String(result));
-    if (result === "OK") return;
-    // A void-returning Android bridge may still have saved the file; use browser fallback only when it did not confirm.
+    if (result === "OK" || result === undefined || result === null) return;
   }
   const url = URL.createObjectURL(blob), a = document.createElement("a");
   a.href=url; a.download=fileName; a.type="application/pdf";
