@@ -1084,6 +1084,16 @@ async function downloadElementPdf(element, fileName, options = {}) {
   if (!element || !element.innerHTML.trim()) throw new Error("पहले संबंधित विवरण तैयार करें।");
   await loadReceiptLibrary("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js", () => typeof window.html2canvas === "function");
   await loadReceiptLibrary("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js", () => !!window.jspdf?.jsPDF);
+  // Let the selected panel finish layout and wait for its logo before capturing it.
+  if (document.fonts?.ready) await document.fonts.ready;
+  await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  await Promise.all(Array.from(element.querySelectorAll("img")).map(img =>
+    img.complete ? Promise.resolve() : new Promise(resolve => {
+      img.addEventListener("load",resolve,{once:true});
+      img.addEventListener("error",resolve,{once:true});
+      setTimeout(resolve,5000);
+    })
+  ));
   const canvas = await window.html2canvas(element, {
     scale:2, backgroundColor:"#ffffff", useCORS:true, logging:false,
     windowWidth:1180,
@@ -1204,6 +1214,7 @@ async function downloadElementPdf(element, fileName, options = {}) {
       clonedDoc.head.appendChild(style);
     }
   });
+  if (!canvas || !canvas.width || !canvas.height) throw new Error("PDF पेज तैयार नहीं हुआ। Schedule को दोबारा खोलकर प्रयास करें।");
   const {jsPDF} = window.jspdf;
   const pdf = new jsPDF({orientation:options.orientation || "landscape",unit:"mm",format:"a4",compress:true});
   const pageW = options.orientation === "portrait" ? 210 : 297, pageH = options.orientation === "portrait" ? 297 : 210, margin = 7, usableW = pageW - margin*2, usableH = pageH - margin*2;
@@ -1226,19 +1237,25 @@ async function downloadElementPdf(element, fileName, options = {}) {
       y += h; page++;
     }
   }
-  const file = new File([pdf.output("blob")],fileName,{type:"application/pdf"});
+  const blob = pdf.output("blob");
+  if (!blob || blob.size < 100) throw new Error("PDF खाली बनी है। कृपया दोबारा प्रयास करें।");
+  const file = new File([blob],fileName,{type:"application/pdf"});
   if (window.AJSFNativeDownload?.saveBase64) {
     const bytes = new Uint8Array(await file.arrayBuffer());
     let binary = "";
     for (let i=0;i<bytes.length;i+=0x8000) binary += String.fromCharCode(...bytes.subarray(i,i+0x8000));
-    const result = window.AJSFNativeDownload.saveBase64(btoa(binary),file.name,file.type);
-    if (result !== "OK") throw new Error(result || "Android में PDF सेव नहीं हो पाई।");
-  } else {
-    const url = URL.createObjectURL(file), a = document.createElement("a");
-    a.href=url; a.download=file.name; a.style.display="none";
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url),60000);
+    const result = await Promise.resolve(window.AJSFNativeDownload.saveBase64(btoa(binary),file.name,file.type));
+    if (result && result !== "OK") throw new Error(String(result));
+    if (result === "OK") return;
+    // A void-returning Android bridge may still have saved the file; use browser fallback only when it did not confirm.
   }
+  const url = URL.createObjectURL(blob), a = document.createElement("a");
+  a.href=url; a.download=fileName; a.type="application/pdf";
+  a.style.position="fixed"; a.style.left="-10000px";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),120000);
 }
 async function handleDocumentPdf(buttonId, elementId, fileName, successMessage, options = {}) {
   const button = $(buttonId);
