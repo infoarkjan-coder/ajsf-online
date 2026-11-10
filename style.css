@@ -461,3 +461,51 @@ input,select,button{min-height:42px}
 #dashboardCard.collector-mode .dashboard-content [data-panel]:not(.hidden) .grid{
   display:grid!important;
 }
+
+
+/* AJSF receipt refinement: clear amount hierarchy and readable bilingual wording */
+#receiptContent .receipt-amount{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:center;
+  gap:8px 16px;
+  margin:16px 0;
+  padding:16px 18px;
+  border:1px solid #dce9e1;
+  border-radius:10px;
+  background:#edf5f0;
+}
+#receiptContent .receipt-amount-label{
+  display:grid;
+  gap:3px;
+  color:#60756b;
+  font-size:11px;
+  font-weight:800;
+  letter-spacing:.45px;
+}
+#receiptContent .receipt-amount-label span{font-size:10px;font-weight:600;letter-spacing:0}
+#receiptContent .receipt-amount strong{
+  display:block;
+  white-space:nowrap;
+  font-size:25px;
+  line-height:1.1;
+  color:#123f35;
+}
+#receiptContent .receipt-amount-words{
+  grid-column:1/-1;
+  display:grid;
+  gap:5px;
+  padding-top:9px;
+  border-top:1px solid #d4e2d9;
+  color:#29483d;
+  font-size:11px;
+  line-height:1.45;
+  overflow-wrap:anywhere;
+}
+#receiptContent .receipt-amount-words b{color:#527367}
+#receiptContent .receipt-grid b{overflow-wrap:anywhere;word-break:normal}
+@media(max-width:480px){
+  #receiptContent .receipt-amount{gap:7px 10px;padding:12px}
+  #receiptContent .receipt-amount strong{font-size:21px}
+  #receiptContent .receipt-amount-words{font-size:10px}
+}
