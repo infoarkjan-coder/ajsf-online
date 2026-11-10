@@ -1091,6 +1091,22 @@ async function downloadElementPdf(element, fileName, options = {}) {
       const root = clonedDoc.getElementById(element.id);
       if (!root) return;
       root.style.cssText += ";display:block!important;width:1100px!important;max-width:none!important;min-width:1100px!important;height:auto!important;min-height:0!important;max-height:none!important;padding:30px!important;margin:0!important;box-sizing:border-box!important;background:#fff!important;color:#20352d!important;font-family:Arial,sans-serif!important;font-size:14px!important;line-height:1.35!important;overflow:visible!important;border:0!important;border-radius:0!important";
+      if (element.id === "repaymentSchedulePrint") {
+        // Inline !important wins over clone stylesheet rules; explicitly restore the folded two-panel grid.
+        root.style.setProperty("display","grid","important");
+        root.style.setProperty("grid-template-columns","minmax(0,1fr) minmax(0,1fr)","important");
+        root.style.setProperty("grid-template-rows","740px","important");
+        root.style.setProperty("align-items","stretch","important");
+        root.style.setProperty("width","1100px","important");
+        root.style.setProperty("min-width","1100px","important");
+        root.style.setProperty("max-width","1100px","important");
+        root.style.setProperty("height","740px","important");
+        root.style.setProperty("min-height","740px","important");
+        root.style.setProperty("max-height","740px","important");
+        root.style.setProperty("padding","18px","important");
+        root.style.setProperty("overflow","hidden","important");
+        root.style.setProperty("border","2px solid #244b3c","important");
+      }
       const style = clonedDoc.createElement("style");
       style.textContent = `
         #ledgerPrintArea .ledger-print-brand,#statementPrintArea .statement-brand{display:flex!important;align-items:center!important;justify-content:flex-start!important;gap:22px!important;padding:0 0 18px!important;margin:0 0 20px!important;border-bottom:4px solid #174b3c!important}
@@ -1302,10 +1318,25 @@ function printReceipt() {
 }
 
 async function logout() {
-  await supabase.auth.signOut();
-  currentUser = null; profile = null;
-  $("dashboardCard").classList.add("hidden"); $("loginCard").classList.remove("hidden"); $("appShell").classList.remove("logged-in");
-  $("loginForm").reset(); showMessage("आप लॉगआउट हो गए हैं।");
+  const btn = $("loginBtn");
+  let signOutError = null;
+  try {
+    const { error } = await supabase.auth.signOut({ scope:"local" });
+    signOutError = error || null;
+  } catch (error) {
+    signOutError = error;
+  } finally {
+    currentUser = null; profile = null;
+    $("dashboardCard").classList.add("hidden");
+    $("loginCard").classList.remove("hidden");
+    $("appShell").classList.remove("logged-in");
+    $("loginForm").reset();
+    setBusy(btn,false);
+    btn.disabled = false;
+    showMessage(signOutError
+      ? "इस डिवाइस से लॉगआउट कर दिया गया। सर्वर से session revoke नहीं हो पाया; इंटरनेट जाँचें।"
+      : "आप लॉगआउट हो गए हैं।", signOutError ? "warn" : "info");
+  }
 }
 
 async function boot() {
@@ -1318,29 +1349,38 @@ async function boot() {
   window.addEventListener("online", () => { updateConnectionStatus(); syncQueuedPayments(); });
   window.addEventListener("offline", () => updateConnectionStatus());
   $("loginForm").addEventListener("submit", async event => {
-    event.preventDefault(); showMessage("");
-    const btn = $("loginBtn"); setBusy(btn, true, "लॉगिन हो रहा है…");
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: $("email").value.trim(), password: $("password").value
-    });
-    if (error) { setBusy(btn, false); return showMessage("लॉगिन असफल: ईमेल/पासवर्ड जाँचें।", "error"); }
+    event.preventDefault();
+    const btn = $("loginBtn");
+    if (btn.disabled) return;
+    showMessage("");
+    setBusy(btn,true,"लॉगिन हो रहा है…");
     try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email:$("email").value.trim(), password:$("password").value
+      });
+      if (error) throw error;
+      if (!data?.user) throw new Error("Login session नहीं मिला। दोबारा प्रयास करें।");
       currentUser = data.user;
       await loadProfile(currentUser);
       renderShell();
-      $("customerForm").addEventListener("submit", submitCustomer);
-      $("paymentForm").addEventListener("submit", submitPayment);
+      $("customerForm").addEventListener("submit",submitCustomer);
+      $("paymentForm").addEventListener("submit",submitPayment);
       try {
         await loadAll();
       } catch (dataError) {
-        console.error("AJSF dashboard data load failed:", dataError);
-        showMessage("डेटा लोड नहीं हुआ: " + (dataError?.message || String(dataError)) + " | स्क्रीनशॉट भेजें।", "error");
+        console.error("AJSF dashboard data load failed:",dataError);
+        showMessage("डेटा लोड नहीं हुआ: "+(dataError?.message || String(dataError))+" | स्क्रीनशॉट भेजें।","error");
       }
     } catch (err) {
-      console.error("AJSF login/profile failed:", err);
-      await supabase.auth.signOut();
-      setBusy(btn, false);
-      showMessage(err.message, "error");
+      console.error("AJSF login failed:",err);
+      currentUser = null; profile = null;
+      try { await supabase.auth.signOut({scope:"local"}); } catch (signOutError) { console.warn("Local session cleanup failed",signOutError); }
+      showMessage("लॉगिन नहीं हुआ: "+(err?.message || "नेटवर्क या Auth समस्या")+"। इंटरनेट जाँचकर फिर प्रयास करें।","error");
+      $("loginCard").classList.remove("hidden");
+      $("dashboardCard").classList.add("hidden");
+    } finally {
+      setBusy(btn,false);
+      btn.disabled = false;
     }
   });
   $("logoutBtn").addEventListener("click", logout);
