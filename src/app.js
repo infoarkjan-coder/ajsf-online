@@ -1140,6 +1140,26 @@ async function downloadElementPdf(element, fileName, options = {}) {
         #repaymentSchedulePrint .passbook-footer div:not(.passbook-generated) span{display:block!important;height:30px!important;border-bottom:1px solid #52665c!important}
         #repaymentSchedulePrint .passbook-footer small{font-size:10px!important;color:#52665c!important}
         #repaymentSchedulePrint .passbook-generated{text-align:right!important;font-size:9px!important;color:#65776e!important}
+#repaymentSchedulePrint.repayment-fold-sheet{position:relative!important;display:grid!important;grid-template-columns:1fr 1fr!important;grid-template-rows:1fr!important;width:1100px!important;height:740px!important;min-height:740px!important;max-height:740px!important;box-sizing:border-box!important;border:2px solid #244b3c!important;background:#fff!important}
+        #repaymentSchedulePrint .repayment-left{grid-column:1!important;grid-row:1!important;padding:18px 24px 18px 14px!important;box-sizing:border-box!important;min-width:0!important}
+        #repaymentSchedulePrint .repayment-right{grid-column:2!important;grid-row:1!important;padding:38px 25px 20px 42px!important;box-sizing:border-box!important;min-width:0!important;border-left:2px dashed #71877b!important}
+        #repaymentSchedulePrint .repayment-left h2{font-size:19px!important;color:#174b3c!important;text-align:center!important;margin:0 0 14px!important;padding-bottom:9px!important;border-bottom:2px solid #174b3c!important}
+        #repaymentSchedulePrint .repayment-table{width:100%!important;border-collapse:collapse!important;table-layout:fixed!important;font-size:13px!important}
+        #repaymentSchedulePrint .repayment-table th{background:#e8f1ec!important;color:#174b3c!important;font-weight:700!important}
+        #repaymentSchedulePrint .repayment-table th,#repaymentSchedulePrint .repayment-table td{border:1px solid #b9c9bf!important;padding:5px 6px!important;height:27px!important;text-align:center!important;vertical-align:middle!important}
+        #repaymentSchedulePrint .repayment-table td.repayment-sign-cell{height:27px!important}
+        #repaymentSchedulePrint .repayment-brand{display:flex!important;align-items:center!important;gap:18px!important;padding-bottom:18px!important;border-bottom:3px solid #174b3c!important}
+        #repaymentSchedulePrint .repayment-brand img{width:92px!important;height:92px!important;object-fit:contain!important;flex:0 0 92px!important}
+        #repaymentSchedulePrint .repayment-brand h1{font-size:24px!important;line-height:1.15!important;color:#174b3c!important;margin:0!important}
+        #repaymentSchedulePrint .repayment-brand p{font-size:13px!important;font-weight:700!important;letter-spacing:.6px!important;color:#60756b!important;margin:8px 0 0!important}
+        #repaymentSchedulePrint .repayment-customer-title{font-size:18px!important;color:#174b3c!important;margin:28px 0 12px!important}
+        #repaymentSchedulePrint .repayment-customer{display:grid!important;grid-template-columns:1fr 1fr!important;gap:16px 20px!important}
+        #repaymentSchedulePrint .repayment-customer div{min-height:42px!important;padding:4px 0!important;border-bottom:1px solid #d4dfd8!important}
+        #repaymentSchedulePrint .repayment-customer small{display:block!important;font-size:12px!important;color:#65776e!important;margin-bottom:5px!important}
+        #repaymentSchedulePrint .repayment-customer b{font-size:15px!important;overflow-wrap:anywhere!important}
+        #repaymentSchedulePrint .repayment-right-footer{margin-top:36px!important;display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px 22px!important;font-size:12px!important;color:#52665c!important}
+        #repaymentSchedulePrint .repayment-right-footer span{height:45px!important;border-bottom:1px solid #52665c!important}
+        #repaymentSchedulePrint .repayment-fold-mark{position:absolute!important;left:50%!important;top:0!important;bottom:0!important;border-left:2px dashed #82958b!important;font-size:0!important}
         .tablewrap{overflow:visible!important}
       `;
       clonedDoc.head.appendChild(style);
