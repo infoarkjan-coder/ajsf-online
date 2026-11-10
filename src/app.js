@@ -587,34 +587,32 @@ function renderRepaymentSchedule() {
     else if (due < today) status = "Overdue";
     rows.push(`<tr><td>${i+1}</td><td>${displayDueDate(due)}</td><td>${money(emi)}</td><td><span class="schedule-status ${status.toLowerCase()}">${status}</span></td><td class="passbook-paid-date"></td><td class="passbook-sign"></td></tr>`);
   }
-  const lastDue = new Date(first.getFullYear(),first.getMonth(),first.getDate()+(count-1)*7);
-  output.innerHTML = `<div id="repaymentSchedulePrint" class="schedule-passbook">
-    <div class="passbook-top">
-      <header class="passbook-brand"><img src="./assets/ajsf-logo.png" alt="AJSF Logo"><div><h1>ARK JAN SAMRIDDHI FOUNDATION</h1><p>SAPNE AAPKE SATH HAMARA</p><strong>WEEKLY LOAN PASSBOOK / साप्ताहिक ऋण पासबुक</strong></div></header>
-      <section class="passbook-customer">
-        <div><small>Customer Name / ग्राहक</small><b>${esc(customer?.full_name || "—")}</b></div>
+  output.innerHTML = `<div id="repaymentSchedulePrint" class="repayment-fold-sheet">
+    <section class="repayment-left">
+      <h2>WEEKLY REPAYMENT SCHEDULE</h2>
+      <table class="repayment-table">
+        <colgroup><col style="width:9%"><col style="width:17%"><col style="width:25%"><col style="width:49%"></colgroup>
+        <thead><tr><th>Week</th><th>Day</th><th>Due Date</th><th>Collector Signature</th></tr></thead>
+        <tbody>${rows.map((row,i)=>{const due=new Date(first);due.setDate(first.getDate()+i*7);return `<tr><td>${i+1}</td><td>${esc(weekday)}</td><td>${displayDueDate(due)}</td><td class="repayment-sign-cell"></td></tr>`;}).join("")}</tbody>
+      </table>
+    </section>
+    <aside class="repayment-right">
+      <header class="repayment-brand"><img src="./assets/ajsf-logo.png" alt="AJSF Logo"><div><h1>ARK JAN SAMRIDDHI FOUNDATION</h1><p>SAPNE AAPKE SATH HAMARA</p></div></header>
+      <h2 class="repayment-customer-title">CUSTOMER DETAILS / ग्राहक विवरण</h2>
+      <div class="repayment-customer">
+        <div><small>Customer Name / ग्राहक का नाम</small><b>${esc(customer?.full_name || "—")}</b></div>
         <div><small>Customer ID / ग्राहक आईडी</small><b>${esc(customer?.customer_code || "—")}</b></div>
-        <div><small>Mobile / मोबाइल</small><b>${esc(phone(customer?.contact_number) || "—")}</b></div>
-        <div><small>Center / केंद्र</small><b>${esc(customer?.center_name || "—")}</b></div>
-        <div><small>Loan Ref. / लोन नंबर</small><b>${esc(loan.loan_reference || "—")}</b></div>
+        <div><small>Mobile Number / मोबाइल</small><b>${esc(phone(customer?.contact_number) || "—")}</b></div>
+        <div><small>Center Name / केंद्र</small><b>${esc(customer?.center_name || "—")}</b></div>
+        <div><small>Loan Reference / लोन नंबर</small><b>${esc(loan.loan_reference || "—")}</b></div>
         <div><small>Loan Amount / ऋण राशि</small><b>${money(loan.loan_amount)}</b></div>
         <div><small>Weekly EMI / साप्ताहिक किस्त</small><b>${money(emi)}</b></div>
         <div><small>Collection Day / वसूली दिन</small><b>${esc(weekday)}</b></div>
-      </section>
-    </div>
-    <div class="passbook-summary">
-      <span><small>Total Installments</small><b>${count}</b></span>
-      <span><small>First Due Date</small><b>${displayDueDate(first)}</b></span>
-      <span><small>Last Due Date</small><b>${displayDueDate(lastDue)}</b></span>
-      <span><small>Total Scheduled</small><b>${money(count*emi)}</b></span>
-      <span><small>Current OSP</small><b>${money(loanFigures(loan, paymentsByLoan()).outstanding)}</b></span>
-    </div>
-    <h2 class="passbook-table-title">INSTALLMENT PAYMENT RECORD / किस्त भुगतान रिकॉर्ड</h2>
-    <table class="passbook-table"><colgroup><col style="width:6%"><col style="width:16%"><col style="width:14%"><col style="width:14%"><col style="width:25%"><col style="width:25%"></colgroup>
-      <thead><tr><th>Wk.</th><th>Due Date</th><th>EMI Amount</th><th>Status</th><th>Payment Date</th><th>Collector Signature</th></tr></thead>
-      <tbody>${rows.join("")}</tbody>
-    </table>
-    <footer class="passbook-footer"><div><small>Customer Signature / ग्राहक हस्ताक्षर</small><span></span></div><div><small>Authorized Collector / अधिकृत कलेक्टर</small><span></span></div><div class="passbook-generated">Generated: ${new Date().toLocaleDateString("en-IN")}<br>Keep this passbook safe and bring it on every collection day.</div></footer>
+        <div><small>Total Installments / कुल किस्तें</small><b>${count} Weeks</b></div>
+      </div>
+      <div class="repayment-right-footer"><small>Customer Signature / ग्राहक हस्ताक्षर</small><span></span><small>Authorized Collector / अधिकृत कलेक्टर</small><span></span></div>
+    </aside>
+    <div class="repayment-fold-mark">FOLD</div>
   </div>`;
 
 }
@@ -624,32 +622,28 @@ function printRepaymentSchedule() {
   if (!area) return showMessage("पहले Schedule लोड होने दें।","warn");
   openAjsfPrint("AJSF Repayment Schedule", area.outerHTML, `
     @page{size:A4 landscape;margin:5mm}
-    body{padding:0;font-size:7pt}
-    .passbook-top{display:grid;grid-template-columns:42% 58%;gap:3mm;align-items:center;border-bottom:1px solid #174b3c;padding-bottom:2mm}
-    .passbook-brand{display:flex;align-items:center;gap:3mm;min-width:0}
-    .passbook-brand img{width:16mm;height:16mm;object-fit:contain;flex:0 0 16mm}
-    .passbook-brand h1{font-size:12pt;line-height:1.1;margin:0;color:#174b3c}
-    .passbook-brand p{font-size:6pt;font-weight:bold;letter-spacing:.5px;margin:1mm 0}
-    .passbook-brand strong{font-size:7pt}
-    .passbook-customer{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1mm 2mm}
-    .passbook-customer div{border-bottom:.2mm solid #d4dfd8;padding:.7mm;min-width:0}
-    .passbook-customer small,.passbook-summary small{display:block;font-size:5.5pt;color:#64776d;margin-bottom:.5mm}
-    .passbook-customer b,.passbook-summary b{font-size:6.5pt;overflow-wrap:anywhere}
-    .passbook-summary{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:1mm;margin:2mm 0;padding:1.5mm;background:#edf5f0}
-    .passbook-summary span{padding:0 1mm;border-right:.2mm solid #cfddd4}
-    .passbook-table-title{font-size:8pt;color:#174b3c;margin:1mm 0}
-    .passbook-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:6.5pt}
-    .passbook-table th{background:#e8f1ec;color:#174b3c;font-weight:bold}
-    .passbook-table th,.passbook-table td{border:.2mm solid #b9c9bf;padding:1.15mm 1.2mm;height:5.6mm;text-align:left;vertical-align:middle}
-    .passbook-table td.passbook-paid-date,.passbook-table td.passbook-sign{height:5.6mm}
-    .passbook-table .schedule-status{font-size:6pt;font-weight:bold}
-    .passbook-footer{display:grid;grid-template-columns:1fr 1fr 1.3fr;gap:5mm;align-items:end;margin-top:3mm}
-    .passbook-footer div:not(.passbook-generated) span{display:block;height:7mm;border-bottom:.2mm solid #52665c}
-    .passbook-footer small{font-size:6pt;color:#52665c}
-    .passbook-generated{text-align:right;font-size:5.5pt;color:#65776e}
-    .passbook-sign{min-width:0}
-
-  `);
+    body{padding:0;font-family:Arial,sans-serif;color:#20352d}
+    .repayment-fold-sheet{position:relative;display:grid;grid-template-columns:1fr 1fr;width:100%;height:200mm;box-sizing:border-box;border:1px solid #244b3c;background:#fff}
+    .repayment-left{grid-column:1;grid-row:1;padding:3mm 5mm 3mm 3mm;box-sizing:border-box;min-width:0}
+    .repayment-right{grid-column:2;grid-row:1;padding:7mm 5mm 4mm 8mm;box-sizing:border-box;min-width:0;border-left:1px dashed #71877b}
+    .repayment-left h2{font-size:11pt;color:#174b3c;text-align:center;margin:0 0 3mm;padding-bottom:2mm;border-bottom:1px solid #174b3c}
+    .repayment-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:8pt}
+    .repayment-table th{background:#e8f1ec;color:#174b3c;font-weight:bold}
+    .repayment-table th,.repayment-table td{border:.25mm solid #b9c9bf;padding:1.45mm 1.2mm;height:6.5mm;text-align:center;vertical-align:middle}
+    .repayment-table td.repayment-sign-cell{height:6.5mm}
+    .repayment-brand{display:flex;align-items:center;gap:4mm;padding-bottom:4mm;border-bottom:2px solid #174b3c}
+    .repayment-brand img{width:25mm;height:25mm;object-fit:contain;flex:0 0 25mm}
+    .repayment-brand h1{font-size:15pt;line-height:1.15;color:#174b3c;margin:0}
+    .repayment-brand p{font-size:8pt;font-weight:bold;letter-spacing:.6px;color:#60756b;margin:2mm 0 0}
+    .repayment-customer-title{font-size:10pt;color:#174b3c;margin:7mm 0 3mm}
+    .repayment-customer{display:grid;grid-template-columns:1fr 1fr;gap:4mm 5mm}
+    .repayment-customer div{min-height:12mm;padding:1mm 0;border-bottom:.25mm solid #d4dfd8}
+    .repayment-customer small{display:block;font-size:7pt;color:#65776e;margin-bottom:1.5mm}
+    .repayment-customer b{font-size:9pt;overflow-wrap:anywhere}
+    .repayment-right-footer{margin-top:12mm;display:grid;grid-template-columns:1fr 1fr;gap:2mm 6mm;font-size:7pt;color:#52665c}
+    .repayment-right-footer span{height:12mm;border-bottom:.25mm solid #52665c}
+    .repayment-fold-mark{position:absolute;left:50%;top:0;bottom:0;border-left:.25mm dashed #82958b;font-size:0}
+  `);;
 }
 
 function filterLedgerCustomers() {
@@ -1350,7 +1344,7 @@ async function boot() {
   $("scheduleLoan").addEventListener("change", renderRepaymentSchedule);
   $("downloadSchedulePdfBtn").addEventListener("click", () => {
     if (!$("scheduleLoan").value) return showMessage("पहले ग्राहक और लोन चुनें।","warn");
-    handleDocumentPdf("downloadSchedulePdfBtn","repaymentSchedulePrint","AJSF-Repayment-Schedule.pdf","Repayment Schedule PDF Downloads में सेव हो गई है।",{targetPages:2});
+    handleDocumentPdf("downloadSchedulePdfBtn","repaymentSchedulePrint","AJSF-Repayment-Schedule.pdf","Repayment Schedule PDF Downloads में सेव हो गई है।",{fitOnePage:true});
   });
   $("printScheduleBtn").addEventListener("click", printRepaymentSchedule);
   $("customerFilter").addEventListener("input", filterCustomerRows);
