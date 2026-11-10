@@ -1104,7 +1104,20 @@ async function downloadElementPdf(element, fileName, options = {}) {
       setTimeout(resolve,5000);
     })
   ));
-  const canvas = await window.html2canvas(element, {
+  // html2canvas measures the source element before applying clone styles.
+  // Expand the two statement roots on the live DOM first so the exported canvas
+  // uses the full landscape layout instead of the narrow on-screen preview width.
+  const expandLandscapeRoot = ["ledgerPrintArea","statementPrintArea"].includes(element.id);
+  const previousInlineStyle = expandLandscapeRoot ? element.getAttribute("style") : null;
+  if (expandLandscapeRoot) {
+    element.style.setProperty("width","1100px","important");
+    element.style.setProperty("min-width","1100px","important");
+    element.style.setProperty("max-width","1100px","important");
+    element.style.setProperty("box-sizing","border-box","important");
+  }
+  let canvas;
+  try {
+    canvas = await window.html2canvas(element, {
     scale:2, backgroundColor:"#ffffff", useCORS:true, logging:false,
     windowWidth:1180,
     onclone: clonedDoc => {
@@ -1229,7 +1242,13 @@ async function downloadElementPdf(element, fileName, options = {}) {
       `;
       clonedDoc.head.appendChild(style);
     }
-  });
+    });
+  } finally {
+    if (expandLandscapeRoot) {
+      if (previousInlineStyle === null) element.removeAttribute("style");
+      else element.setAttribute("style",previousInlineStyle);
+    }
+  }
   if (!canvas || !canvas.width || !canvas.height) throw new Error("PDF पेज तैयार नहीं हुआ। Schedule को दोबारा खोलकर प्रयास करें।");
   const {jsPDF} = window.jspdf;
   const pdf = new jsPDF({orientation:options.orientation || "landscape",unit:"mm",format:"a4",compress:true});
