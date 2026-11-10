@@ -33,8 +33,7 @@ async function loadCustomer(){
  const [c,l,p]=await Promise.all([
   supabase.from("customers").select("id,customer_code,full_name,contact_number,collection_day").eq("id",account.customer_id).single(),
   supabase.from("loans").select("id,loan_reference,customer_id,loan_amount,emi_amount,total_emis_required,status,disbursement_date").eq("customer_id",account.customer_id).order("created_at",{ascending:false}),
-  supabase.from("payments").select("id,loan_id,amount,paid_at,created_at,payment_mode,is_reversal").eq("customer_id",account.customer_id).eq("is_reversal",false).order("paid_at",{ascending:false}),
-  supabase.from("loan_weekly_status").select("loan_id,week_no,is_paid").in("loan_id",[])
+  supabase.from("payments").select("id,loan_id,amount,paid_at,created_at,payment_mode,is_reversal").eq("customer_id",account.customer_id).eq("is_reversal",false).order("paid_at",{ascending:false})
  ]);
  if(c.error)throw c.error;if(l.error)throw l.error;if(p.error)throw p.error;
  customer=c.data;loans=l.data||[];payments=p.data||[];
