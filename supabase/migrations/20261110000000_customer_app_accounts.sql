@@ -4,7 +4,7 @@ create table if not exists public.customer_accounts (
   customer_id uuid not null unique references public.customers(id) on delete restrict,
   auth_user_id uuid not null unique references auth.users(id) on delete cascade,
   is_active boolean not null default true,
-  must_change_password boolean not null default true,
+  must_change_password boolean not null default false,
   created_by uuid references auth.users(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
