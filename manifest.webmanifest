@@ -7,5 +7,17 @@
   "display": "standalone",
   "background_color": "#f4f7f4",
   "theme_color": "#123f35",
-  "icons": []
+  "icons": [
+    {
+      "src": "./assets/ajsf-app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "orientation": "any",
+  "categories": [
+    "business",
+    "finance"
+  ]
 }
