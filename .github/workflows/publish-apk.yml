@@ -22,15 +22,38 @@ jobs:
           ref: release/receipt-whatsapp-only
           fetch-depth: 0
 
-      - name: Download the verified APK build artifact
+      - name: Find latest successful Android APK build
+        id: artifact
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
+          API="https://api.github.com/repos/infoarkjan-coder/ajsf-online"
+          RUN_ID="$(curl --fail --silent --show-error \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "$API/actions/workflows/android-apk.yml/runs?branch=android-apk%2Finitial-wrapper&status=success&per_page=1" \
+            | jq -r '.workflow_runs[0].id // empty')"
+          test -n "$RUN_ID" || { echo "No successful Android APK build found."; exit 1; }
+          ARTIFACT_ID="$(curl --fail --silent --show-error \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "$API/actions/runs/$RUN_ID/artifacts" \
+            | jq -r '.artifacts[] | select(.name=="AJSF-Online-Android-APK" and .expired==false) | .id' | head -n 1)"
+          test -n "$ARTIFACT_ID" || { echo "APK artifact missing or expired for latest successful build."; exit 1; }
+          echo "artifact_id=$ARTIFACT_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Download latest APK artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_ID: ${{ steps.artifact.outputs.artifact_id }}
+        run: |
+          set -euo pipefail
           mkdir -p /tmp/ajs-apk
           curl --fail --location \
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github+json" \
-            https://api.github.com/repos/infoarkjan-coder/ajsf-online/actions/artifacts/13722190653/zip \
+            "https://api.github.com/repos/infoarkjan-coder/ajsf-online/actions/artifacts/$ARTIFACT_ID/zip" \
             -o /tmp/ajs-apk/artifact.zip
           unzip -o /tmp/ajs-apk/artifact.zip -d /tmp/ajs-apk/unpacked
           APK_PATH="$(find /tmp/ajs-apk/unpacked -type f -name '*.apk' -print -quit)"
