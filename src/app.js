@@ -1161,6 +1161,32 @@ async function downloadElementPdf(element, fileName, options = {}) {
         #ledgerPrintArea th,#statementPrintArea th{background:#eaf3ee!important;color:#174b3c!important;font-weight:700!important}
         #ledgerPrintArea .ledger-generated,#statementPrintArea .statement-generated{margin-top:auto!important;padding-top:14px!important;text-align:right!important;font-size:11px!important}
         #statementPrintArea .statement-note{font-size:10px!important;line-height:1.35!important;margin:8px 0 0!important;color:#65776e!important}
+        /* Download-only statement styling mirrors the proven browser Print layout. */
+        #statementPrintArea .statement-brand{justify-content:center!important;gap:38px!important;padding:0 0 12px!important;margin:0 0 10px!important;border-bottom:3px solid #174b3c!important}
+        #statementPrintArea .statement-brand img{width:64px!important;height:64px!important;min-width:64px!important;max-width:64px!important;flex:0 0 64px!important}
+        #statementPrintArea .statement-brand h1{font-size:19px!important;line-height:1.15!important;margin:0!important}
+        #statementPrintArea .statement-brand p{font-size:11px!important;margin:3px 0!important;letter-spacing:1px!important}
+        #statementPrintArea .statement-title{font-size:16px!important;margin:10px 0!important}
+        #statementPrintArea .statement-customer{grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:8px!important;padding:9px 0!important;margin:0 0 8px!important}
+        #statementPrintArea .statement-totals{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:8px!important;padding:10px!important;margin:0 0 8px!important}
+        #statementPrintArea small{font-size:10px!important;margin-bottom:2px!important}
+        #statementPrintArea b{font-size:11px!important}
+        #statementPrintArea h3{font-size:13px!important;margin:10px 0 5px!important}
+        #statementPrintArea table{font-size:10px!important;margin:4px 0 7px!important}
+        #statementPrintArea th,#statementPrintArea td{padding:5px!important;line-height:1.2!important}
+        #statementPrintArea .statement-generated{font-size:9px!important;margin-top:8px!important;padding-top:4px!important}
+        #statementPrintArea .statement-note{font-size:8px!important;line-height:1.25!important;margin-top:6px!important}
+        #ledgerPrintArea .ledger-print-brand{justify-content:center!important;gap:30px!important;padding:0 0 10px!important;margin:0 0 10px!important;border-bottom:3px solid #174b3c!important}
+        #ledgerPrintArea .ledger-print-brand img{width:64px!important;height:64px!important;min-width:64px!important;max-width:64px!important;flex:0 0 64px!important}
+        #ledgerPrintArea .ledger-print-brand h2{font-size:19px!important;line-height:1.15!important;margin:0!important}
+        #ledgerPrintArea .ledger-print-brand p{font-size:11px!important;margin:3px 0!important}
+        #ledgerPrintArea .ledger-print-customer,#ledgerPrintArea .ledger-print-totals{gap:8px!important;padding:9px!important;margin:7px 0!important}
+        #ledgerPrintArea small{font-size:10px!important;margin-bottom:2px!important}
+        #ledgerPrintArea b{font-size:11px!important}
+        #ledgerPrintArea h3{font-size:13px!important;margin:10px 0 5px!important}
+        #ledgerPrintArea table{font-size:10px!important;margin:4px 0 7px!important}
+        #ledgerPrintArea th,#ledgerPrintArea td{padding:5px!important;line-height:1.2!important}
+        #ledgerPrintArea .ledger-generated{font-size:9px!important;margin-top:8px!important}
         #ledgerPrintArea h3,#statementPrintArea h3{margin:12px 0 6px!important}
         #ledgerPrintArea table,#statementPrintArea table{margin:6px 0 10px!important}
         #ledgerPrintArea th,#ledgerPrintArea td,#statementPrintArea th,#statementPrintArea td{padding:10px 9px!important;line-height:1.25!important}
