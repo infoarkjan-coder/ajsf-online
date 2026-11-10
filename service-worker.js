@@ -1,4 +1,4 @@
-const CACHE_NAME = "ajsf-shell-v9";
+const CACHE_NAME = "ajsf-shell-v10";
 const APP_SHELL = ["./", "./index.html", "./style.css", "./src/app.js", "./src/config.js", "./assets/ajsf-logo.png", "./manifest.webmanifest"];
 self.addEventListener("install", event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL)).then(() => self.skipWaiting()));
@@ -19,12 +19,20 @@ self.addEventListener("fetch", event => {
     return;
   }
   if (url.origin === self.location.origin || url.hostname === "esm.sh") {
-    event.respondWith(caches.match(request).then(cached => {
-      const network = fetch(request).then(response => {
+    const isAppCode = url.origin === self.location.origin && /\\.(js|css)$/.test(url.pathname);
+    if (isAppCode) {
+      event.respondWith(fetch(request).then(response => {
         if (response && response.ok) caches.open(CACHE_NAME).then(cache => cache.put(request, response.clone()));
         return response;
-      });
-      return cached || network;
-    }));
+      }).catch(() => caches.match(request)));
+    } else {
+      event.respondWith(caches.match(request).then(cached => {
+        const network = fetch(request).then(response => {
+          if (response && response.ok) caches.open(CACHE_NAME).then(cache => cache.put(request, response.clone()));
+          return response;
+        });
+        return cached || network;
+      }));
+    }
   }
 });
