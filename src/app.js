@@ -624,39 +624,31 @@ function printRepaymentSchedule() {
   if (!area) return showMessage("पहले Schedule लोड होने दें।","warn");
   openAjsfPrint("AJSF Repayment Schedule", area.outerHTML, `
     @page{size:A4 landscape;margin:5mm}
-    body{padding:0;font-size:8pt}
-    .schedule-print-sheet{display:grid;grid-template-columns:55% 45%;grid-template-rows:17mm 1fr;width:100%;min-height:198mm;border:1px solid #243c33;position:relative;overflow:hidden}
-    .schedule-brand-center{grid-column:1/3;grid-row:1;display:flex;justify-content:center;align-items:center;text-align:center;gap:3mm;border-bottom:1px solid #123f35;padding:1mm}
-    .schedule-brand img{width:14mm;height:14mm;max-width:14mm;max-height:14mm;object-fit:contain}
-    .schedule-brand h2{font-size:13px;margin:0;color:#123f35}.schedule-brand p{font-size:7px;margin:1px 0 2px;font-weight:bold;letter-spacing:1px}.schedule-brand strong{font-size:8px}
-    .schedule-left{grid-column:1;grid-row:2;padding:2mm 4mm 2mm 2.5mm;border-right:1px dashed #536b60;min-width:0}
-    .schedule-right{grid-column:2;grid-row:2;padding:3mm 3mm 2mm 5mm;min-width:0}
-    .schedule-summary{display:grid;grid-template-columns:repeat(2,1fr);gap:2px;padding:2px 0 3px}
-    .schedule-summary span{border:1px solid #d5e0d9;padding:2px 3px}
-    .schedule-summary small,.customer-detail small,.customer-signatures small{display:block;font-size:7px;margin-bottom:1px}
-    .schedule-summary b,.customer-detail b{font-size:8px}
-    .schedule-left table{width:100%;table-layout:fixed;font-size:8px}
-    .schedule-left th,.schedule-left td{padding:1px 2px;line-height:1;height:4.8mm}
-    .schedule-left th{font-size:7px}
-    .schedule-status{font-size:6.5px;font-weight:bold}
-    .staff-sign-cell{height:4.8mm}.staff-sign-line{display:block;width:100%;height:2.8mm;border-bottom:1px solid #52665c}
-    .schedule-note{font-size:5.5px;margin-top:1px}
-    .schedule-print-sheet{min-height:0;height:198mm;max-height:198mm;break-inside:avoid;page-break-inside:avoid}
-    .schedule-summary{padding:1px 0 2px}
-    .schedule-left h3{margin:1px 0;font-size:7.5px}
-    .schedule-right{padding-top:2mm}
-    .customer-detail{padding:1.5mm 1mm;min-height:6.5mm}
-    .customer-signatures{margin-top:2mm;padding-top:1mm}
-    .customer-signatures div{margin:1.5mm 0 2mm}
-    .customer-signatures span{height:5mm}
-    .schedule-right h2{font-size:10px;border-bottom:1px solid #123f35;padding-bottom:2mm;margin:0 0 2mm}
-    .customer-detail{padding:2.1mm 1mm;border-bottom:1px solid #e1e8e3;min-height:8mm}
-    .customer-detail b{overflow-wrap:anywhere}
-    .customer-signatures{margin-top:3mm;border-top:1px solid #aabbb1;padding-top:2mm}
-    .customer-signatures div{margin:2.5mm 0 3mm}
-    .customer-signatures span{display:block;height:8mm;border-bottom:1px solid #52665c;width:85%}
-    .customer-signatures b{font-size:8px}
-    .schedule-generated{font-size:7px;text-align:right;margin-top:2mm}
+    body{padding:0;font-size:7pt}
+    .passbook-top{display:grid;grid-template-columns:42% 58%;gap:3mm;align-items:center;border-bottom:1px solid #174b3c;padding-bottom:2mm}
+    .passbook-brand{display:flex;align-items:center;gap:3mm;min-width:0}
+    .passbook-brand img{width:16mm;height:16mm;object-fit:contain;flex:0 0 16mm}
+    .passbook-brand h1{font-size:12pt;line-height:1.1;margin:0;color:#174b3c}
+    .passbook-brand p{font-size:6pt;font-weight:bold;letter-spacing:.5px;margin:1mm 0}
+    .passbook-brand strong{font-size:7pt}
+    .passbook-customer{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1mm 2mm}
+    .passbook-customer div{border-bottom:.2mm solid #d4dfd8;padding:.7mm;min-width:0}
+    .passbook-customer small,.passbook-summary small{display:block;font-size:5.5pt;color:#64776d;margin-bottom:.5mm}
+    .passbook-customer b,.passbook-summary b{font-size:6.5pt;overflow-wrap:anywhere}
+    .passbook-summary{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:1mm;margin:2mm 0;padding:1.5mm;background:#edf5f0}
+    .passbook-summary span{padding:0 1mm;border-right:.2mm solid #cfddd4}
+    .passbook-table-title{font-size:8pt;color:#174b3c;margin:1mm 0}
+    .passbook-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:6.5pt}
+    .passbook-table th{background:#e8f1ec;color:#174b3c;font-weight:bold}
+    .passbook-table th,.passbook-table td{border:.2mm solid #b9c9bf;padding:1.15mm 1.2mm;height:5.6mm;text-align:left;vertical-align:middle}
+    .passbook-table td.passbook-paid-date,.passbook-table td.passbook-sign{height:5.6mm}
+    .passbook-table .schedule-status{font-size:6pt;font-weight:bold}
+    .passbook-footer{display:grid;grid-template-columns:1fr 1fr 1.3fr;gap:5mm;align-items:end;margin-top:3mm}
+    .passbook-footer div:not(.passbook-generated) span{display:block;height:7mm;border-bottom:.2mm solid #52665c}
+    .passbook-footer small{font-size:6pt;color:#52665c}
+    .passbook-generated{text-align:right;font-size:5.5pt;color:#65776e}
+    .passbook-sign{min-width:0}
+
   `);
 }
 
