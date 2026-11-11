@@ -1503,13 +1503,34 @@ async function boot() {
     setBusy(btn,true,"लॉगिन हो रहा है…");
     try {
       const loginId = $("loginId").value.trim();
-      const credentials = /^[0-9]{10}$/.test(loginId)
-        ? { phone: "+91" + loginId, password:$("password").value }
-        : { email: loginId, password:$("password").value };
-      const { data, error } = await supabase.auth.signInWithPassword(credentials);
-      if (error) throw error;
-      if (!data?.user) throw new Error("Login session नहीं मिला। दोबारा प्रयास करें।");
-      currentUser = data.user;
+      const password = $("password").value;
+      let loginData;
+      if (/^[0-9]{10}$/.test(loginId)) {
+        const { data: mobileData, error: mobileError } =
+          await supabase.functions.invoke("staff-mobile-login", {
+            body: { phone: loginId, password }
+          });
+        if (mobileError) throw mobileError;
+        if (!mobileData?.success || !mobileData?.session?.access_token || !mobileData?.session?.refresh_token) {
+          throw new Error(mobileData?.error || "मोबाइल लॉगिन सत्यापित नहीं हुआ।");
+        }
+        const { data: sessionData, error: sessionError } =
+          await supabase.auth.setSession({
+            access_token: mobileData.session.access_token,
+            refresh_token: mobileData.session.refresh_token
+          });
+        if (sessionError) throw sessionError;
+        loginData = sessionData;
+      } else {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: loginId,
+          password
+        });
+        if (error) throw error;
+        loginData = data;
+      }
+      if (!loginData?.user) throw new Error("Login session नहीं मिला। दोबारा प्रयास करें।");
+      currentUser = loginData.user;
       await loadProfile(currentUser);
       renderShell();
       $("customerForm").addEventListener("submit",submitCustomer);
@@ -1543,7 +1564,7 @@ async function boot() {
       if (!confirmed) return;
       setBusy(staffAdminSetupBtn,true,"Admin अकाउंट बनाए जा रहे हैं…");
       try {
-        const { data, error } = await supabase.functions.invoke("admin-create-staff-admins");
+        const { data, error } = await supabase.functions.invoke("quick-handler");
         if (error) throw error;
         if (!data?.success || !data?.initial_password) throw new Error(data?.error || "Account creation result incomplete.");
         showMessage("तीनों Admin अकाउंट बन गए।\\nअस्थायी साझा पासवर्ड (इसे सुरक्षित रखें): " + data.initial_password + "\\nतीनों को यह पासवर्ड निजी रूप से दें; बाद में हर व्यक्ति इसे बदल सकता है।","success");
