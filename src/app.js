@@ -194,7 +194,7 @@ function renderShell() {
   if (summaryGrid) summaryGrid.style.setProperty("display", canAdmin() ? "" : "none", "important");
   // Keep Collector on the demand screen; Admin navigation remains unchanged.
   activateTab(canAdmin() ? "customers" : "collector-demand");
-  const customerActionHeader = $("customerActionHeader");
+  const staffAdminSetupBtn = $("staffAdminSetupBtn");\n  if (staffAdminSetupBtn) staffAdminSetupBtn.classList.toggle("hidden", !canAdmin());\n  const customerActionHeader = $("customerActionHeader");
   if (customerActionHeader) customerActionHeader.classList.toggle("hidden", !canAdmin());
 }
 
@@ -1502,9 +1502,11 @@ async function boot() {
     showMessage("");
     setBusy(btn,true,"लॉगिन हो रहा है…");
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email:$("email").value.trim(), password:$("password").value
-      });
+      const loginId = $("loginId").value.trim();
+      const credentials = /^[0-9]{10}$/.test(loginId)
+        ? { phone: "+91" + loginId, password:$("password").value }
+        : { email: loginId, password:$("password").value };
+      const { data, error } = await supabase.auth.signInWithPassword(credentials);
       if (error) throw error;
       if (!data?.user) throw new Error("Login session नहीं मिला। दोबारा प्रयास करें।");
       currentUser = data.user;
@@ -1531,6 +1533,29 @@ async function boot() {
     }
   });
   $("logoutBtn").addEventListener("click", logout);
+  const staffAdminSetupBtn = $("staffAdminSetupBtn");
+  if (staffAdminSetupBtn) {
+    staffAdminSetupBtn.addEventListener("click", async () => {
+      if (!canAdmin()) return;
+      const confirmed = window.confirm(
+        "तीन Full Admin अकाउंट बनाए जाएँ?\\n\\nRavindra — 8449109044\\nAnuraj Rana — 9219148507\\nKapil — 8273916006\\n\\nतीनों के लिए एक ही अस्थायी पासवर्ड बनेगा।"
+      );
+      if (!confirmed) return;
+      setBusy(staffAdminSetupBtn,true,"Admin अकाउंट बनाए जा रहे हैं…");
+      try {
+        const { data, error } = await supabase.functions.invoke("admin-create-staff-admins");
+        if (error) throw error;
+        if (!data?.success || !data?.initial_password) throw new Error(data?.error || "Account creation result incomplete.");
+        showMessage("तीनों Admin अकाउंट बन गए।\\nअस्थायी साझा पासवर्ड (इसे सुरक्षित रखें): " + data.initial_password + "\\nतीनों को यह पासवर्ड निजी रूप से दें; बाद में हर व्यक्ति इसे बदल सकता है।","success");
+        staffAdminSetupBtn.disabled = true;
+        staffAdminSetupBtn.textContent = "Admin अकाउंट बन गए";
+      } catch (err) {
+        showMessage("Admin अकाउंट नहीं बने: " + (err?.message || String(err)),"error");
+      } finally {
+        if (!staffAdminSetupBtn.disabled) setBusy(staffAdminSetupBtn,false);
+      }
+    });
+  }
   // Delegated listener survives panel redraws and reliably handles day changes.
   document.addEventListener("change", event => {
     if (event.target && event.target.id === "collectorDemandDay") renderCollectorDemand();
