@@ -501,7 +501,7 @@ function printDailySettlement() {
   window.print();
   setTimeout(()=>document.body.classList.remove("settlement-printing"),500);
 }
-\nfunction renderData() {
+function renderData() {
   $("customersCount").textContent = customers.length;
   $("loansCount").textContent = loans.length;
   $("paymentsCount").textContent = payments.length;
