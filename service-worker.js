@@ -1,4 +1,4 @@
-const CACHE_NAME = "ajsf-shell-v21";
+const CACHE_NAME = "ajsf-shell-v22";
 const APP_SHELL = ["./", "./index.html", "./style.css", "./src/app.js", "./src/config.js", "./customer.html", "./src/customer-app.js", "./assets/ajsf-logo.png", "./manifest.webmanifest"];
 self.addEventListener("install", event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL)).then(() => self.skipWaiting()));
