@@ -47,6 +47,7 @@ function amountInWords(value, hindi=false) {
 const phone = (v) => { const s = String(v ?? "").trim(); return /^\d+\.0+$/.test(s) ? s.replace(/\.0+$/, "") : s; };
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 let supabase, currentUser, profile, customers = [], loans = [], payments = [], weeklyStatuses = [], advanceLedger = [], lastReceipt = null;
+let settlementCollectors = [], dailySettlements = [];
 let offlineDbPromise;
 function offlineDb() {
   if (!("indexedDB" in window)) return Promise.reject(new Error("इस browser में offline storage उपलब्ध नहीं है।"));
@@ -198,6 +199,8 @@ function renderShell() {
   if (staffAdminSetupBtn) staffAdminSetupBtn.classList.toggle("hidden", !canAdmin());
   const staffPasswordResetBtn = $("staffPasswordResetBtn");
   if (staffPasswordResetBtn) staffPasswordResetBtn.classList.toggle("hidden", !canAdmin());
+  const settlementAdminOnly = $("settlementAdminOnly");
+  if (settlementAdminOnly) settlementAdminOnly.classList.toggle("hidden", !canAdmin());
   const customerActionHeader = $("customerActionHeader");
   if (customerActionHeader) customerActionHeader.classList.toggle("hidden", !canAdmin());
 }
@@ -1500,6 +1503,93 @@ function printReceipt() {
   `);
 }
 
+
+function settlementDateKey(value) {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  return [d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-");
+}
+function settlementTotalsFor(collectorId, date) {
+  const totals = {cash:0,upi:0,bank_transfer:0};
+  payments.filter(p => p.collector_id === collectorId && !p.is_reversal && settlementDateKey(p.paid_at || p.created_at) === date)
+    .forEach(p => { const mode = p.payment_mode || "cash"; if (Object.prototype.hasOwnProperty.call(totals,mode)) totals[mode] += Number(p.amount || 0); });
+  Object.keys(totals).forEach(k => totals[k] = Math.round(totals[k]*100)/100);
+  return totals;
+}
+async function loadDailySettlement() {
+  if (!canAdmin()) return;
+  const dateInput = $("settlementDate");
+  if (!dateInput.value) dateInput.value = localDateValue();
+  const date = dateInput.value;
+  const body = $("settlementRows");
+  body.innerHTML = '<tr><td colspan="9" class="empty">Settlement डेटा लोड हो रहा है…</td></tr>';
+  try {
+    const [staffResult, recordsResult] = await Promise.all([
+      supabase.from("profiles").select("id,full_name,staff_code").eq("role","collector").eq("is_active",true).order("full_name"),
+      supabase.from("daily_collection_settlements").select("*").eq("settlement_date",date)
+    ]);
+    if (staffResult.error) throw staffResult.error;
+    if (recordsResult.error) throw recordsResult.error;
+    settlementCollectors = staffResult.data || [];
+    dailySettlements = recordsResult.data || [];
+    if (!settlementCollectors.length) {
+      body.innerHTML = '<tr><td colspan="9" class="empty">कोई Active Collector नहीं मिला।</td></tr>';
+      return;
+    }
+    body.innerHTML = settlementCollectors.map(staff => {
+      const system = settlementTotalsFor(staff.id,date);
+      const saved = dailySettlements.find(x => x.collector_id === staff.id);
+      const approved = saved?.status === "approved";
+      const deposited = {cash:Number(saved?.deposited_cash ?? 0),upi:Number(saved?.deposited_upi ?? 0),bank_transfer:Number(saved?.deposited_bank ?? 0)};
+      const difference = (system.cash+system.upi+system.bank_transfer) - (deposited.cash+deposited.upi+deposited.bank_transfer);
+      const lock = approved ? "disabled" : "";
+      const status = approved ? "Approved" : saved ? "Draft Saved" : "Not Settled";
+      const input = (kind,val) => '<input type="number" min="0" step="0.01" inputmode="decimal" data-settlement-kind="'+kind+'" data-collector-id="'+esc(staff.id)+'" value="'+Number(val||0).toFixed(2)+'" '+lock+' style="width:92px">';
+      return '<tr data-settlement-row="'+esc(staff.id)+'"><td><strong>'+esc(staff.full_name)+'</strong><br><small>'+esc(staff.staff_code||"")+'</small></td><td>'+money(system.cash)+'</td><td>'+money(system.upi)+'</td><td>'+money(system.bank_transfer)+'</td><td>'+input("cash",deposited.cash)+'</td><td>'+input("upi",deposited.upi)+'</td><td>'+input("bank_transfer",deposited.bank_transfer)+'</td><td><strong>'+money(difference)+'</strong></td><td><span>'+status+'</span><br>'+(approved ? '<small>By '+esc(saved.approved_by||"Admin")+'</small>' : '<button type="button" class="secondary" data-settlement-action="save" data-collector-id="'+esc(staff.id)+'">Draft सेव करें</button> <button type="button" data-settlement-action="approve" data-collector-id="'+esc(staff.id)+'" '+(saved ? "" : "disabled")+(Math.abs(difference)>0.009 ? ' title="अंतर होने पर भी Approval संभव है; पहले जाँच लें।"' : '')+'>Approve</button>')+'</td></tr>';
+    }).join("");
+  } catch (error) {
+    body.innerHTML = '<tr><td colspan="9" class="empty">Settlement लोड नहीं हुआ: '+esc(error?.message||String(error))+'</td></tr>';
+  }
+}
+async function handleDailySettlementAction(button) {
+  if (!canAdmin()) return;
+  const collectorId = button.dataset.collectorId;
+  const date = $("settlementDate")?.value || localDateValue();
+  const saved = dailySettlements.find(x => x.collector_id === collectorId);
+  if (saved?.status === "approved") return showMessage("यह Settlement पहले ही Approve हो चुका है।","warn");
+  const row = $("settlementRows").querySelector('[data-settlement-row="'+collectorId+'"]');
+  if (!row) return;
+  const getAmount = kind => Math.max(0,Number(row.querySelector('[data-settlement-kind="'+kind+'"]')?.value || 0));
+  if (button.dataset.settlementAction === "save") {
+    const system = settlementTotalsFor(collectorId,date);
+    const payload = {
+      settlement_date:date, collector_id:collectorId,
+      expected_cash:system.cash, expected_upi:system.upi, expected_bank:system.bank_transfer,
+      deposited_cash:getAmount("cash"), deposited_upi:getAmount("upi"), deposited_bank:getAmount("bank_transfer"),
+      notes:null, status:"pending", created_by:currentUser.id, approved_by:null, approved_at:null
+    };
+    setBusy(button,true,"सेव हो रहा है…");
+    try {
+      const {error} = await supabase.from("daily_collection_settlements").upsert(payload,{onConflict:"settlement_date,collector_id"});
+      if (error) throw error;
+      showMessage("Collector का Settlement Draft सेव हो गया। अब जाँचकर Approve करें।","success");
+      await loadDailySettlement();
+    } catch(error) { showMessage("Settlement सेव नहीं हुआ: "+(error?.message||String(error)),"error"); }
+    finally { setBusy(button,false); }
+  } else if (button.dataset.settlementAction === "approve") {
+    if (!saved) return showMessage("पहले Settlement Draft सेव करें।","warn");
+    if (!window.confirm("इस Collector का "+date+" का Settlement Approve करना है? Approval के बाद यह रिकॉर्ड लॉक हो जाएगा।")) return;
+    setBusy(button,true,"Approve हो रहा है…");
+    try {
+      const {error} = await supabase.from("daily_collection_settlements").update({status:"approved",approved_by:currentUser.id,approved_at:new Date().toISOString()}).eq("id",saved.id).eq("status","pending");
+      if (error) throw error;
+      showMessage("Daily Collection Settlement सफलतापूर्वक Approve हो गया।","success");
+      await loadDailySettlement();
+    } catch(error) { showMessage("Approval नहीं हुआ: "+(error?.message||String(error)),"error"); }
+    finally { setBusy(button,false); }
+  }
+}
+
 async function logout() {
   const btn = $("loginBtn");
   let signOutError = null;
@@ -1637,6 +1727,12 @@ async function boot() {
       console.error("Staff password update failed:",err);
       showMessage("पासवर्ड अपडेट नहीं हुआ: " + (err?.message || String(err)),"error");
     } finally { setBusy(btn,false); }
+  });
+  $("settlementDate")?.addEventListener("change", loadDailySettlement);
+  document.addEventListener("click", event => {
+    if (event.target.closest("#settlementAdminOnly")) loadDailySettlement();
+    const action = event.target.closest("[data-settlement-action]");
+    if (action) handleDailySettlementAction(action);
   });
   // Delegated listener survives panel redraws and reliably handles day changes.
   document.addEventListener("change", event => {
