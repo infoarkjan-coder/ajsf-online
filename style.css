@@ -655,3 +655,219 @@ input,select,button{min-height:42px}
   #appDownloadCard .app-download-link{font-size:13px!important}
   .dashhead .row button{min-width:0!important;flex:1 1 100%!important}
 }
+
+
+/* AJSF complete professional UI system — forms, action menus, panels and data tables */
+:root{
+  --ajsf-forest:#123f35;
+  --ajsf-green:#176b4b;
+  --ajsf-mint:#eaf4ee;
+  --ajsf-line:#d8e5dd;
+  --ajsf-ink:#20372f;
+  --ajsf-muted:#6b7e74;
+  --ajsf-shadow:0 8px 24px rgba(18,63,53,.075);
+}
+button,.button,.actions a{
+  font-family:inherit;
+  border-radius:10px!important;
+  font-weight:750!important;
+  letter-spacing:.05px;
+  transition:transform .16s ease,box-shadow .16s ease,background .16s ease,border-color .16s ease!important;
+}
+button:not(:disabled){cursor:pointer}
+button:not(:disabled):hover,.actions a:hover{
+  transform:translateY(-1px);
+  box-shadow:0 5px 13px rgba(18,63,53,.12);
+}
+button:disabled{opacity:.55;cursor:not-allowed}
+button.secondary{
+  background:linear-gradient(180deg,#fff,#f3f8f5)!important;
+  color:#245342!important;
+  border:1px solid #cbded2!important;
+}
+.dashboard-content>.panel,
+.dashboard-content>.card,
+#receiptPanel{
+  border:1px solid var(--ajsf-line)!important;
+  border-radius:17px!important;
+  box-shadow:var(--ajsf-shadow)!important;
+}
+.dashboard-content .panel-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  padding-bottom:13px;
+  margin-bottom:16px;
+  border-bottom:1px solid #e6eee9;
+}
+.dashboard-content .panel-head h2{
+  margin:0;
+  color:var(--ajsf-forest);
+  font-size:19px;
+  font-weight:850;
+  letter-spacing:-.2px;
+}
+.dashboard-content .panel-head .muted{margin:5px 0 0}
+.dashboard-content .panel-head .actions,
+.actions,.reminder-actions,.data-tools-actions{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  flex-wrap:wrap;
+}
+.actions button,.panel-head .actions button,.reminder-actions button,
+.data-tools-actions button{
+  min-height:40px;
+  padding:9px 14px!important;
+  font-size:12px!important;
+}
+.field,label{color:#365448}
+.field label,form>label{
+  display:block;
+  margin:0 0 7px;
+  color:#365448;
+  font-size:12px;
+  font-weight:750;
+}
+input:not([type="checkbox"]):not([type="radio"]),
+select,textarea{
+  width:100%;
+  min-height:43px;
+  padding:10px 12px!important;
+  border:1px solid #cfddd4!important;
+  border-radius:10px!important;
+  background:#fff!important;
+  color:#20372f!important;
+  font:inherit;
+  font-size:13px!important;
+  box-shadow:inset 0 1px 2px rgba(18,63,53,.025);
+  transition:border-color .16s ease,box-shadow .16s ease,background .16s ease;
+}
+textarea{min-height:110px;line-height:1.55}
+input::placeholder,textarea::placeholder{color:#9aa9a0}
+input:focus,select:focus,textarea:focus{
+  outline:none!important;
+  border-color:#6da98a!important;
+  box-shadow:0 0 0 3px rgba(35,132,92,.13)!important;
+}
+input[readonly],input:disabled,select:disabled,textarea:disabled{
+  background:#f2f6f3!important;
+  color:#728279!important;
+}
+.formgrid{
+  gap:14px!important;
+  align-items:end;
+}
+.formgrid .field{min-width:0}
+form button[type="submit"],.dashboard-content button.primary{
+  min-height:43px;
+  padding:10px 18px!important;
+  border:1px solid #14533e!important;
+  border-radius:10px!important;
+  background:linear-gradient(115deg,#1b7654,#123f35)!important;
+  color:#fff!important;
+  font-size:13px!important;
+  font-weight:850!important;
+  box-shadow:0 4px 11px rgba(18,63,53,.16)!important;
+}
+form button[type="submit"]:hover,.dashboard-content button.primary:hover{
+  background:linear-gradient(115deg,#21845e,#15503f)!important;
+}
+.tablewrap{
+  border:1px solid #dfe9e3;
+  border-radius:12px;
+  background:#fff;
+  box-shadow:0 3px 12px rgba(18,63,53,.035);
+}
+.tablewrap table{
+  border-collapse:separate!important;
+  border-spacing:0!important;
+  width:100%;
+  font-size:12px;
+}
+.tablewrap thead th{
+  position:sticky;
+  top:0;
+  z-index:1;
+  padding:12px 11px!important;
+  background:#edf5f0!important;
+  color:#234d3d!important;
+  border-bottom:1px solid #d5e4da!important;
+  font-size:10px!important;
+  font-weight:900!important;
+  letter-spacing:.45px;
+  text-transform:uppercase;
+  white-space:nowrap;
+}
+.tablewrap thead th:first-child{border-top-left-radius:10px}
+.tablewrap thead th:last-child{border-top-right-radius:10px}
+.tablewrap tbody td{
+  padding:11px!important;
+  border-bottom:1px solid #edf1ee!important;
+  color:#30463c;
+  vertical-align:middle;
+}
+.tablewrap tbody tr:nth-child(even){background:#fbfdfb}
+.tablewrap tbody tr:hover{background:#f1f8f3}
+.tablewrap tbody tr:last-child td{border-bottom:0!important}
+.tablewrap tbody button{
+  min-height:33px!important;
+  padding:6px 10px!important;
+  font-size:11px!important;
+  border-radius:8px!important;
+}
+.grid>.card,.demand-metrics>.card{
+  border:1px solid #dce8e1!important;
+  border-radius:15px!important;
+  background:linear-gradient(145deg,#fff,#fbfdfb)!important;
+  box-shadow:0 5px 16px rgba(18,63,53,.055)!important;
+}
+.grid>.card .label,.demand-metrics>.card .label{
+  color:#668074;
+  font-size:11px;
+  font-weight:750;
+}
+.grid>.card .metric,.demand-metrics>.card .metric{
+  margin-top:7px;
+  color:#123f35;
+  font-weight:900;
+  letter-spacing:-.5px;
+}
+.connection-status{
+  border-radius:11px!important;
+  box-shadow:0 3px 10px rgba(18,63,53,.04);
+}
+.message{font-size:12px;font-weight:700}
+.small{font-size:11px;line-height:1.55}
+.empty{padding:22px!important;color:#819087!important;text-align:center}
+.badge,.status,.schedule-status{font-weight:800}
+.receipt,.schedule-paper,.statement-paper{
+  border-radius:13px;
+}
+.data-tools{
+  border-radius:13px!important;
+  background:linear-gradient(145deg,#f8fbf9,#eef6f1)!important;
+  border-color:#d8e7de!important;
+}
+#dashboardCard .sidebar .tabs button:active,
+.actions button:active,.dashhead .row button:active{
+  transform:translateY(0) scale(.985)!important;
+}
+@media(max-width:760px){
+  .dashboard-content>.panel,.dashboard-content>.card,#receiptPanel{
+    border-radius:14px!important;
+  }
+  .dashboard-content .panel-head h2{font-size:17px}
+  .dashboard-content .panel-head .actions button{min-width:0}
+  .tablewrap{border-radius:10px}
+  .tablewrap thead th{padding:10px 9px!important}
+  .tablewrap tbody td{padding:9px!important}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*:before,*:after{scroll-behavior:auto!important;transition:none!important;animation:none!important}
+}
+@media print{
+  button,.actions,.sidebar,.dashhead .row{box-shadow:none!important}
+  .dashboard-content>.panel,.dashboard-content>.card{box-shadow:none!important}
+}
