@@ -365,7 +365,68 @@ function renderCollectorDemand() {
   </tr>`).join("") || `<tr><td colspan="8" class="empty">इस दिन के लिए कोई बकाया EMI मांग नहीं है।</td></tr>`;
 }
 
-function renderData() {
+
+async function prepareDailySettlement() {
+  const dateInput = $("settlementDate");
+  const collectorSelect = $("settlementCollector");
+  if (!dateInput || !collectorSelect) return;
+  if (!dateInput.value) dateInput.value = localDateValue();
+  const field = $("settlementCollectorField");
+  if (!canAdmin()) {
+    if (field) field.classList.add("hidden");
+    collectorSelect.innerHTML = '<option value="' + esc(currentUser.id) + '">' + esc(profile.full_name || "मेरी वसूली") + '</option>';
+    collectorSelect.value = currentUser.id;
+    renderDailySettlement();
+    return;
+  }
+  if (field) field.classList.remove("hidden");
+  if (collectorSelect.dataset.loaded !== "1") {
+    const {data,error}=await supabase.from("profiles").select("id,full_name,staff_code").eq("is_active",true).eq("role","collector").order("full_name");
+    if(error) { showMessage("Collector सूची लोड नहीं हुई: "+error.message,"error"); return; }
+    collectorSelect.innerHTML='<option value="">सभी Collector</option>'+(data||[]).map(p=>'<option value="'+esc(p.id)+'">'+esc(p.full_name)+' · '+esc(p.staff_code||"—")+'</option>').join("");
+    collectorSelect.dataset.loaded="1";
+  }
+  renderDailySettlement();
+}
+function renderDailySettlement() {
+  const date=$("settlementDate")?.value;
+  const collectorId=$("settlementCollector")?.value || "";
+  const rows=$("settlementRows");
+  if(!date || !rows) return;
+  const dayPayments=payments.filter(p=>{
+    if(p.is_reversal) return false;
+    if(collectorId && p.collector_id!==collectorId) return false;
+    if(!canAdmin() && p.collector_id!==currentUser.id) return false;
+    const raw=p.paid_at || p.created_at;
+    if(!raw) return false;
+    const d=new Date(raw);
+    if(Number.isNaN(d.getTime())) return false;
+    const localDay=new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);
+    return localDay===date;
+  }).sort((a,b)=>new Date(a.paid_at||a.created_at)-new Date(b.paid_at||b.created_at));
+  const total=dayPayments.reduce((sum,p)=>sum+Number(p.amount||p.payment_amount||0),0);
+  const fmtTime=p=>{const d=new Date(p.paid_at||p.created_at);return Number.isNaN(d.getTime())?"—":d.toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"});};
+  rows.innerHTML=dayPayments.map((p,i)=>{
+    const customer=customers.find(c=>c.id===p.customer_id);
+    const id=p.id ? String(p.id).slice(-8).toUpperCase() : "OFFLINE PENDING";
+    return '<tr><td>'+(i+1)+'</td><td>'+esc(customer?.customer_code||"—")+'</td><td>'+esc(customer?.full_name||"ग्राहक रिकॉर्ड नहीं मिला")+'</td><td>'+esc(id)+'</td><td>'+esc(fmtTime(p))+'</td><td>'+esc(p.payment_mode||"—")+'</td><td>'+money(Number(p.amount||p.payment_amount||0))+'</td></tr>';
+  }).join("") || '<tr><td colspan="7" class="empty">इस तारीख के लिए कोई सफल भुगतान नहीं मिला।</td></tr>';
+  $("settlementReceiptCount").textContent=String(dayPayments.length);
+  $("settlementAmountTotal").textContent=money(total);
+  $("settlementFooterTotal").textContent=money(total);
+  const selected=collectorId ? collectorSelectOptionText(collectorId) : (canAdmin()?"सभी Collector":(profile.full_name||"मेरी वसूली"));
+  $("settlementCollectorName").textContent=selected;
+}
+function collectorSelectOptionText(id) {
+  const select=$("settlementCollector");
+  return select?.selectedOptions?.[0]?.textContent || "Collector";
+}
+function printDailySettlement() {
+  document.body.classList.add("settlement-printing");
+  window.print();
+  setTimeout(()=>document.body.classList.remove("settlement-printing"),500);
+}
+\nfunction renderData() {
   $("customersCount").textContent = customers.length;
   $("loansCount").textContent = loans.length;
   $("paymentsCount").textContent = payments.length;
@@ -1661,6 +1722,9 @@ async function boot() {
     $("dashboardCard").classList.remove("collector-payment-mode");
     activateTab("collector-demand");
   });
+  $("settlementDate")?.addEventListener("change", renderDailySettlement);
+  $("settlementCollector")?.addEventListener("change", renderDailySettlement);
+  $("printSettlementBtn")?.addEventListener("click", printDailySettlement);
   $("payCustomer").addEventListener("change", refreshLoanOptions);
   $("payLoan").addEventListener("change", renderAdvanceBalanceInfo);
   $("reminderCustomer").addEventListener("change", updateReminderLoanOptions);
