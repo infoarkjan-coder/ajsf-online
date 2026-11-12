@@ -431,6 +431,41 @@ function renderDailySettlement() {
   });
   overdueRows.sort((a,b)=>a.due-b.due || String(a.customer.full_name||"").localeCompare(String(b.customer.full_name||"")));
   const overdueTotal=overdueRows.reduce((sum,row)=>sum+row.amount,0);
+
+  const demandByCustomer=new Map();
+  loans.forEach(loan=>{
+    if(loan.status!=="active") return;
+    const customer=customers.find(c=>c.id===loan.customer_id);
+    if(!customer || customer.is_active===false || (customer.customer_status||"ACTIVE")!=="ACTIVE") return;
+    if(collectorId && customer.assigned_collector!==collectorId) return;
+    if(!canAdmin() && customer.assigned_collector!==currentUser.id) return;
+    weeklyStatuses.filter(x=>x.loan_id===loan.id).forEach(item=>{
+      const due=advanceDueDate(loan,customer,Number(item.week_no));
+      if(!due) return;
+      due.setHours(0,0,0,0);
+      if(due.getTime()!==selectedDate.getTime()) return;
+      const amount=Number(loan.emi_amount||0);
+      if(amount<=0) return;
+      const key=customer.id;
+      const entry=demandByCustomer.get(key)||{customer,demand:0,received:0};
+      entry.demand+=amount;
+      demandByCustomer.set(key,entry);
+    });
+  });
+  const receivedByCustomer=new Map();
+  dayPayments.forEach(p=>receivedByCustomer.set(p.customer_id,(receivedByCustomer.get(p.customer_id)||0)+Number(p.amount||p.payment_amount||0)));
+  receivedByCustomer.forEach((amount,id)=>{
+    const customer=customers.find(c=>c.id===id);
+    if(!customer) return;
+    const entry=demandByCustomer.get(id)||{customer,demand:0,received:0};
+    entry.received=amount;
+    demandByCustomer.set(id,entry);
+  });
+  demandByCustomer.forEach((entry,id)=>{entry.received=receivedByCustomer.get(id)||0;entry.pending=Math.max(0,entry.demand-entry.received);});
+  const dailyDemandRows=[...demandByCustomer.values()].filter(x=>x.demand>0 || x.received>0).sort((a,b)=>String(a.customer.full_name||"").localeCompare(String(b.customer.full_name||"")));
+  const dailyDemandTotal=dailyDemandRows.reduce((n,x)=>n+x.demand,0);
+  const dailyReceivedTotal=dailyDemandRows.reduce((n,x)=>n+Math.min(x.demand,x.received),0);
+  const dailyPendingTotal=dailyDemandRows.reduce((n,x)=>n+x.pending,0);
   const total=dayPayments.reduce((sum,p)=>sum+Number(p.amount||p.payment_amount||0),0);
   const fmtTime=p=>{const d=new Date(p.paid_at||p.created_at);return Number.isNaN(d.getTime())?"—":d.toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"});};
   rows.innerHTML=dayPayments.map((p,i)=>{
@@ -438,6 +473,11 @@ function renderDailySettlement() {
     const id=p.id ? String(p.id).slice(-8).toUpperCase() : "OFFLINE PENDING";
     return '<tr><td>'+(i+1)+'</td><td>'+esc(customer?.customer_code||"—")+'</td><td>'+esc(customer?.full_name||"ग्राहक रिकॉर्ड नहीं मिला")+'</td><td>'+esc(id)+'</td><td>'+esc(fmtTime(p))+'</td><td>'+esc(p.payment_mode||"—")+'</td><td>'+money(Number(p.amount||p.payment_amount||0))+'</td></tr>';
   }).join("") || '<tr><td colspan="7" class="empty">इस तारीख के लिए कोई सफल भुगतान नहीं मिला।</td></tr>';
+
+  $("settlementDemandTotal").textContent=money(dailyDemandTotal);
+  $("settlementDemandReceived").textContent=money(dailyReceivedTotal);
+  $("settlementDemandPending").textContent=money(dailyPendingTotal);
+  $("settlementDemandRows").innerHTML=dailyDemandRows.map((x,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(x.customer.customer_code||"—")+'</td><td>'+esc(x.customer.full_name||"—")+'</td><td>'+money(x.demand)+'</td><td>'+money(Math.min(x.demand,x.received))+'</td><td>'+money(x.pending)+'</td></tr>').join("") || '<tr><td colspan="6" class="empty">इस तारीख की कोई Scheduled Demand नहीं मिली।</td></tr>';
   $("settlementReceiptCount").textContent=String(dayPayments.length);
   $("settlementAmountTotal").textContent=money(total);
   $("settlementFooterTotal").textContent=money(total);
