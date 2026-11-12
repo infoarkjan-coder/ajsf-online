@@ -196,6 +196,8 @@ function renderShell() {
   activateTab(canAdmin() ? "customers" : "collector-demand");
   const staffAdminSetupBtn = $("staffAdminSetupBtn");
   if (staffAdminSetupBtn) staffAdminSetupBtn.classList.toggle("hidden", !canAdmin());
+  const staffPasswordResetBtn = $("staffPasswordResetBtn");
+  if (staffPasswordResetBtn) staffPasswordResetBtn.classList.toggle("hidden", !canAdmin());
   const customerActionHeader = $("customerActionHeader");
   if (customerActionHeader) customerActionHeader.classList.toggle("hidden", !canAdmin());
 }
@@ -1579,6 +1581,51 @@ async function boot() {
       }
     });
   }
+  const staffPasswordResetBtn = $("staffPasswordResetBtn");
+  if (staffPasswordResetBtn) staffPasswordResetBtn.addEventListener("click", async () => {
+    if (!canAdmin()) return;
+    activateTab("staff-password");
+    const select = $("staffPasswordTarget");
+    if (select.dataset.loaded === "1") return;
+    setBusy(staffPasswordResetBtn,true,"Staff सूची लोड हो रही है…");
+    try {
+      const { data, error } = await supabase.from("profiles")
+        .select("id, full_name, staff_code, role")
+        .eq("is_active",true).in("role",["admin","collector"]).order("full_name");
+      if (error) throw error;
+      select.innerHTML = '<option value="">अकाउंट चुनें</option>' + (data || []).map(p =>
+        '<option value="' + esc(p.id) + '">' + esc(p.full_name) + ' · ' + esc(p.staff_code || "—") + ' · ' + (p.role === "admin" ? "Admin" : "Collector") + '</option>'
+      ).join("");
+      select.dataset.loaded = "1";
+    } catch (err) {
+      showMessage("Staff सूची लोड नहीं हुई: " + (err?.message || String(err)), "error");
+    } finally { setBusy(staffPasswordResetBtn,false); }
+  });
+  $("staffPasswordForm")?.addEventListener("submit", async event => {
+    event.preventDefault();
+    if (!canAdmin()) return;
+    const btn = $("staffPasswordSaveBtn");
+    const targetId = $("staffPasswordTarget").value;
+    const password = $("staffNewPassword").value;
+    const confirmPassword = $("staffConfirmPassword").value;
+    if (!targetId) return showMessage("पहले Staff / Collector अकाउंट चुनें।","warn");
+    if (password.length < 10) return showMessage("पासवर्ड कम से कम 10 अक्षर का रखें।","warn");
+    if (password !== confirmPassword) return showMessage("दोनों पासवर्ड एक जैसे नहीं हैं।","warn");
+    if (!window.confirm("चुने गए Staff / Collector का पासवर्ड बदलना है?")) return;
+    setBusy(btn,true,"पासवर्ड अपडेट हो रहा है…");
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-reset-staff-password", {
+        body: { target_user_id: targetId, new_password: password }
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || "पासवर्ड अपडेट नहीं हुआ।");
+      $("staffPasswordForm").reset();
+      showMessage("पासवर्ड सफलतापूर्वक अपडेट हो गया: " + (data.staff_name || "Staff") + " (" + (data.staff_code || "—") + ")","success");
+    } catch (err) {
+      console.error("Staff password update failed:",err);
+      showMessage("पासवर्ड अपडेट नहीं हुआ: " + (err?.message || String(err)),"error");
+    } finally { setBusy(btn,false); }
+  });
   // Delegated listener survives panel redraws and reliably handles day changes.
   document.addEventListener("change", event => {
     if (event.target && event.target.id === "collectorDemandDay") renderCollectorDemand();
