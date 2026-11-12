@@ -487,9 +487,35 @@ function collectorSelectOptionText(id) {
   return select?.selectedOptions?.[0]?.textContent || "Collector";
 }
 function printDailySettlement() {
-  document.body.classList.add("settlement-printing");
-  window.print();
-  setTimeout(()=>document.body.classList.remove("settlement-printing"),500);
+  const area = $("dailySettlementPanel");
+  if (!area) return showMessage("Settlement Report उपलब्ध नहीं है।", "warn");
+  openAjsfPrint("AJSF Daily Collector Settlement", area.outerHTML, `
+    @page{size:A4 portrait;margin:8mm}
+    body{padding:0!important;font-size:8pt;line-height:1.25}
+    #dailySettlementPanel{display:block!important;width:100%!important;max-width:none!important;margin:0!important;padding:0!important;border:0!important;box-shadow:none!important;overflow:visible!important}
+    .settlement-print-brand{display:flex!important;align-items:center;justify-content:center;gap:4mm;text-align:center;padding:0 0 3mm;margin:0 0 3mm;border-bottom:1.5px solid #123f35}
+    .settlement-print-brand img{display:block!important;width:18mm!important;height:18mm!important;max-width:18mm!important;max-height:18mm!important;object-fit:contain!important;flex:0 0 18mm!important}
+    .settlement-print-brand h1{font-size:15pt!important;line-height:1.15;margin:0;color:#123f35;font-weight:900}
+    .settlement-print-brand p{font-size:7pt!important;letter-spacing:.8px;margin:1mm 0;color:#527367;font-weight:800}
+    .settlement-print-brand strong{font-size:8pt!important;letter-spacing:.4px;color:#23483c}
+    .no-print{display:none!important}
+    .panel-head{margin:2mm 0 1.5mm!important;padding:0!important}
+    #dailySettlementPanel h2{font-size:10pt!important;margin:0!important}
+    #dailySettlementPanel p{font-size:7pt!important;margin:1mm 0!important}
+    .settlement-summary{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:2mm!important;max-width:none!important;margin:2mm 0!important}
+    .settlement-summary>div{padding:2mm!important;border-radius:0!important;box-shadow:none!important;break-inside:avoid}
+    .settlement-summary small{font-size:6.5pt!important;margin-bottom:1mm!important}
+    .settlement-summary strong{font-size:11pt!important}
+    .settlement-table-wrap{display:block!important;width:100%!important;max-width:none!important;overflow:visible!important;margin:1.5mm 0 3mm!important}
+    #dailySettlementPanel table{display:table!important;table-layout:auto!important;width:100%!important;min-width:0!important;max-width:none!important;border-collapse:collapse!important;font-size:7pt!important}
+    #dailySettlementPanel th,#dailySettlementPanel td{padding:1.5mm 1mm!important;white-space:normal!important}
+    #dailySettlementPanel thead{display:table-header-group!important}
+    #dailySettlementPanel tfoot{display:table-footer-group!important}
+    #dailySettlementPanel tr{break-inside:avoid!important;page-break-inside:avoid!important}
+    #dailySettlementPanel .small{font-size:6.5pt!important}
+    #dailySettlementPanel .settlement-overdue-summary{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+    *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  `);
 }
 function renderData() {
   $("customersCount").textContent = customers.length;
