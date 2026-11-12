@@ -1032,3 +1032,7 @@ form button[type="submit"]:hover,.dashboard-content button.primary:hover{
 @media print{
   .sidebar .tabs{display:none!important}
 }
+
+
+/* Hide the one-time three-admin provisioning action from the dashboard UI. */
+#staffAdminSetupBtn{display:none!important}
