@@ -1704,12 +1704,13 @@ async function boot() {
     setBusy(btn,true,"लॉगिन हो रहा है…");
     try {
       const loginId = $("loginId").value.trim();
+      const normalizedMobile = loginId.replace(/[\\s()-]/g, "").replace(/^\\+91/, "").replace(/^91(?=\\d{10}$)/, "");
       const password = $("password").value;
       let loginData;
-      if (/^[0-9]{10}$/.test(loginId)) {
+      if (/^[0-9]{10}$/.test(normalizedMobile)) {
         const { data: mobileData, error: mobileError } =
           await supabase.functions.invoke("staff-mobile-login", {
-            body: { phone: loginId, password }
+            body: { phone: normalizedMobile, password }
           });
         if (mobileError) throw mobileError;
         if (!mobileData?.success || !mobileData?.session?.access_token || !mobileData?.session?.refresh_token) {
