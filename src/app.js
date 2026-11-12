@@ -414,6 +414,9 @@ function renderDailySettlement() {
     if(loan.status!=="active") return;
     const customer=customers.find(c=>c.id===loan.customer_id);
     if(!customer || customer.is_active===false || (customer.customer_status||"ACTIVE")!=="ACTIVE") return;
+    // Pending receipts are shown only for customers whose weekly collection day matches the selected date.
+    const selectedWeekday=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][selectedDate.getDay()];
+    if(customer.collection_day!==selectedWeekday) return;
     if(collectorId && customer.assigned_collector!==collectorId) return;
     if(!canAdmin() && customer.assigned_collector!==currentUser.id) return;
     const schedule=weeklyStatuses.filter(x=>x.loan_id===loan.id);
