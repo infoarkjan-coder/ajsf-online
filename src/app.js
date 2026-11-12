@@ -194,6 +194,10 @@ function renderShell() {
   if (summaryGrid) summaryGrid.style.setProperty("display", canAdmin() ? "" : "none", "important");
   // Keep Collector on the demand screen; Admin navigation remains unchanged.
   activateTab(canAdmin() ? "customers" : "collector-demand");
+  const staffAdminSetupBtn = $("staffAdminSetupBtn");
+  if (staffAdminSetupBtn) staffAdminSetupBtn.classList.toggle("hidden", !canAdmin());
+  const staffPasswordResetBtn = $("staffPasswordResetBtn");
+  if (staffPasswordResetBtn) staffPasswordResetBtn.classList.toggle("hidden", !canAdmin());
   const customerActionHeader = $("customerActionHeader");
   if (customerActionHeader) customerActionHeader.classList.toggle("hidden", !canAdmin());
 }
@@ -205,6 +209,38 @@ function activateTab(tab) {
 document.addEventListener("click", e => {
   const tab = e.target.closest("[data-tab]");
   if (tab) activateTab(tab.dataset.tab);
+});
+
+async function openStaffPasswordPanel() {
+  if (!canAdmin()) return;
+  activateTab("staff-password");
+  const select = $("staffPasswordTarget");
+  if (!select) return showMessage("Password Management पैनल नहीं मिला।", "error");
+  if (select.dataset.loaded === "1") return;
+  const button = $("staffPasswordResetBtn");
+  setBusy(button, true, "Staff सूची लोड हो रही है…");
+  try {
+    const { data, error } = await supabase.from("profiles")
+      .select("id, full_name, staff_code, role")
+      .eq("is_active", true).in("role", ["admin", "collector"]).order("full_name");
+    if (error) throw error;
+    select.innerHTML = '<option value="">अकाउंट चुनें</option>' + (data || []).map(p =>
+      '<option value="' + esc(p.id) + '">' + esc(p.full_name) + ' · ' + esc(p.staff_code || "—") + ' · ' + (p.role === "admin" ? "Admin" : "Collector") + '</option>'
+    ).join("");
+    select.dataset.loaded = "1";
+    if (!data?.length) showMessage("कोई सक्रिय Staff / Collector अकाउंट नहीं मिला।", "warn");
+  } catch (err) {
+    showMessage("Staff सूची लोड नहीं हुई: " + (err?.message || String(err)), "error");
+  } finally {
+    setBusy(button, false);
+  }
+}
+
+document.addEventListener("click", event => {
+  const button = event.target.closest("#staffPasswordResetBtn");
+  if (!button) return;
+  event.preventDefault();
+  openStaffPasswordPanel();
 });
 
 async function loadAll() {
@@ -1502,12 +1538,35 @@ async function boot() {
     showMessage("");
     setBusy(btn,true,"लॉगिन हो रहा है…");
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email:$("email").value.trim(), password:$("password").value
-      });
-      if (error) throw error;
-      if (!data?.user) throw new Error("Login session नहीं मिला। दोबारा प्रयास करें।");
-      currentUser = data.user;
+      const loginId = $("loginId").value.trim();
+      const password = $("password").value;
+      let loginData;
+      if (/^[0-9]{10}$/.test(loginId)) {
+        const { data: mobileData, error: mobileError } =
+          await supabase.functions.invoke("staff-mobile-login", {
+            body: { phone: loginId, password }
+          });
+        if (mobileError) throw mobileError;
+        if (!mobileData?.success || !mobileData?.session?.access_token || !mobileData?.session?.refresh_token) {
+          throw new Error(mobileData?.error || "मोबाइल लॉगिन सत्यापित नहीं हुआ।");
+        }
+        const { data: sessionData, error: sessionError } =
+          await supabase.auth.setSession({
+            access_token: mobileData.session.access_token,
+            refresh_token: mobileData.session.refresh_token
+          });
+        if (sessionError) throw sessionError;
+        loginData = sessionData;
+      } else {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: loginId,
+          password
+        });
+        if (error) throw error;
+        loginData = data;
+      }
+      if (!loginData?.user) throw new Error("Login session नहीं मिला। दोबारा प्रयास करें।");
+      currentUser = loginData.user;
       await loadProfile(currentUser);
       renderShell();
       $("customerForm").addEventListener("submit",submitCustomer);
@@ -1531,6 +1590,54 @@ async function boot() {
     }
   });
   $("logoutBtn").addEventListener("click", logout);
+  const staffAdminSetupBtn = $("staffAdminSetupBtn");
+  if (staffAdminSetupBtn) {
+    staffAdminSetupBtn.addEventListener("click", async () => {
+      if (!canAdmin()) return;
+      const confirmed = window.confirm(
+        "तीन Full Admin अकाउंट बनाए जाएँ?\\n\\nRavindra — 8449109044\\nAnuraj Rana — 9219148507\\nKapil — 8273916006\\n\\nतीनों के लिए एक ही अस्थायी पासवर्ड बनेगा।"
+      );
+      if (!confirmed) return;
+      setBusy(staffAdminSetupBtn,true,"Admin अकाउंट बनाए जा रहे हैं…");
+      try {
+        const { data, error } = await supabase.functions.invoke("quick-handler");
+        if (error) throw error;
+        if (!data?.success || !data?.initial_password) throw new Error(data?.error || "Account creation result incomplete.");
+        showMessage("तीनों Admin अकाउंट बन गए।\\nअस्थायी साझा पासवर्ड (इसे सुरक्षित रखें): " + data.initial_password + "\\nतीनों को यह पासवर्ड निजी रूप से दें; बाद में हर व्यक्ति इसे बदल सकता है।","success");
+        staffAdminSetupBtn.disabled = true;
+        staffAdminSetupBtn.textContent = "Admin अकाउंट बन गए";
+      } catch (err) {
+        showMessage("Admin अकाउंट नहीं बने: " + (err?.message || String(err)),"error");
+      } finally {
+        if (!staffAdminSetupBtn.disabled) setBusy(staffAdminSetupBtn,false);
+      }
+    });
+  }
+  $("staffPasswordForm")?.addEventListener("submit", async event => {
+    event.preventDefault();
+    if (!canAdmin()) return;
+    const btn = $("staffPasswordSaveBtn");
+    const targetId = $("staffPasswordTarget").value;
+    const password = $("staffNewPassword").value;
+    const confirmPassword = $("staffConfirmPassword").value;
+    if (!targetId) return showMessage("पहले Staff / Collector अकाउंट चुनें।","warn");
+    if (password.length < 10) return showMessage("पासवर्ड कम से कम 10 अक्षर का रखें।","warn");
+    if (password !== confirmPassword) return showMessage("दोनों पासवर्ड एक जैसे नहीं हैं।","warn");
+    if (!window.confirm("चुने गए Staff / Collector का पासवर्ड बदलना है?")) return;
+    setBusy(btn,true,"पासवर्ड अपडेट हो रहा है…");
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-reset-staff-password", {
+        body: { target_user_id: targetId, new_password: password }
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || "पासवर्ड अपडेट नहीं हुआ।");
+      $("staffPasswordForm").reset();
+      showMessage("पासवर्ड सफलतापूर्वक अपडेट हो गया: " + (data.staff_name || "Staff") + " (" + (data.staff_code || "—") + ")","success");
+    } catch (err) {
+      console.error("Staff password update failed:",err);
+      showMessage("पासवर्ड अपडेट नहीं हुआ: " + (err?.message || String(err)),"error");
+    } finally { setBusy(btn,false); }
+  });
   // Delegated listener survives panel redraws and reliably handles day changes.
   document.addEventListener("change", event => {
     if (event.target && event.target.id === "collectorDemandDay") renderCollectorDemand();
