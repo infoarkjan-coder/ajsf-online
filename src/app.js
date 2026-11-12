@@ -211,6 +211,38 @@ document.addEventListener("click", e => {
   if (tab) activateTab(tab.dataset.tab);
 });
 
+async function openStaffPasswordPanel() {
+  if (!canAdmin()) return;
+  activateTab("staff-password");
+  const select = $("staffPasswordTarget");
+  if (!select) return showMessage("Password Management पैनल नहीं मिला।", "error");
+  if (select.dataset.loaded === "1") return;
+  const button = $("staffPasswordResetBtn");
+  setBusy(button, true, "Staff सूची लोड हो रही है…");
+  try {
+    const { data, error } = await supabase.from("profiles")
+      .select("id, full_name, staff_code, role")
+      .eq("is_active", true).in("role", ["admin", "collector"]).order("full_name");
+    if (error) throw error;
+    select.innerHTML = '<option value="">अकाउंट चुनें</option>' + (data || []).map(p =>
+      '<option value="' + esc(p.id) + '">' + esc(p.full_name) + ' · ' + esc(p.staff_code || "—") + ' · ' + (p.role === "admin" ? "Admin" : "Collector") + '</option>'
+    ).join("");
+    select.dataset.loaded = "1";
+    if (!data?.length) showMessage("कोई सक्रिय Staff / Collector अकाउंट नहीं मिला।", "warn");
+  } catch (err) {
+    showMessage("Staff सूची लोड नहीं हुई: " + (err?.message || String(err)), "error");
+  } finally {
+    setBusy(button, false);
+  }
+}
+
+document.addEventListener("click", event => {
+  const button = event.target.closest("#staffPasswordResetBtn");
+  if (!button) return;
+  event.preventDefault();
+  openStaffPasswordPanel();
+});
+
 async function loadAll() {
   showMessage("डेटा लोड हो रहा है…");
   let customerQuery = supabase.from("customers")
@@ -1581,26 +1613,6 @@ async function boot() {
       }
     });
   }
-  const staffPasswordResetBtn = $("staffPasswordResetBtn");
-  if (staffPasswordResetBtn) staffPasswordResetBtn.addEventListener("click", async () => {
-    if (!canAdmin()) return;
-    activateTab("staff-password");
-    const select = $("staffPasswordTarget");
-    if (select.dataset.loaded === "1") return;
-    setBusy(staffPasswordResetBtn,true,"Staff सूची लोड हो रही है…");
-    try {
-      const { data, error } = await supabase.from("profiles")
-        .select("id, full_name, staff_code, role")
-        .eq("is_active",true).in("role",["admin","collector"]).order("full_name");
-      if (error) throw error;
-      select.innerHTML = '<option value="">अकाउंट चुनें</option>' + (data || []).map(p =>
-        '<option value="' + esc(p.id) + '">' + esc(p.full_name) + ' · ' + esc(p.staff_code || "—") + ' · ' + (p.role === "admin" ? "Admin" : "Collector") + '</option>'
-      ).join("");
-      select.dataset.loaded = "1";
-    } catch (err) {
-      showMessage("Staff सूची लोड नहीं हुई: " + (err?.message || String(err)), "error");
-    } finally { setBusy(staffPasswordResetBtn,false); }
-  });
   $("staffPasswordForm")?.addEventListener("submit", async event => {
     event.preventDefault();
     if (!canAdmin()) return;
