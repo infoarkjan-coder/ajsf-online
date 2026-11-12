@@ -477,6 +477,10 @@ function renderDailySettlement() {
   $("settlementDemandTotal").textContent=money(dailyDemandTotal);
   $("settlementDemandReceived").textContent=money(dailyReceivedTotal);
   $("settlementDemandPending").textContent=money(dailyPendingTotal);
+  $("settlementDemandTotalFoot").textContent=money(dailyDemandTotal);
+  $("settlementDemandReceivedFoot").textContent=money(dailyReceivedTotal);
+  $("settlementDemandPendingFoot").textContent=money(dailyPendingTotal);
+
   $("settlementDemandRows").innerHTML=dailyDemandRows.map((x,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(x.customer.customer_code||"—")+'</td><td>'+esc(x.customer.full_name||"—")+'</td><td>'+money(x.demand)+'</td><td>'+money(Math.min(x.demand,x.received))+'</td><td>'+money(x.pending)+'</td></tr>').join("") || '<tr><td colspan="6" class="empty">इस तारीख की कोई Scheduled Demand नहीं मिली।</td></tr>';
   $("settlementReceiptCount").textContent=String(dayPayments.length);
   $("settlementAmountTotal").textContent=money(total);
