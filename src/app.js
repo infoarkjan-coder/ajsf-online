@@ -1837,6 +1837,31 @@ async function boot() {
   $("printReceiptBtn").addEventListener("click", printReceipt);
   $("downloadReceiptPdfBtn").addEventListener("click", downloadReceiptPdf);
   $("closeReceiptBtn").addEventListener("click", () => $("receiptPanel").classList.add("hidden"));
+
+  // Restore an authenticated staff session when the app page reloads.
+  try {
+    const { data: sessionResult, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) throw sessionError;
+    if (sessionResult?.session?.user) {
+      currentUser = sessionResult.session.user;
+      await loadProfile(currentUser);
+      renderShell();
+      $("customerForm").addEventListener("submit",submitCustomer);
+      $("paymentForm").addEventListener("submit",submitPayment);
+      try {
+        await loadAll();
+      } catch (dataError) {
+        console.error("AJSF restored dashboard data load failed:",dataError);
+        showMessage("डेटा लोड नहीं हुआ: "+(dataError?.message || String(dataError))+" | स्क्रीनशॉट भेजें।","error");
+      }
+    }
+  } catch (restoreError) {
+    console.error("AJSF saved session restore failed:",restoreError);
+    currentUser = null; profile = null;
+    try { await supabase.auth.signOut({scope:"local"}); } catch {}
+    $("loginCard").classList.remove("hidden");
+    $("dashboardCard").classList.add("hidden");
+  }
 }
 if ($("paymentDate")) $("paymentDate").value = localDateValue();
 boot();
