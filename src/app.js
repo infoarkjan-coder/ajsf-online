@@ -514,6 +514,19 @@ function printDailySettlement() {
     #dailySettlementPanel tr{break-inside:avoid!important;page-break-inside:avoid!important}
     #dailySettlementPanel .small{font-size:6.5pt!important}
     #dailySettlementPanel .settlement-overdue-summary{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+    /* Prevent awkward page splits in the A4 settlement report */
+    #dailySettlementPanel .panel-head{break-after:avoid-page!important;page-break-after:avoid!important}
+    #dailySettlementPanel .settlement-summary{break-inside:avoid-page!important;page-break-inside:avoid!important}
+    #dailySettlementPanel table{break-inside:auto!important;page-break-inside:auto!important}
+    #dailySettlementPanel thead{display:table-header-group!important}
+    #dailySettlementPanel tfoot{display:table-footer-group!important}
+    #dailySettlementPanel tr{break-inside:avoid!important;page-break-inside:avoid!important}
+    #dailySettlementPanel th,#dailySettlementPanel td{orphans:2;widows:2}
+    #dailySettlementPanel .settlement-print-brand{break-inside:avoid-page!important;page-break-inside:avoid!important;break-after:avoid-page!important}
+    #dailySettlementPanel .settlement-table-wrap{break-inside:auto!important;page-break-inside:auto!important}
+    #dailySettlementPanel .settlement-table-wrap table{break-inside:auto!important;page-break-inside:auto!important}
+    #dailySettlementPanel h2{break-after:avoid-page!important;page-break-after:avoid!important}
+    #dailySettlementPanel .small{orphans:2;widows:2}
     *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   `);
 }
