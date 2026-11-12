@@ -1060,3 +1060,9 @@ form button[type="submit"]:hover,.dashboard-content button.primary:hover{
  body.settlement-printing .settlement-table-wrap{overflow:visible!important}
  body.settlement-printing #settlementTable{min-width:0!important;font-size:10px!important}
 }
+
+.settlement-overdue-summary{grid-template-columns:repeat(2,minmax(0,1fr));max-width:620px}
+#settlementOverdueRows td:last-child{text-align:right;font-weight:850;color:#a34832}
+#settlementOverdueRows tr{background:#fffaf8}
+#settlementOverdueRows tr:hover{background:#fff1ed}
+@media print{.settlement-overdue-summary{break-inside:avoid}}
