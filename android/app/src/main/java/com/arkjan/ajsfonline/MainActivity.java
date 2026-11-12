@@ -169,8 +169,11 @@ public class MainActivity extends Activity {
             }
         });
 
-        if (savedInstanceState == null) webView.loadUrl(APP_URL);
-        else webView.restoreState(savedInstanceState);
+        // Always fetch the current hosted app instead of restoring a stale WebView page.
+        // clearCache() does not erase localStorage/IndexedDB, so queued app data is preserved.
+        webView.clearCache(true);
+        webView.clearHistory();
+        webView.loadUrl(APP_URL + "?app_refresh=20261112");
     }
 
     // Never let WebView try to load app-specific schemes such as whatsapp://.
