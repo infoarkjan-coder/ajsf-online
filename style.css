@@ -525,3 +525,133 @@ input,select,button{min-height:42px}
   pointer-events:auto;
   cursor:pointer;
 }
+
+
+/* AJSF premium dashboard navigation and compact Android app download */
+#appDownloadCard{
+  width:fit-content!important;
+  max-width:min(100%,520px)!important;
+  margin:10px auto 20px!important;
+  padding:10px!important;
+  border:1px solid #c8ded1!important;
+  border-radius:18px!important;
+  background:linear-gradient(145deg,#fff 0%,#edf7f0 100%)!important;
+  box-shadow:0 8px 22px rgba(18,63,53,.10)!important;
+}
+#appDownloadCard .app-download-link{
+  width:auto!important;
+  min-width:min(270px,100%)!important;
+  min-height:46px!important;
+  padding:9px 18px!important;
+  gap:10px!important;
+  border:1px solid rgba(255,255,255,.28)!important;
+  border-radius:12px!important;
+  background:linear-gradient(110deg,#20845c 0%,#145b46 55%,#103e35 100%)!important;
+  box-shadow:0 5px 13px rgba(18,63,53,.22),inset 0 1px 0 rgba(255,255,255,.2)!important;
+  font-size:15px!important;
+  letter-spacing:.15px!important;
+  transition:transform .18s ease,box-shadow .18s ease,filter .18s ease!important;
+}
+#appDownloadCard .app-download-link:hover{
+  transform:translateY(-2px)!important;
+  filter:saturate(1.08)!important;
+  box-shadow:0 8px 18px rgba(18,63,53,.25)!important;
+}
+#appDownloadCard .app-download-link span[aria-hidden="true"]{
+  width:27px!important;height:27px!important;
+  font-size:18px!important;
+  background:rgba(255,255,255,.2)!important;
+}
+.dashhead{
+  align-items:center!important;
+  gap:16px!important;
+  padding:16px 18px!important;
+  margin:0 0 14px!important;
+  border:1px solid #d7e6dc!important;
+  border-radius:17px!important;
+  background:linear-gradient(120deg,#fff 0%,#f2f8f4 100%)!important;
+  box-shadow:0 7px 20px rgba(18,63,53,.07)!important;
+}
+.dashhead .row{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-end!important;
+  gap:9px!important;
+  flex-wrap:wrap!important;
+}
+.dashhead .row button,
+.dashhead>div>button{
+  min-height:42px!important;
+  padding:10px 15px!important;
+  border:1px solid #cfe0d5!important;
+  border-radius:11px!important;
+  background:#fff!important;
+  color:#174b3d!important;
+  font-size:13px!important;
+  font-weight:800!important;
+  box-shadow:0 3px 9px rgba(18,63,53,.07)!important;
+  transition:transform .18s ease,background .18s ease,box-shadow .18s ease!important;
+}
+.dashhead .row button:hover,
+.dashhead>div>button:hover{
+  transform:translateY(-2px)!important;
+  background:#edf6f0!important;
+  box-shadow:0 6px 13px rgba(18,63,53,.12)!important;
+}
+#staffAdminSetupBtn{
+  border-color:#c7d9f2!important;
+  color:#244f80!important;
+  background:linear-gradient(135deg,#f5f9ff,#eaf2ff)!important;
+}
+#staffPasswordResetBtn{
+  border-color:#c5dfd1!important;
+  color:#176044!important;
+  background:linear-gradient(135deg,#f1fbf5,#e2f3e9)!important;
+}
+#logoutBtn{
+  border-color:#efd0cc!important;
+  color:#a33e35!important;
+  background:linear-gradient(135deg,#fff9f8,#fff0ed)!important;
+}
+.sidebar .tabs button{
+  position:relative!important;
+  min-height:46px!important;
+  border-radius:12px!important;
+  background:linear-gradient(180deg,#fff,#f9fcfa)!important;
+  border-color:#d9e7df!important;
+  box-shadow:0 3px 9px rgba(18,63,53,.055)!important;
+  font-weight:800!important;
+  letter-spacing:.05px!important;
+}
+.sidebar .tabs button:focus-visible,
+.dashhead .row button:focus-visible,
+#appDownloadCard .app-download-link:focus-visible{
+  outline:3px solid rgba(35,132,92,.28)!important;
+  outline-offset:2px!important;
+}
+.sidebar .tabs button.active{
+  background:linear-gradient(115deg,#1b7654,#123f35)!important;
+  border-color:#15563f!important;
+  box-shadow:0 5px 13px rgba(18,63,53,.2)!important;
+}
+.sidebar .tabs button.active:before{
+  content:"";
+  position:absolute;
+  left:8px;top:50%;
+  width:5px;height:5px;
+  border-radius:50%;
+  background:#a9e2c0;
+  transform:translateY(-50%);
+}
+@media(max-width:760px){
+  #appDownloadCard{margin:8px auto 16px!important;padding:8px!important}
+  #appDownloadCard .app-download-link{min-width:0!important;min-height:43px!important;padding:8px 14px!important;font-size:14px!important}
+  .dashhead{align-items:flex-start!important;padding:13px!important}
+  .dashhead .row{justify-content:flex-start!important;width:100%!important}
+  .dashhead .row button{flex:1 1 auto!important;min-width:130px!important}
+}
+@media(max-width:480px){
+  #appDownloadCard{max-width:100%!important}
+  #appDownloadCard .app-download-link{font-size:13px!important}
+  .dashhead .row button{min-width:0!important;flex:1 1 100%!important}
+}
