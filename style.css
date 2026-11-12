@@ -1036,3 +1036,7 @@ form button[type="submit"]:hover,.dashboard-content button.primary:hover{
 
 /* Hide the one-time three-admin provisioning action from the dashboard UI. */
 #staffAdminSetupBtn{display:none!important}
+
+
+/* Customer portal access is not enabled: hide its account-creation action. */
+.customer-account-create{display:none!important}
