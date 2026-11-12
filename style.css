@@ -1052,13 +1052,20 @@ form button[type="submit"]:hover,.dashboard-content button.primary:hover{
 #settlementRows td:nth-child(2){font-weight:800;color:#174b3d;white-space:nowrap}
 @media(max-width:600px){.settlement-filters,.settlement-summary{grid-template-columns:1fr 1fr}.settlement-summary>div{padding:11px}.settlement-summary strong{font-size:17px}.settlement-summary>div:last-child{grid-column:1/-1}}
 @media print{
- body.settlement-printing *{visibility:hidden!important}
+ /* The global print stylesheet hides every [data-panel]. Explicitly restore
+    this report panel; visibility alone cannot print an element with display:none. */
+ body.settlement-printing #dailySettlementPanel{
+   display:block!important;visibility:visible!important;position:static!important;
+   width:100%!important;max-width:none!important;margin:0!important;padding:8mm!important;
+   border:0!important;box-shadow:none!important;overflow:visible!important;
+ }
  body.settlement-printing #dailySettlementPanel,
  body.settlement-printing #dailySettlementPanel *{visibility:visible!important}
- body.settlement-printing #dailySettlementPanel{position:absolute!important;inset:0!important;width:100%!important;border:0!important;box-shadow:none!important}
  body.settlement-printing #dailySettlementPanel .no-print{display:none!important}
- body.settlement-printing .settlement-table-wrap{overflow:visible!important}
- body.settlement-printing #settlementTable{min-width:0!important;font-size:10px!important}
+ body.settlement-printing .settlement-table-wrap{display:block!important;overflow:visible!important}
+ body.settlement-printing #settlementTable{display:table!important;min-width:0!important;width:100%!important;font-size:10px!important}
+ body.settlement-printing #dailySettlementPanel table{width:100%!important;border-collapse:collapse!important}
+ body.settlement-printing #dailySettlementPanel tr{break-inside:avoid}
 }
 
 .settlement-overdue-summary{grid-template-columns:repeat(2,minmax(0,1fr));max-width:620px}
