@@ -1040,3 +1040,23 @@ form button[type="submit"]:hover,.dashboard-content button.primary:hover{
 
 /* Customer portal access is not enabled: hide its account-creation action. */
 .customer-account-create{display:none!important}
+
+/* Daily collector settlement report */
+.settlement-filters{grid-template-columns:repeat(2,minmax(180px,1fr));max-width:680px}
+.settlement-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:16px 0}
+.settlement-summary>div{padding:15px;border:1px solid #dce8e1;border-radius:13px;background:linear-gradient(145deg,#fff,#f1f7f3);box-shadow:0 4px 12px rgba(18,63,53,.05)}
+.settlement-summary small{display:block;color:#688074;font-size:11px;font-weight:750;margin-bottom:6px}
+.settlement-summary strong{color:#123f35;font-size:20px;font-weight:900;overflow-wrap:anywhere}
+.settlement-table-wrap tfoot th{padding:13px 11px;background:#edf5f0;color:#123f35;border-top:2px solid #cbded3}
+#settlementRows td:last-child,#settlementFooterTotal{text-align:right;font-weight:850;color:#123f35}
+#settlementRows td:nth-child(2){font-weight:800;color:#174b3d;white-space:nowrap}
+@media(max-width:600px){.settlement-filters,.settlement-summary{grid-template-columns:1fr 1fr}.settlement-summary>div{padding:11px}.settlement-summary strong{font-size:17px}.settlement-summary>div:last-child{grid-column:1/-1}}
+@media print{
+ body.settlement-printing *{visibility:hidden!important}
+ body.settlement-printing #dailySettlementPanel,
+ body.settlement-printing #dailySettlementPanel *{visibility:visible!important}
+ body.settlement-printing #dailySettlementPanel{position:absolute!important;inset:0!important;width:100%!important;border:0!important;box-shadow:none!important}
+ body.settlement-printing #dailySettlementPanel .no-print{display:none!important}
+ body.settlement-printing .settlement-table-wrap{overflow:visible!important}
+ body.settlement-printing #settlementTable{min-width:0!important;font-size:10px!important}
+}
