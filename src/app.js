@@ -464,7 +464,7 @@ function renderDailySettlement() {
   demandByCustomer.forEach((entry,id)=>{entry.received=receivedByCustomer.get(id)||0;entry.pending=Math.max(0,entry.demand-entry.received);});
   const dailyDemandRows=[...demandByCustomer.values()].filter(x=>x.demand>0 || x.received>0).sort((a,b)=>String(a.customer.full_name||"").localeCompare(String(b.customer.full_name||"")));
   const dailyDemandTotal=dailyDemandRows.reduce((n,x)=>n+x.demand,0);
-  const dailyReceivedTotal=dailyDemandRows.reduce((n,x)=>n+Math.min(x.demand,x.received),0);
+  const dailyReceivedTotal=dailyDemandRows.reduce((n,x)=>n+x.received,0);
   const dailyPendingTotal=dailyDemandRows.reduce((n,x)=>n+x.pending,0);
   const total=dayPayments.reduce((sum,p)=>sum+Number(p.amount||p.payment_amount||0),0);
   const fmtTime=p=>{const d=new Date(p.paid_at||p.created_at);return Number.isNaN(d.getTime())?"—":d.toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"});};
@@ -481,7 +481,7 @@ function renderDailySettlement() {
   $("settlementDemandReceivedFoot").textContent=money(dailyReceivedTotal);
   $("settlementDemandPendingFoot").textContent=money(dailyPendingTotal);
 
-  $("settlementDemandRows").innerHTML=dailyDemandRows.map((x,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(x.customer.customer_code||"—")+'</td><td>'+esc(x.customer.full_name||"—")+'</td><td>'+money(x.demand)+'</td><td>'+money(Math.min(x.demand,x.received))+'</td><td>'+money(x.pending)+'</td></tr>').join("") || '<tr><td colspan="6" class="empty">इस तारीख की कोई Scheduled Demand नहीं मिली।</td></tr>';
+  $("settlementDemandRows").innerHTML=dailyDemandRows.map((x,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(x.customer.customer_code||"—")+'</td><td>'+esc(x.customer.full_name||"—")+'</td><td>'+money(x.demand)+'</td><td>'+money(x.received)+'</td><td>'+money(x.pending)+'</td></tr>').join("") || '<tr><td colspan="6" class="empty">इस तारीख की कोई Scheduled Demand नहीं मिली।</td></tr>';
   $("settlementReceiptCount").textContent=String(dayPayments.length);
   $("settlementAmountTotal").textContent=money(total);
   $("settlementFooterTotal").textContent=money(total);
