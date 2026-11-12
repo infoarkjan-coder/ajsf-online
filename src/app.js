@@ -408,32 +408,12 @@ function renderDailySettlement() {
   }).sort((a,b)=>new Date(a.paid_at||a.created_at)-new Date(b.paid_at||b.created_at));
   const selectedDate=new Date(date+"T00:00:00");
   selectedDate.setHours(0,0,0,0);
-  const paidWeeks=new Set(weeklyStatuses.filter(x=>x.is_paid).map(x=>String(x.loan_id)+":"+Number(x.week_no)));
-  const overdueRows=[];
-  loans.forEach(loan=>{
-    if(loan.status!=="active") return;
-    const customer=customers.find(c=>c.id===loan.customer_id);
-    if(!customer || customer.is_active===false || (customer.customer_status||"ACTIVE")!=="ACTIVE") return;
-    // Show only installments whose actual scheduled due date is the selected calendar date.
-    // advanceDueDate handles both weekly collection weekdays and MONTHLY schedules.
-    if(collectorId && customer.assigned_collector!==collectorId) return;
-    if(!canAdmin() && customer.assigned_collector!==currentUser.id) return;
-    const schedule=weeklyStatuses.filter(x=>x.loan_id===loan.id);
-    schedule.forEach(item=>{
-      const weekNo=Number(item.week_no);
-      if(item.is_paid || paidWeeks.has(String(loan.id)+":"+weekNo)) return;
-      const due=advanceDueDate(loan,customer,weekNo);
-      if(!due) return;
-      due.setHours(0,0,0,0);
-      if(due.getTime()!==selectedDate.getTime()) return;
-      const amount=advanceMarkerAmount(loan,weekNo) || Number(loan.emi_amount||0);
-      if(amount<=0) return;
-      overdueRows.push({customer,loan,weekNo,due,amount});
-    });
+  const paidWeekMap=new Map();
+  weeklyStatuses.forEach(x=>{
+    const key=String(x.loan_id)+":"+Number(x.week_no);
+    paidWeekMap.set(key,Boolean(x.is_paid));
   });
-  overdueRows.sort((a,b)=>a.due-b.due || String(a.customer.full_name||"").localeCompare(String(b.customer.full_name||"")));
-  const overdueTotal=overdueRows.reduce((sum,row)=>sum+row.amount,0);
-
+  const overdueRows=[];
   const demandByCustomer=new Map();
   loans.forEach(loan=>{
     if(loan.status!=="active") return;
@@ -441,19 +421,27 @@ function renderDailySettlement() {
     if(!customer || customer.is_active===false || (customer.customer_status||"ACTIVE")!=="ACTIVE") return;
     if(collectorId && customer.assigned_collector!==collectorId) return;
     if(!canAdmin() && customer.assigned_collector!==currentUser.id) return;
-    weeklyStatuses.filter(x=>x.loan_id===loan.id).forEach(item=>{
-      const due=advanceDueDate(loan,customer,Number(item.week_no));
-      if(!due) return;
+    // Build the complete schedule from the loan terms, not only rows currently
+    // present in loan_weekly_status. Missing status rows must not hide demand.
+    const installmentCount=Math.max(0,Math.min(60,Number(loan.total_emis_required||24)));
+    for(let weekNo=1;weekNo<=installmentCount;weekNo++){
+      if(paidWeekMap.get(String(loan.id)+":"+weekNo)===true) continue;
+      const due=advanceDueDate(loan,customer,weekNo);
+      if(!due) continue;
       due.setHours(0,0,0,0);
-      if(due.getTime()!==selectedDate.getTime()) return;
-      const amount=Number(loan.emi_amount||0);
-      if(amount<=0) return;
+      if(due.getTime()!==selectedDate.getTime()) continue;
+      const amount=advanceMarkerAmount(loan,weekNo) || Number(loan.emi_amount||0);
+      if(amount<=0) continue;
+      overdueRows.push({customer,loan,weekNo,due,amount});
       const key=customer.id;
       const entry=demandByCustomer.get(key)||{customer,demand:0,received:0};
       entry.demand+=amount;
       demandByCustomer.set(key,entry);
-    });
+    }
   });
+  overdueRows.sort((a,b)=>a.due-b.due || String(a.customer.full_name||"").localeCompare(String(b.customer.full_name||"")));
+  const overdueTotal=overdueRows.reduce((sum,row)=>sum+row.amount,0);
+
   const receivedByCustomer=new Map();
   dayPayments.forEach(p=>receivedByCustomer.set(p.customer_id,(receivedByCustomer.get(p.customer_id)||0)+Number(p.amount||p.payment_amount||0)));
   receivedByCustomer.forEach((amount,id)=>{
