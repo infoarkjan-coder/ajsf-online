@@ -1051,21 +1051,39 @@ form button[type="submit"]:hover,.dashboard-content button.primary:hover{
 #settlementRows td:last-child,#settlementFooterTotal{text-align:right;font-weight:850;color:#123f35}
 #settlementRows td:nth-child(2){font-weight:800;color:#174b3d;white-space:nowrap}
 @media(max-width:600px){.settlement-filters,.settlement-summary{grid-template-columns:1fr 1fr}.settlement-summary>div{padding:11px}.settlement-summary strong{font-size:17px}.settlement-summary>div:last-child{grid-column:1/-1}}
+@page{size:A4 landscape;margin:8mm}
 @media print{
- /* The global print stylesheet hides every [data-panel]. Explicitly restore
-    this report panel; visibility alone cannot print an element with display:none. */
- body.settlement-printing #dailySettlementPanel{
-   display:block!important;visibility:visible!important;position:static!important;
-   width:100%!important;max-width:none!important;margin:0!important;padding:8mm!important;
-   border:0!important;box-shadow:none!important;overflow:visible!important;
- }
- body.settlement-printing #dailySettlementPanel,
- body.settlement-printing #dailySettlementPanel *{visibility:visible!important}
- body.settlement-printing #dailySettlementPanel .no-print{display:none!important}
- body.settlement-printing .settlement-table-wrap{display:block!important;overflow:visible!important}
- body.settlement-printing #settlementTable{display:table!important;min-width:0!important;width:100%!important;font-size:10px!important}
- body.settlement-printing #dailySettlementPanel table{width:100%!important;border-collapse:collapse!important}
- body.settlement-printing #dailySettlementPanel tr{break-inside:avoid}
+  html,body{width:100%!important;min-width:0!important;margin:0!important;padding:0!important;background:#fff!important}
+  body.settlement-printing .shell,
+  body.settlement-printing #dashboardCard,
+  body.settlement-printing .dashboard-layout,
+  body.settlement-printing .dashboard-content{
+    display:block!important;width:100%!important;max-width:none!important;min-width:0!important;
+    margin:0!important;padding:0!important;overflow:visible!important;
+  }
+  body.settlement-printing #dailySettlementPanel{
+    display:block!important;visibility:visible!important;position:static!important;float:none!important;
+    box-sizing:border-box!important;width:100%!important;max-width:none!important;min-width:0!important;
+    margin:0!important;padding:0!important;border:0!important;box-shadow:none!important;
+    overflow:visible!important;transform:none!important;
+  }
+  body.settlement-printing #dailySettlementPanel,
+  body.settlement-printing #dailySettlementPanel *{visibility:visible!important;box-sizing:border-box!important}
+  body.settlement-printing #dailySettlementPanel .no-print{display:none!important}
+  body.settlement-printing #dailySettlementPanel .panel-head{margin:0 0 4mm!important;padding:0 0 2mm!important}
+  body.settlement-printing #dailySettlementPanel h2{font-size:14pt!important}
+  body.settlement-printing #dailySettlementPanel p{font-size:8pt!important}
+  body.settlement-printing .settlement-summary{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:4mm!important;max-width:none!important;margin:3mm 0!important}
+  body.settlement-printing .settlement-summary>div{padding:3mm!important;box-shadow:none!important;break-inside:avoid}
+  body.settlement-printing .settlement-table-wrap{display:block!important;width:100%!important;max-width:none!important;overflow:visible!important;margin:2mm 0 4mm!important}
+  body.settlement-printing #dailySettlementPanel table{display:table!important;table-layout:auto!important;width:100%!important;min-width:0!important;max-width:none!important;border-collapse:collapse!important;font-size:8pt!important}
+  body.settlement-printing #dailySettlementPanel th,
+  body.settlement-printing #dailySettlementPanel td{padding:2mm 1.5mm!important;white-space:normal!important}
+  body.settlement-printing #dailySettlementPanel thead{display:table-header-group!important}
+  body.settlement-printing #dailySettlementPanel tfoot{display:table-footer-group!important}
+  body.settlement-printing #dailySettlementPanel tr{break-inside:avoid!important;page-break-inside:avoid!important}
+  body.settlement-printing #settlementTable{font-size:8pt!important}
+  body.settlement-printing #dailySettlementPanel .small{font-size:7pt!important}
 }
 
 .settlement-overdue-summary{grid-template-columns:repeat(2,minmax(0,1fr));max-width:620px}
