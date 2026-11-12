@@ -1066,3 +1066,12 @@ form button[type="submit"]:hover,.dashboard-content button.primary:hover{
 #settlementOverdueRows tr{background:#fffaf8}
 #settlementOverdueRows tr:hover{background:#fff1ed}
 @media print{.settlement-overdue-summary{break-inside:avoid}}
+
+.settlement-reconciliation{grid-template-columns:repeat(3,minmax(0,1fr));}
+.settlement-reconciliation>div:first-child{background:linear-gradient(145deg,#f1f7ff,#e9f1ff);border-color:#d3e0f2}
+.settlement-reconciliation>div:nth-child(2){background:linear-gradient(145deg,#effaf3,#e4f5e9);border-color:#cfe5d6}
+.settlement-reconciliation>div:nth-child(3){background:linear-gradient(145deg,#fff7f1,#fff0e7);border-color:#f0d9c8}
+.settlement-reconciliation>div:nth-child(3) strong{color:#a34832}
+#settlementDemandRows td:nth-last-child(-n+3),#settlementDemandTotalFoot,#settlementDemandReceivedFoot,#settlementDemandPendingFoot{text-align:right;font-weight:850}
+#settlementDemandRows td:last-child{color:#a34832}
+@media(max-width:600px){.settlement-reconciliation{grid-template-columns:1fr}}
