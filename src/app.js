@@ -194,7 +194,9 @@ function renderShell() {
   if (summaryGrid) summaryGrid.style.setProperty("display", canAdmin() ? "" : "none", "important");
   // Keep Collector on the demand screen; Admin navigation remains unchanged.
   activateTab(canAdmin() ? "customers" : "collector-demand");
-  const staffAdminSetupBtn = $("staffAdminSetupBtn");\n  if (staffAdminSetupBtn) staffAdminSetupBtn.classList.toggle("hidden", !canAdmin());\n  const customerActionHeader = $("customerActionHeader");
+  const staffAdminSetupBtn = $("staffAdminSetupBtn");
+  if (staffAdminSetupBtn) staffAdminSetupBtn.classList.toggle("hidden", !canAdmin());
+  const customerActionHeader = $("customerActionHeader");
   if (customerActionHeader) customerActionHeader.classList.toggle("hidden", !canAdmin());
 }
 
