@@ -1051,7 +1051,7 @@ form button[type="submit"]:hover,.dashboard-content button.primary:hover{
 #settlementRows td:last-child,#settlementFooterTotal{text-align:right;font-weight:850;color:#123f35}
 #settlementRows td:nth-child(2){font-weight:800;color:#174b3d;white-space:nowrap}
 @media(max-width:600px){.settlement-filters,.settlement-summary{grid-template-columns:1fr 1fr}.settlement-summary>div{padding:11px}.settlement-summary strong{font-size:17px}.settlement-summary>div:last-child{grid-column:1/-1}}
-@page{size:A4 landscape;margin:8mm}
+@page{size:A4 portrait;margin:8mm}
 @media print{
   html,body{width:100%!important;min-width:0!important;margin:0!important;padding:0!important;background:#fff!important}
   body.settlement-printing .shell,
