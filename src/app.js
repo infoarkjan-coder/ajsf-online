@@ -1581,7 +1581,12 @@ async function handleDailySettlementAction(button) {
     if (!window.confirm("इस Collector का "+date+" का Settlement Approve करना है? Approval के बाद यह रिकॉर्ड लॉक हो जाएगा।")) return;
     setBusy(button,true,"Approve हो रहा है…");
     try {
-      const {error} = await supabase.from("daily_collection_settlements").update({status:"approved",approved_by:currentUser.id,approved_at:new Date().toISOString()}).eq("id",saved.id).eq("status","pending");
+      const system = settlementTotalsFor(collectorId,date);
+      const {error} = await supabase.from("daily_collection_settlements").update({
+        expected_cash:system.cash, expected_upi:system.upi, expected_bank:system.bank_transfer,
+        deposited_cash:getAmount("cash"), deposited_upi:getAmount("upi"), deposited_bank:getAmount("bank_transfer"),
+        status:"approved",approved_by:currentUser.id,approved_at:new Date().toISOString()
+      }).eq("id",saved.id).eq("status","pending");
       if (error) throw error;
       showMessage("Daily Collection Settlement सफलतापूर्वक Approve हो गया।","success");
       await loadDailySettlement();
