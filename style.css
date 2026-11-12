@@ -1100,3 +1100,12 @@ form button[type="submit"]:hover,.dashboard-content button.primary:hover{
 #settlementDemandRows td:nth-last-child(-n+3),#settlementDemandTotalFoot,#settlementDemandReceivedFoot,#settlementDemandPendingFoot{text-align:right;font-weight:850}
 #settlementDemandRows td:last-child{color:#a34832}
 @media(max-width:600px){.settlement-reconciliation{grid-template-columns:1fr}}
+
+
+/* Daily Collector Settlement report branding */
+.settlement-print-brand{display:flex;align-items:center;justify-content:center;gap:14px;text-align:center;padding:12px 8px 14px;margin:0 0 14px;border-bottom:2px solid #123f35}
+.settlement-print-brand img{display:block;width:68px;height:68px;object-fit:contain;flex:0 0 68px}
+.settlement-print-brand h1{font-size:19px;line-height:1.2;margin:0;color:#123f35;font-weight:900}
+.settlement-print-brand p{font-size:10px;letter-spacing:1px;margin:4px 0;color:#527367;font-weight:800}
+.settlement-print-brand strong{font-size:12px;letter-spacing:.5px;color:#23483c}
+@media(max-width:600px){.settlement-print-brand{gap:9px;padding:9px 4px 11px}.settlement-print-brand img{width:54px;height:54px;flex-basis:54px}.settlement-print-brand h1{font-size:14px}.settlement-print-brand p{font-size:8px}.settlement-print-brand strong{font-size:9px}}
