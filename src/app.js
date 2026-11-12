@@ -208,7 +208,9 @@ function activateTab(tab) {
 }
 document.addEventListener("click", e => {
   const tab = e.target.closest("[data-tab]");
-  if (tab) activateTab(tab.dataset.tab);
+  if (!tab) return;
+  activateTab(tab.dataset.tab);
+  if (tab.dataset.tab === "settlement") prepareDailySettlement();
 });
 
 async function openStaffPasswordPanel() {
