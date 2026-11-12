@@ -18,7 +18,7 @@ Deno.serve(async (req: Request) => {
   const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (!url || !anon || !service) return json({ error: "Server configuration missing" }, 500);
 
-  const token = (req.headers.get("Authorization") || "").replace(/^Bearer\\s+/i, "");
+  const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
   if (!token) return json({ error: "Unauthorized" }, 401);
   const caller = createClient(url, anon, {
     global: { headers: { Authorization: `Bearer ${token}` } },
