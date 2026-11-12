@@ -406,6 +406,31 @@ function renderDailySettlement() {
     const localDay=new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);
     return localDay===date;
   }).sort((a,b)=>new Date(a.paid_at||a.created_at)-new Date(b.paid_at||b.created_at));
+  const selectedDate=new Date(date+"T00:00:00");
+  selectedDate.setHours(0,0,0,0);
+  const paidWeeks=new Set(weeklyStatuses.filter(x=>x.is_paid).map(x=>String(x.loan_id)+":"+Number(x.week_no)));
+  const overdueRows=[];
+  loans.forEach(loan=>{
+    if(loan.status!=="active") return;
+    const customer=customers.find(c=>c.id===loan.customer_id);
+    if(!customer || customer.is_active===false || (customer.customer_status||"ACTIVE")!=="ACTIVE") return;
+    if(collectorId && customer.assigned_collector!==collectorId) return;
+    if(!canAdmin() && customer.assigned_collector!==currentUser.id) return;
+    const schedule=weeklyStatuses.filter(x=>x.loan_id===loan.id);
+    schedule.forEach(item=>{
+      const weekNo=Number(item.week_no);
+      if(item.is_paid || paidWeeks.has(String(loan.id)+":"+weekNo)) return;
+      const due=advanceDueDate(loan,customer,weekNo);
+      if(!due) return;
+      due.setHours(0,0,0,0);
+      if(due.getTime()>selectedDate.getTime()) return;
+      const amount=advanceMarkerAmount(loan,weekNo) || Number(loan.emi_amount||0);
+      if(amount<=0) return;
+      overdueRows.push({customer,loan,weekNo,due,amount});
+    });
+  });
+  overdueRows.sort((a,b)=>a.due-b.due || String(a.customer.full_name||"").localeCompare(String(b.customer.full_name||"")));
+  const overdueTotal=overdueRows.reduce((sum,row)=>sum+row.amount,0);
   const total=dayPayments.reduce((sum,p)=>sum+Number(p.amount||p.payment_amount||0),0);
   const fmtTime=p=>{const d=new Date(p.paid_at||p.created_at);return Number.isNaN(d.getTime())?"—":d.toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"});};
   rows.innerHTML=dayPayments.map((p,i)=>{
@@ -418,6 +443,10 @@ function renderDailySettlement() {
   $("settlementFooterTotal").textContent=money(total);
   const selected=collectorId ? collectorSelectOptionText(collectorId) : (canAdmin()?"सभी Collector":(profile.full_name||"मेरी वसूली"));
   $("settlementCollectorName").textContent=selected;
+  $("settlementOverdueCount").textContent=String(overdueRows.length);
+  $("settlementOverdueTotal").textContent=money(overdueTotal);
+  $("settlementOverdueRows").innerHTML=overdueRows.map((row,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(row.customer.customer_code||"—")+'</td><td>'+esc(row.customer.full_name||"—")+'</td><td>'+esc(row.loan.loan_reference||"—")+'</td><td>'+esc(row.weekNo)+'</td><td>'+esc(row.due.toLocaleDateString("en-IN"))+'</td><td>'+money(row.amount)+'</td></tr>').join("") || '<tr><td colspan="7" class="empty">इस तारीख तक कोई Overdue EMI नहीं है।</td></tr>';
+
 }
 function collectorSelectOptionText(id) {
   const select=$("settlementCollector");
