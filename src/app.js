@@ -1531,6 +1531,12 @@ async function loadDailySettlement() {
     if (staffResult.error) throw staffResult.error;
     if (recordsResult.error) throw recordsResult.error;
     settlementCollectors = staffResult.data || [];
+    const reportCollector = $("settlementReportCollector");
+    if (reportCollector) {
+      const selected = reportCollector.value;
+      reportCollector.innerHTML = '<option value="">सभी Collector</option>' + settlementCollectors.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.full_name)+'</option>').join("");
+      if (selected) reportCollector.value = selected;
+    }
     dailySettlements = recordsResult.data || [];
     if (!settlementCollectors.length) {
       body.innerHTML = '<tr><td colspan="9" class="empty">कोई Active Collector नहीं मिला।</td></tr>';
@@ -1551,6 +1557,75 @@ async function loadDailySettlement() {
     body.innerHTML = '<tr><td colspan="9" class="empty">Settlement लोड नहीं हुआ: '+esc(error?.message||String(error))+'</td></tr>';
   }
 }
+
+let settlementReportData = [];
+function settlementReportTotals(row) {
+  const expected = Number(row.expected_cash||0)+Number(row.expected_upi||0)+Number(row.expected_bank||0);
+  const deposited = Number(row.deposited_cash||0)+Number(row.deposited_upi||0)+Number(row.deposited_bank||0);
+  return {expected,deposited,difference:expected-deposited};
+}
+async function loadSettlementReport() {
+  if (!canAdmin()) return;
+  const from = $("settlementReportFrom")?.value || localDateValue();
+  const to = $("settlementReportTo")?.value || from;
+  const collector = $("settlementReportCollector")?.value || "";
+  const status = $("settlementReportStatus")?.value || "";
+  const body = $("settlementReportRows");
+  if (from > to) { showMessage("From Date, To Date से पहले होनी चाहिए।","warn"); return; }
+  body.innerHTML = '<tr><td colspan="9" class="empty">रिपोर्ट लोड हो रही है…</td></tr>';
+  try {
+    let query = supabase.from("daily_collection_settlements").select("*").gte("settlement_date",from).lte("settlement_date",to).order("settlement_date",{ascending:false});
+    if (collector) query = query.eq("collector_id",collector);
+    if (status) query = query.eq("status",status);
+    const {data,error} = await query;
+    if (error) throw error;
+    const records = data || [];
+    const ids = [...new Set(records.map(x=>x.collector_id))];
+    let names = {};
+    if (ids.length) {
+      const staff = await supabase.from("profiles").select("id,full_name,staff_code").in("id",ids);
+      if (staff.error) throw staff.error;
+      (staff.data||[]).forEach(x=>names[x.id] = x.full_name + (x.staff_code ? " ("+x.staff_code+")" : ""));
+    }
+    settlementReportData = records.map(x=>({...x,collector_name:names[x.collector_id]||"Collector"}));
+    const sum = settlementReportData.reduce((a,x)=>{const t=settlementReportTotals(x);a.expected+=t.expected;a.deposited+=t.deposited;a.difference+=t.difference;if(x.status==="approved")a.approved++;else a.pending++;return a;},{expected:0,deposited:0,difference:0,approved:0,pending:0});
+    $("settlementReportExpected").textContent = money(sum.expected);
+    $("settlementReportDeposited").textContent = money(sum.deposited);
+    $("settlementReportDifference").textContent = money(sum.difference);
+    $("settlementReportStatusCount").textContent = sum.approved+" / "+sum.pending;
+    body.innerHTML = settlementReportData.length ? settlementReportData.map(x=>{
+      const t=settlementReportTotals(x);
+      return '<tr><td>'+esc(x.settlement_date)+'</td><td>'+esc(x.collector_name)+'</td><td>'+money(t.expected)+'</td><td>'+money(t.deposited)+'</td><td>'+money(t.difference)+'</td><td>'+money(x.expected_cash)+' / '+money(x.deposited_cash)+'</td><td>'+money(x.expected_upi)+' / '+money(x.deposited_upi)+'</td><td>'+money(x.expected_bank)+' / '+money(x.deposited_bank)+'</td><td>'+ (x.status==="approved"?"Approved":"Pending") +'</td></tr>';
+    }).join("") : '<tr><td colspan="9" class="empty">इस अवधि में कोई Settlement रिकॉर्ड नहीं मिला।</td></tr>';
+  } catch(error) {
+    settlementReportData=[];
+    body.innerHTML='<tr><td colspan="9" class="empty">रिपोर्ट नहीं खुली: '+esc(error?.message||String(error))+'</td></tr>';
+    showMessage("Settlement Report लोड नहीं हुई।","error");
+  }
+}
+function downloadSettlementReportCsv() {
+  if (!settlementReportData.length) return showMessage("पहले रिपोर्ट देखें; डाउनलोड के लिए कोई रिकॉर्ड नहीं है।","warn");
+  const columns = [["Date","settlement_date"],["Collector","collector_name"],["System Cash","expected_cash"],["Deposited Cash","deposited_cash"],["System UPI","expected_upi"],["Deposited UPI","deposited_upi"],["System Bank","expected_bank"],["Deposited Bank","deposited_bank"],["System Total","expected_total"],["Deposited Total","deposited_total"],["Difference","difference"],["Status","status"]];
+  const quote = v => '"'+String(v??"").replace(/"/g,'""')+'"';
+  const rows = [columns.map(x=>quote(x[0])).join(",")];
+  settlementReportData.forEach(x=>{
+    const t=settlementReportTotals(x);
+    const values={...x,expected_total:t.expected,deposited_total:t.deposited,difference:t.difference};
+    rows.push(columns.map(c=>quote(values[c[1]])).join(","));
+  });
+  const blob=new Blob(["\ufeff"+rows.join("\r\n")],{type:"text/csv;charset=utf-8"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");a.href=url;a.download="AJSF-Settlement-Report.csv";document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+}
+function printSettlementReport() {
+  if (!settlementReportData.length) return showMessage("पहले रिपोर्ट देखें; Print के लिए कोई रिकॉर्ड नहीं है।","warn");
+  const table=$("settlementReportTable").outerHTML;
+  const w=window.open("","_blank");
+  if (!w) return showMessage("Print window खुल नहीं पाई। Browser में pop-up अनुमति दें।","warn");
+  w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>AJSF Settlement Report</title><style>body{font-family:Arial,sans-serif;padding:18px;color:#172b25}h2{margin-bottom:4px}table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #999;padding:6px;text-align:left}th{background:#eaf2ed}.no-print,button,input,select{display:none!important}@page{size:A4 landscape;margin:10mm}</style></head><body><h2>ARK JAN SAMRIDDHI FOUNDATION</h2><h3>Daily Collection Settlement Report</h3><p>Period: '+esc($("settlementReportFrom").value)+' to '+esc($("settlementReportTo").value)+'</p>'+table+'</body></html>');
+  w.document.close();w.focus();w.print();
+}
+
 async function handleDailySettlementAction(button) {
   if (!canAdmin()) return;
   const collectorId = button.dataset.collectorId;
@@ -1734,6 +1809,13 @@ async function boot() {
     } finally { setBusy(btn,false); }
   });
   $("settlementDate")?.addEventListener("change", loadDailySettlement);
+  $("runSettlementReportBtn")?.addEventListener("click", loadSettlementReport);
+  $("downloadSettlementReportBtn")?.addEventListener("click", downloadSettlementReportCsv);
+  $("printSettlementReportBtn")?.addEventListener("click", printSettlementReport);
+  const reportToday = localDateValue();
+  const reportFrom = $("settlementReportFrom"), reportTo = $("settlementReportTo");
+  if (reportFrom && !reportFrom.value) { const d=new Date(reportToday+"T00:00:00"); d.setDate(d.getDate()-29); reportFrom.value=settlementDateKey(d); }
+  if (reportTo && !reportTo.value) reportTo.value=reportToday;
   document.addEventListener("click", event => {
     if (event.target.closest("#settlementAdminOnly")) loadDailySettlement();
     const action = event.target.closest("[data-settlement-action]");
