@@ -1700,13 +1700,55 @@ function downloadSettlementReportCsv() {
   const blob=new Blob(["\ufeff"+rows.join("\r\n")],{type:"text/csv;charset=utf-8"});
   triggerBrowserDownload(blob,"AJSF-Settlement-Report.csv",120000);
 }
+function settlementReportPrintHtml() {
+  const from = $("settlementReportFrom")?.value || "";
+  const to = $("settlementReportTo")?.value || from;
+  const collector = $("settlementReportCollector")?.selectedOptions?.[0]?.textContent || "सभी Collector";
+  const status = $("settlementReportStatus")?.selectedOptions?.[0]?.textContent || "सभी Status";
+  const totals = settlementReportData.reduce((sum,row) => {
+    const t=settlementReportTotals(row);
+    sum.expected+=t.expected; sum.deposited+=t.deposited; sum.difference+=t.difference;
+    return sum;
+  },{expected:0,deposited:0,difference:0});
+  const rows = settlementReportData.map(row => {
+    const t=settlementReportTotals(row);
+    return '<tr><td>'+esc(row.settlement_date)+'</td><td>'+esc(row.collector_name)+'</td><td>'+money(t.expected)+'</td><td>'+money(t.deposited)+'</td><td>'+money(t.difference)+'</td><td>'+money(row.expected_cash)+' / '+money(row.deposited_cash)+'</td><td>'+money(row.expected_upi)+' / '+money(row.deposited_upi)+'</td><td>'+money(row.expected_bank)+' / '+money(row.deposited_bank)+'</td><td>'+esc(row.status_label)+'</td></tr>';
+  }).join("");
+  return '<div class="settlement-print"><header><h2>ARK JAN SAMRIDDHI FOUNDATION</h2><h3>Daily Collection Settlement Report</h3><p>अवधि: '+esc(from)+' से '+esc(to)+' | Collector: '+esc(collector)+' | Status: '+esc(status)+'</p></header><section class="totals"><div><small>System Collection</small><b>'+money(totals.expected)+'</b></div><div><small>जमा राशि</small><b>'+money(totals.deposited)+'</b></div><div><small>अंतर</small><b>'+money(totals.difference)+'</b></div></section><table><thead><tr><th>तारीख</th><th>Collector</th><th>System Total</th><th>जमा Total</th><th>अंतर</th><th>Cash (System / जमा)</th><th>UPI (System / जमा)</th><th>Bank (System / जमा)</th><th>Status</th></tr></thead><tbody>'+rows+'</tbody></table><footer>Generated from AJSF Online</footer></div>';
+}
+async function downloadSettlementReportPdf() {
+  const button=$("downloadSettlementReportPdfBtn");
+  if (!settlementReportData.length) return showMessage("पहले रिपोर्ट देखें; डाउनलोड के लिए कोई रिकॉर्ड नहीं है।","warn");
+  setBusy(button,true,"PDF तैयार हो रही है…");
+  let area;
+  try {
+    area=document.createElement("div");
+    area.id="settlementReportPdfArea";
+    area.style.cssText="position:fixed;left:-12000px;top:0;width:1100px;padding:28px;background:#fff;color:#172923;font:14px Arial,sans-serif";
+    area.innerHTML=settlementReportPrintHtml()+'<style>.settlement-print h2{margin:0;color:#123f35;text-align:center;font-size:22px}.settlement-print h3{text-align:center;margin:5px 0 10px}.settlement-print header p{text-align:center;margin:6px 0 14px}.settlement-print .totals{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0}.settlement-print .totals div{padding:10px;border:1px solid #cbd8d0;background:#edf5f0}.settlement-print .totals small,.settlement-print .totals b{display:block}.settlement-print .totals b{font-size:18px;margin-top:4px}.settlement-print table{width:100%;border-collapse:collapse;font-size:11px}.settlement-print th,.settlement-print td{border:1px solid #9aa99f;padding:7px;text-align:left}.settlement-print th{background:#eaf2ed}.settlement-print footer{text-align:center;margin-top:12px;font-size:10px;color:#60756b}</style>';
+    document.body.appendChild(area);
+    await downloadElementPdf(area,"AJSF-Daily-Collection-Settlement.pdf",{fitOnePage:true,pageMarginMm:5});
+    showMessage("Daily Collection Settlement PDF डाउनलोड हो गई है।","success");
+  } catch(error) {
+    showMessage("Settlement PDF डाउनलोड नहीं हुई: "+(error?.message||String(error)),"error");
+  } finally { area?.remove(); setBusy(button,false); }
+}
 function printSettlementReport() {
   if (!settlementReportData.length) return showMessage("पहले रिपोर्ट देखें; Print के लिए कोई रिकॉर्ड नहीं है।","warn");
-  const table=$("settlementReportTable").outerHTML;
-  const w=window.open("","_blank");
-  if (!w) return showMessage("Print window खुल नहीं पाई। Browser में pop-up अनुमति दें।","warn");
-  w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>AJSF Settlement Report</title><style>body{font-family:Arial,sans-serif;padding:18px;color:#172b25}h2{margin-bottom:4px}table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #999;padding:6px;text-align:left}th{background:#eaf2ed}.no-print,button,input,select{display:none!important}@page{size:A4 landscape;margin:10mm}</style></head><body><h2>ARK JAN SAMRIDDHI FOUNDATION</h2><h3>Daily Collection Settlement Report</h3><p>Period: '+esc($("settlementReportFrom").value)+' to '+esc($("settlementReportTo").value)+'</p>'+table+'</body></html>');
-  w.document.close();w.focus();w.print();
+  openAjsfPrint("AJSF Daily Collection Settlement",settlementReportPrintHtml(),`
+    @page{size:A4 landscape;margin:8mm}
+    body{font-size:9pt}
+    .settlement-print h2{text-align:center;font-size:17pt;margin:0;color:#123f35}
+    .settlement-print h3{text-align:center;margin:4px 0 8px}
+    .settlement-print header p{text-align:center;margin:5px 0 10px}
+    .settlement-print .totals{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:8px 0}
+    .settlement-print .totals div{padding:7px;border:1px solid #cbd8d0;background:#edf5f0}
+    .settlement-print .totals small,.settlement-print .totals b{display:block}
+    .settlement-print .totals b{font-size:12pt;margin-top:3px}
+    .settlement-print table{font-size:8pt}
+    .settlement-print th,.settlement-print td{padding:5px}
+    .settlement-print footer{text-align:center;margin-top:8px;font-size:8pt}
+  `);
 }
 
 async function handleDailySettlementAction(button) {
@@ -1894,6 +1936,7 @@ async function boot() {
   $("settlementDate")?.addEventListener("change", loadDailySettlement);
   $("runSettlementReportBtn")?.addEventListener("click", loadSettlementReport);
   $("downloadSettlementReportBtn")?.addEventListener("click", downloadSettlementReportCsv);
+  $("downloadSettlementReportPdfBtn")?.addEventListener("click", downloadSettlementReportPdf);
   $("printSettlementReportBtn")?.addEventListener("click", printSettlementReport);
   const reportToday = localDateValue();
   const reportFrom = $("settlementReportFrom"), reportTo = $("settlementReportTo");
