@@ -47,7 +47,7 @@ function amountInWords(value, hindi=false) {
 const phone = (v) => { const s = String(v ?? "").trim(); return /^\d+\.0+$/.test(s) ? s.replace(/\.0+$/, "") : s; };
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 let supabase, currentUser, profile, customers = [], loans = [], payments = [], weeklyStatuses = [], advanceLedger = [], lastReceipt = null;
-let settlementCollectors = [], dailySettlements = [];
+let settlementCollectors = [], dailySettlements = [], receiptCancellationRequests = [];
 let offlineDbPromise;
 function offlineDb() {
   if (!("indexedDB" in window)) return Promise.reject(new Error("इस browser में offline storage उपलब्ध नहीं है।"));
@@ -288,6 +288,8 @@ async function loadAll() {
     if (!data || data.length < 1000) break;
   }
   try { await cacheSnapshot(`user:${currentUser.id}`, {customers, loans, payments, weeklyStatuses, advanceLedger}); } catch (cacheError) { console.warn("Offline cache unavailable", cacheError); }
+  const requestResult = await supabase.from("receipt_cancellation_requests").select("*").order("created_at",{ascending:false});
+  receiptCancellationRequests = requestResult.error ? [] : (requestResult.data || []);
   renderData();
   await applyMaturedAdvances();
   await syncQueuedPayments();
@@ -433,11 +435,12 @@ function renderData() {
   $("paymentRows").innerHTML = payments.map(p => {
     const c = customers.find(x => x.id === p.customer_id);
     const l = loans.find(x => x.id === p.loan_id);
-    return `<tr><td>${esc(p.id)}</td><td>${esc(formatDate(p.paid_at))}</td><td>${esc(c?.full_name || p.customer_id)}</td><td>${esc(l?.loan_reference || "—")}</td><td>${money(p.amount)}</td><td>${esc(p.payment_mode || "—")}</td></tr>`;
-  }).join("") || `<tr><td colspan="6" class="empty">अभी भुगतान उपलब्ध नहीं हैं।</td></tr>`;
+    return `<tr class="${p.is_reversal ? "muted" : ""}"><td>${esc((p.id || "").slice(0,8).toUpperCase())}</td><td>${esc(formatDate(p.paid_at))}</td><td>${esc(c?.full_name || p.customer_id)}</td><td>${esc(l?.loan_reference || "—")}</td><td>${money(p.amount)}</td><td>${esc(p.payment_mode || "—")}</td><td>${p.is_reversal ? (p.reverses_payment_id ? "Reversal Entry" : "रद्द") : `<button type="button" class="secondary receipt-cancel-request-btn" data-payment-id="${esc(p.id)}" ${p.offline_pending ? "disabled" : ""}>गलत रसीद की Request</button>`}</td></tr>`;
+  }).join("") || `<tr><td colspan="7" class="empty">अभी भुगतान उपलब्ध नहीं हैं।</td></tr>`;
   renderCustomerMIS();
   renderCollectorDemand();
   renderAdvanceBalanceInfo();
+  renderReceiptCancellationRequests();
 }
 
 
@@ -1147,6 +1150,59 @@ async function submitPayment(event) {
   await refreshConnectionStatus();
   showMessage("भुगतान सफलतापूर्वक सेव हुआ। रसीद नीचे उपलब्ध है।", "success");
 }
+async function renderReceiptCancellationRequests() {
+  const body = $("receiptCancellationRows");
+  if (!body) return;
+  const rows = receiptCancellationRequests.map(r => {
+    const payment = payments.find(p => p.id === r.payment_id);
+    const customer = customers.find(c => c.id === r.customer_id);
+    const collector = r.collector_id === currentUser?.id ? (profile?.full_name || "आप") : "Collector";
+    const status = r.status === "pending" ? "Pending" : r.status === "approved" ? "Approved / रद्द" : "Rejected";
+    const actions = canAdmin() && r.status === "pending"
+      ? `<button type="button" data-receipt-review="approve" data-request-id="${esc(r.id)}">Approve & Cancel</button> <button type="button" class="secondary" data-receipt-review="reject" data-request-id="${esc(r.id)}">Reject</button>`
+      : "";
+    return `<tr><td>${esc((r.payment_id || "").slice(0,8).toUpperCase())}</td><td>${esc(customer?.customer_code || "—")} · ${esc(customer?.full_name || "—")}</td><td>${money(payment?.amount)}</td><td>${esc(formatDate(r.created_at))}</td><td>${esc(r.reason)}</td><td>${esc(collector)}</td><td>${esc(status)}</td><td>${esc(r.admin_note || "—")}</td><td>${actions}</td></tr>`;
+  }).join("");
+  body.innerHTML = rows || `<tr><td colspan="9" class="empty">अभी कोई Receipt Cancellation Request नहीं है।</td></tr>`;
+}
+async function requestReceiptCancellation(paymentId) {
+  const payment = payments.find(p => p.id === paymentId);
+  if (!payment || payment.is_reversal || payment.offline_pending) return showMessage("यह रसीद Request के लिए उपलब्ध नहीं है।", "warn");
+  if (payment.collector_id !== currentUser.id) return showMessage("आप केवल अपनी दर्ज की गई रसीद की Request कर सकते हैं।", "warn");
+  const reason = window.prompt("रसीद गलत कटने का कारण लिखें (कम से कम 5 अक्षर):");
+  if (reason === null) return;
+  if (reason.trim().length < 5) return showMessage("कृपया गलती का पूरा कारण लिखें।", "warn");
+  const {error} = await supabase.from("receipt_cancellation_requests").insert({
+    payment_id:payment.id, customer_id:payment.customer_id, collector_id:currentUser.id, reason:reason.trim()
+  });
+  if (error) return showMessage("Request सेव नहीं हुई: " + error.message, "error");
+  const refreshed = await supabase.from("receipt_cancellation_requests").select("*").order("created_at",{ascending:false});
+  if (!refreshed.error) receiptCancellationRequests = refreshed.data || [];
+  renderReceiptCancellationRequests();
+  showMessage("Request Admin को भेज दी गई है। Admin की मंजूरी तक रसीद वैध रहेगी।", "success");
+}
+async function reviewReceiptCancellation(button) {
+  if (!canAdmin()) return showMessage("केवल Admin इस Request पर निर्णय ले सकता है।", "warn");
+  const decision = button.dataset.receiptReview;
+  const note = window.prompt(decision === "approve" ? "Approve करके रसीद रद्द करें? वैकल्पिक Admin Note लिखें:" : "Reject करने का कारण लिखें:");
+  if (note === null) return;
+  if (decision === "reject" && note.trim().length < 3) return showMessage("Reject करने का कारण लिखें।", "warn");
+  if (decision === "approve" && !window.confirm("पुष्टि करें: इस रसीद को Cancel किया जाएगा और हिसाब से हटाया जाएगा। मूल रिकॉर्ड सुरक्षित रहेगा।")) return;
+  setBusy(button,true,"प्रक्रिया…");
+  const {data,error}=await supabase.rpc("review_receipt_cancellation",{
+    p_request_id:button.dataset.requestId,p_decision:decision,p_admin_note:note.trim() || null
+  });
+  setBusy(button,false);
+  if (error) return showMessage("Request पर कार्रवाई नहीं हुई: "+error.message,"error");
+  await loadAll();
+  showMessage(decision === "approve" ? "रसीद Admin द्वारा Cancel कर दी गई। रिकॉर्ड सुरक्षित है।" : "Request Reject कर दी गई। रसीद वैध रहेगी।","success");
+}
+document.addEventListener("click", event => {
+  const requestBtn = event.target.closest(".receipt-cancel-request-btn");
+  if (requestBtn) { event.preventDefault(); requestReceiptCancellation(requestBtn.dataset.paymentId); return; }
+  const reviewBtn = event.target.closest("[data-receipt-review]");
+  if (reviewBtn) { event.preventDefault(); reviewReceiptCancellation(reviewBtn); }
+});
 function localDateValue() {
   const d = new Date();
   const offset = d.getTimezoneOffset();
