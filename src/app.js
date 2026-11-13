@@ -580,6 +580,16 @@ async function loadCustomerLedger() {
   const paid = paymentRows.reduce((s,p) => s + Number(p.amount || 0), 0);
   const importedCollected = customerLoans.reduce((s,l) => s + Number(l.source_total_collected || 0), 0);
   const totalCollected = importedCollected + paid;
+  const paymentTotalsByLoan = paymentRows.reduce((totals,p) => {
+    if (p.loan_id) totals[p.loan_id] = (totals[p.loan_id] || 0) + Number(p.amount || 0);
+    return totals;
+  }, {});
+  const totalLoanAmount = customerLoans.reduce((sum,l) => sum + Number(l.loan_amount || 0), 0);
+  const totalOutstanding = customerLoans.reduce((sum,l) => sum + loanFigures(l,paymentTotalsByLoan).outstanding, 0);
+  const loanBalanceRows = customerLoans.map(l => {
+    const figures = loanFigures(l,paymentTotalsByLoan);
+    return `<tr><td>${esc(l.loan_reference || "—")}</td><td>${money(l.loan_amount)}</td><td>${money(figures.collected)}</td><td><strong>${money(figures.outstanding)}</strong></td></tr>`;
+  }).join("") || `<tr><td colspan="4">इस ग्राहक का कोई Loan record उपलब्ध नहीं है।</td></tr>`;
   const transactionRows = paymentRows.map(p => {
     const loan = customerLoans.find(l => l.id === p.loan_id);
     return `<tr><td>${esc(formatDate(p.paid_at))}</td><td>${esc((p.id || p.client_tx_id || "").slice(0,8).toUpperCase())}</td><td>${esc(loan?.loan_reference || "—")}</td><td>${esc((p.payment_mode || "—").toUpperCase().replace("_"," "))}</td><td>${money(p.amount)}</td></tr>`;
@@ -587,9 +597,11 @@ async function loadCustomerLedger() {
   summary.innerHTML = `<div id="ledgerPrintArea">
     <div class="ledger-print-brand"><img src="./assets/ajsf-logo.png" alt="AJSF Logo" width="72" height="72" style="width:72px;height:72px;max-width:72px;max-height:72px;object-fit:contain;flex:0 0 72px"><div><h2>ARK JAN SAMRIDDHI FOUNDATION</h2><p>SAPNE AAPKE SATH HAMARA</p><strong>CUSTOMER PAYMENT LEDGER / भुगतान खाता</strong></div></div>
     <div class="ledger-print-customer"><span><small>Customer ID</small><b>${esc(customer?.customer_code || "—")}</b></span><span><small>Customer Name</small><b>${esc(customer?.full_name || "—")}</b></span><span><small>Center</small><b>${esc(customer?.center_name || "—")}</b></span><span><small>Mobile</small><b>${esc(phone(customer?.contact_number) || "—")}</b></span></div>
-    <div class="ledger-print-totals"><span><small>Recorded Transactions</small><b>${paymentRows.length.toLocaleString("en-IN")}</b></span><span><small>Total Payments Received</small><b>${money(paid)}</b></span><span><small>Imported Historical Collection</small><b>${money(importedCollected)}</b></span><span><small>All-time Collection</small><b>${money(totalCollected)}</b></span></div>
+    <div class="ledger-print-totals"><span><small>Total Loan Amount</small><b>${money(totalLoanAmount)}</b></span><span><small>All-time Collection</small><b>${money(totalCollected)}</b></span><span><small>Outstanding Balance / कुल बकाया</small><b>${money(totalOutstanding)}</b></span><span><small>Recorded Transactions</small><b>${paymentRows.length.toLocaleString("en-IN")}</b></span></div>
+    <h3>Loan-wise Outstanding Balance / लोन अनुसार बाकी राशि</h3>
+    <table id="ledgerLoanBalanceTable"><thead><tr><th>Loan Ref</th><th>Loan Amount</th><th>Total Collected</th><th>Remaining Balance</th></tr></thead><tbody>${loanBalanceRows}</tbody></table>
     <h3>Payment Transaction Register</h3>
-    <p class="small muted">यहाँ केवल सिस्टम में दर्ज वास्तविक भुगतान की तारीख, रसीद, Loan Ref, Mode और राशि दिखाई जाती है। Loan balance और EMI summary के लिए Loan Statement खोलें।</p>
+    <p class="small muted">Outstanding Balance में सभी चालू और पुराने Loan का शेष बकाया शामिल है। नीचे सिस्टम में दर्ज वास्तविक भुगतान की तारीख, रसीद, Loan Ref, Mode और राशि दी गई है।</p>
     <table id="ledgerPaymentTable"><thead><tr><th>Date</th><th>Receipt / Transaction</th><th>Loan Ref</th><th>Mode</th><th>Amount</th></tr></thead><tbody>${transactionRows}</tbody></table>
     <p class="ledger-generated">Statement Generated: ${new Date().toLocaleString("en-IN")}</p>
   </div>`;
