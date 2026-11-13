@@ -1587,32 +1587,101 @@ async function loadSettlementReport() {
   if (from > to) { showMessage("From Date, To Date से पहले होनी चाहिए।","warn"); return; }
   body.innerHTML = '<tr><td colspan="9" class="empty">रिपोर्ट लोड हो रही है…</td></tr>';
   try {
-    let query = supabase.from("daily_collection_settlements").select("*").gte("settlement_date",from).lte("settlement_date",to).order("settlement_date",{ascending:false});
-    if (collector) query = query.eq("collector_id",collector);
-    if (status) query = query.eq("status",status);
-    const {data,error} = await query;
-    if (error) throw error;
-    const records = data || [];
-    const ids = [...new Set(records.map(x=>x.collector_id))];
-    let names = {};
-    if (ids.length) {
-      const staff = await supabase.from("profiles").select("id,full_name,staff_code").in("id",ids);
-      if (staff.error) throw staff.error;
-      (staff.data||[]).forEach(x=>names[x.id] = x.full_name + (x.staff_code ? " ("+x.staff_code+")" : ""));
+    // Date boundaries are India-local because collection dates are recorded in IST.
+    const nextDay = new Date(to + "T00:00:00");
+    nextDay.setDate(nextDay.getDate() + 1);
+    const toExclusive = [nextDay.getFullYear(),String(nextDay.getMonth()+1).padStart(2,"0"),String(nextDay.getDate()).padStart(2,"0")].join("-");
+
+    const staffQuery = supabase.from("profiles").select("id,full_name,staff_code").eq("role","collector");
+    const [staffResult, settlementResult] = await Promise.all([
+      collector ? staffQuery.eq("id",collector) : staffQuery.order("full_name"),
+      supabase.from("daily_collection_settlements").select("*").gte("settlement_date",from).lte("settlement_date",to)
+        .order("settlement_date",{ascending:false})
+    ]);
+    if (staffResult.error) throw staffResult.error;
+    if (settlementResult.error) throw settlementResult.error;
+    const staffById = {};
+    (staffResult.data || []).forEach(x => { staffById[x.id] = x.full_name + (x.staff_code ? " ("+x.staff_code+")" : ""); });
+
+    // Read actual payments for the selected period, including older rows beyond the first 1,000.
+    let paymentRows = [];
+    for (let offset = 0; ; offset += 1000) {
+      let paymentQuery = supabase.from("payments").select("id,collector_id,amount,paid_at,created_at,payment_mode,is_reversal")
+        .gte("paid_at",from+"T00:00:00+05:30").lt("paid_at",toExclusive+"T00:00:00+05:30")
+        .order("paid_at",{ascending:true}).range(offset,offset+999);
+      if (collector) paymentQuery = paymentQuery.eq("collector_id",collector);
+      const result = await paymentQuery;
+      if (result.error) throw result.error;
+      paymentRows.push(...(result.data || []));
+      if (!result.data || result.data.length < 1000) break;
     }
-    settlementReportData = records.map(x=>({...x,collector_name:names[x.collector_id]||"Collector"}));
-    const sum = settlementReportData.reduce((a,x)=>{const t=settlementReportTotals(x);a.expected+=t.expected;a.deposited+=t.deposited;a.difference+=t.difference;if(x.status==="approved")a.approved++;else a.pending++;return a;},{expected:0,deposited:0,difference:0,approved:0,pending:0});
+
+    const rowsByKey = new Map();
+    const ensureRow = (date, collectorId) => {
+      const key = date+"|"+collectorId;
+      if (!rowsByKey.has(key)) rowsByKey.set(key,{
+        settlement_date:date,collector_id:collectorId,
+        collector_name:staffById[collectorId] || "Collector",
+        expected_cash:0,expected_upi:0,expected_bank:0,
+        deposited_cash:0,deposited_upi:0,deposited_bank:0,
+        status:"not_settled"
+      });
+      return rowsByKey.get(key);
+    };
+
+    // Actual collection comes from payments, not from saved settlement drafts.
+    paymentRows.forEach(p => {
+      if (p.is_reversal || !p.collector_id) return;
+      const date = settlementDateKey(p.paid_at || p.created_at);
+      if (!date || date < from || date > to) return;
+      const row = ensureRow(date,p.collector_id);
+      const mode = p.payment_mode || "cash";
+      const amount = Number(p.amount || 0);
+      if (mode === "cash") row.expected_cash += amount;
+      else if (mode === "upi") row.expected_upi += amount;
+      else if (mode === "bank_transfer") row.expected_bank += amount;
+    });
+
+    // Merge saved deposits and approval state without replacing payment-derived totals.
+    (settlementResult.data || []).forEach(saved => {
+      const row = ensureRow(saved.settlement_date,saved.collector_id);
+      row.deposited_cash = Number(saved.deposited_cash || 0);
+      row.deposited_upi = Number(saved.deposited_upi || 0);
+      row.deposited_bank = Number(saved.deposited_bank || 0);
+      row.status = saved.status === "approved" ? "approved" : "pending";
+      row.settlement_id = saved.id;
+      row.approved_at = saved.approved_at;
+    });
+
+    settlementReportData = [...rowsByKey.values()]
+      .filter(x => !collector || x.collector_id === collector)
+      .filter(x => !status || (status === "approved" ? x.status === "approved" : x.status !== "approved"))
+      .map(x => {
+        x.expected_cash = Math.round(x.expected_cash*100)/100;
+        x.expected_upi = Math.round(x.expected_upi*100)/100;
+        x.expected_bank = Math.round(x.expected_bank*100)/100;
+        x.status_label = x.status === "approved" ? "Approved" : x.status === "pending" ? "Pending / Draft" : "Not Settled";
+        return x;
+      })
+      .sort((a,b) => b.settlement_date.localeCompare(a.settlement_date) || a.collector_name.localeCompare(b.collector_name));
+
+    const sum = settlementReportData.reduce((a,x) => {
+      const t = settlementReportTotals(x);
+      a.expected += t.expected; a.deposited += t.deposited; a.difference += t.difference;
+      if (x.status === "approved") a.approved++; else a.pending++;
+      return a;
+    },{expected:0,deposited:0,difference:0,approved:0,pending:0});
     $("settlementReportExpected").textContent = money(sum.expected);
     $("settlementReportDeposited").textContent = money(sum.deposited);
     $("settlementReportDifference").textContent = money(sum.difference);
     $("settlementReportStatusCount").textContent = sum.approved+" / "+sum.pending;
-    body.innerHTML = settlementReportData.length ? settlementReportData.map(x=>{
-      const t=settlementReportTotals(x);
-      return '<tr><td>'+esc(x.settlement_date)+'</td><td>'+esc(x.collector_name)+'</td><td>'+money(t.expected)+'</td><td>'+money(t.deposited)+'</td><td>'+money(t.difference)+'</td><td>'+money(x.expected_cash)+' / '+money(x.deposited_cash)+'</td><td>'+money(x.expected_upi)+' / '+money(x.deposited_upi)+'</td><td>'+money(x.expected_bank)+' / '+money(x.deposited_bank)+'</td><td>'+ (x.status==="approved"?"Approved":"Pending") +'</td></tr>';
-    }).join("") : '<tr><td colspan="9" class="empty">इस अवधि में कोई Settlement रिकॉर्ड नहीं मिला।</td></tr>';
+    body.innerHTML = settlementReportData.length ? settlementReportData.map(x => {
+      const t = settlementReportTotals(x);
+      return '<tr><td>'+esc(x.settlement_date)+'</td><td>'+esc(x.collector_name)+'</td><td>'+money(t.expected)+'</td><td>'+money(t.deposited)+'</td><td>'+money(t.difference)+'</td><td>'+money(x.expected_cash)+' / '+money(x.deposited_cash)+'</td><td>'+money(x.expected_upi)+' / '+money(x.deposited_upi)+'</td><td>'+money(x.expected_bank)+' / '+money(x.deposited_bank)+'</td><td>'+esc(x.status_label)+'</td></tr>';
+    }).join("") : '<tr><td colspan="9" class="empty">इस अवधि में कोई Collection या Settlement रिकॉर्ड नहीं मिला।</td></tr>';
   } catch(error) {
-    settlementReportData=[];
-    body.innerHTML='<tr><td colspan="9" class="empty">रिपोर्ट नहीं खुली: '+esc(error?.message||String(error))+'</td></tr>';
+    settlementReportData = [];
+    body.innerHTML = '<tr><td colspan="9" class="empty">रिपोर्ट नहीं खुली: '+esc(error?.message||String(error))+'</td></tr>';
     showMessage("Settlement Report लोड नहीं हुई।","error");
   }
 }
