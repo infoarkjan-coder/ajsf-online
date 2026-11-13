@@ -1605,8 +1605,18 @@ function loadDayDemandReport(){
  $("dayDemandReceipts").innerHTML=receiptRows.map(p=>{const c=customerById.get(p.customer_id),l=loans.find(x=>x.id===p.loan_id);return '<tr><td>'+esc((p.id||p.client_tx_id||"").slice(0,8).toUpperCase())+'</td><td>'+esc(c?.full_name||"—")+'</td><td>'+esc(l?.loan_reference||"—")+'</td><td>'+esc(p.payment_mode||"—")+'</td><td>'+money(p.amount)+'</td></tr>';}).join("")||'<tr><td colspan="5" class="empty">इस तारीख की कोई Receipt नहीं मिली।</td></tr>';
  const dueHtml=r=>'<tr><td>'+esc(formatCustomerId(r.customer.customer_code))+'</td><td>'+esc(r.customer.full_name||"—")+'</td><td>'+esc(r.customer.center_name||"—")+'</td><td>'+esc(r.loan.loan_reference||"—")+'</td><td>'+r.emi+'</td><td>'+esc(r.dueDate)+'</td><td>'+money(r.demand)+'</td><td>'+money(r.received)+'</td><td><strong>'+money(r.remaining)+'</strong></td></tr>';
  $("dayDemandPendingRows").innerHTML=dueRows.map(dueHtml).join("")||'<tr><td colspan="9" class="empty">इस दिन कोई Pending Customer नहीं है।</td></tr>';
- $("dayDemandOdRows").innerHTML=odRows.map(r=>'<tr><td>'+esc(formatCustomerId(r.customer.customer_code))+'</td><td>'+esc(r.customer.full_name||"—")+'</td><td>'+esc(r.customer.center_name||"—")+'</td><td>'+esc(r.loan.loan_reference||"—")+'</td><td>'+r.emi+'</td><td>'+esc(r.dueDate)+'</td><td><strong>'+money(r.remaining)+'</strong></td></tr>').join("")||'<tr><td colspan="7" class="empty">कोई पुराना OD नहीं है।</td></tr>';
- dayDemandReport={date,selectedDay,totalDemand,received,pending,od,dueRows,odRows,receiptRows};
+ const odByCustomer=new Map();
+ odRows.forEach(r=>{
+  const key=r.customer.id;
+  if(!odByCustomer.has(key))odByCustomer.set(key,{customer:r.customer,rows:[],loanRefs:new Set(),total:0});
+  const group=odByCustomer.get(key);group.rows.push(r);group.loanRefs.add(r.loan.loan_reference||"—");group.total=rupee(group.total+r.remaining);
+ });
+ const odCustomerRows=[...odByCustomer.values()].sort((a,b)=>String(a.customer.full_name||"").localeCompare(String(b.customer.full_name||"")));
+ $("dayDemandOdRows").innerHTML=odCustomerRows.map((g,index)=>{
+  const detailRows=g.rows.map(r=>'<tr><td>'+esc(r.loan.loan_reference||"—")+'</td><td>'+r.emi+'</td><td>'+esc(r.dueDate)+'</td><td>'+money(r.remaining)+'</td></tr>').join("");
+  return '<tr><td>'+esc(formatCustomerId(g.customer.customer_code))+'</td><td>'+esc(g.customer.full_name||"—")+'</td><td>'+esc(g.customer.center_name||"—")+'</td><td>'+g.loanRefs.size+'</td><td>'+g.rows.length+'</td><td><strong>'+money(g.total)+'</strong></td><td><details><summary>'+g.rows.length+' EMI देखें</summary><div class="od-detail"><table><thead><tr><th>Loan Ref</th><th>EMI No.</th><th>Due Date</th><th>बाकी</th></tr></thead><tbody>'+detailRows+'</tbody></table></div></details></td></tr>';
+ }).join("")||'<tr><td colspan="7" class="empty">कोई पुराना OD नहीं है।</td></tr>';
+ dayDemandReport={date,selectedDay,totalDemand,received,pending,od,dueRows,odRows,odCustomerRows,receiptRows};
 }
 function printDayDemandReport(){
  if(!dayDemandReport)loadDayDemandReport();if(!dayDemandReport)return;const r=dayDemandReport;
