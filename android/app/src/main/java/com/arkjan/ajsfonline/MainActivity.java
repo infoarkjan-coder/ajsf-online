@@ -92,6 +92,29 @@ public class MainActivity extends Activity {
             }
 
             @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                // APK-only UI cleanup. The hosted website remains unchanged.
+                view.evaluateJavascript("(function() {" +
+                        "var labels = ['तीन Admin Login बनाएं', 'Customer Login बनाएं'];" +
+                        "var hideAjsfButtons = function() {" +
+                        "document.querySelectorAll('button,[role=button],a').forEach(function(el) {" +
+                        "var label = (el.innerText || el.textContent || '').replace(/\\\\s+/g, ' ').trim();" +
+                        "if (labels.some(function(item) { return label.indexOf(item) !== -1; })) {" +
+                        "el.style.setProperty('display', 'none', 'important');" +
+                        "el.setAttribute('aria-hidden', 'true');" +
+                        "}" +
+                        "});" +
+                        "};" +
+                        "hideAjsfButtons();" +
+                        "if (!window.__ajsfApkHideObserver && document.documentElement) {" +
+                        "window.__ajsfApkHideObserver = new MutationObserver(hideAjsfButtons);" +
+                        "window.__ajsfApkHideObserver.observe(document.documentElement, {childList:true, subtree:true, characterData:true});" +
+                        "}" +
+                        "})()", null);
+            }
+
+            @Override
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
                 if (request.isForMainFrame()) {
                     Toast.makeText(MainActivity.this, "इंटरनेट कनेक्शन जाँचें और दोबारा कोशिश करें", Toast.LENGTH_LONG).show();
