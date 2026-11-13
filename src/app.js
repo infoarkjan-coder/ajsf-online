@@ -1181,6 +1181,22 @@ async function loadReceiptLibrary(src, test) {
   }
   throw new Error("PDF बनाने की लाइब्रेरी इंटरनेट से लोड नहीं हुई। इंटरनेट जाँचें और दोबारा प्रयास करें। " + (lastError?.message || ""));
 }
+function triggerBrowserDownload(blob, fileName, revokeAfterMs = 120000) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  link.setAttribute("download", fileName);
+  link.style.position = "fixed";
+  link.style.left = "-10000px";
+  link.style.top = "0";
+  document.body.appendChild(link);
+  link.click();
+  setTimeout(() => {
+    link.remove();
+    URL.revokeObjectURL(url);
+  }, revokeAfterMs);
+}
 async function downloadElementPdf(element, fileName, options = {}) {
   if (!element || !element.innerHTML.trim()) throw new Error("पहले संबंधित विवरण तैयार करें।");
   await loadReceiptLibrary("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js", () => typeof window.html2canvas === "function");
@@ -1431,13 +1447,7 @@ async function downloadElementPdf(element, fileName, options = {}) {
     if (result && result !== "OK") throw new Error(String(result));
     if (result === "OK" || result === undefined || result === null) return;
   }
-  const url = URL.createObjectURL(blob), a = document.createElement("a");
-  a.href=url; a.download=fileName; a.type="application/pdf";
-  a.style.position="fixed"; a.style.left="-10000px";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url),120000);
+  triggerBrowserDownload(blob,fileName,120000);
 }
 async function handleDocumentPdf(buttonId, elementId, fileName, successMessage, options = {}) {
   const button = $(buttonId);
@@ -1475,15 +1485,7 @@ async function downloadReceiptPdf() {
       const result = window.AJSFNativeDownload.saveBase64(btoa(binary), file.name, file.type);
       if (result !== "OK") throw new Error(result || "Android में PDF सेव नहीं हो पाई।");
     } else {
-      const url = URL.createObjectURL(file);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = file.name;
-      a.style.display = "none";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url),60000);
+      triggerBrowserDownload(file,file.name,120000);
     }
     showMessage("रसीद PDF Downloads में सेव हो गई है। अब इसे किसी भी ऐप से भेज सकते हैं।","success");
   } catch(error) {
@@ -1696,8 +1698,7 @@ function downloadSettlementReportCsv() {
     rows.push(columns.map(c=>quote(values[c[1]])).join(","));
   });
   const blob=new Blob(["\ufeff"+rows.join("\r\n")],{type:"text/csv;charset=utf-8"});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement("a");a.href=url;a.download="AJSF-Settlement-Report.csv";document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+  triggerBrowserDownload(blob,"AJSF-Settlement-Report.csv",120000);
 }
 function printSettlementReport() {
   if (!settlementReportData.length) return showMessage("पहले रिपोर्ट देखें; Print के लिए कोई रिकॉर्ड नहीं है।","warn");
