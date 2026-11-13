@@ -359,7 +359,7 @@ function renderCollectorDemand() {
   $("collectorDemandLoanCount").textContent = rows.length.toLocaleString("en-IN");
   $("collectorDemandPeriod").textContent = isMonthly ? "इस महीने की शेष मांग" : "इस सप्ताह की शेष मांग";
   body.innerHTML = rows.map(row => `<tr>
-    <td>${esc(row.customer.customer_code || "—")}</td>
+    <td>${esc(formatCustomerId(row.customer.customer_code))}</td>
     <td><strong>${esc(row.customer.full_name || "—")}</strong><small class="demand-subline">${esc(row.customer.contact_number || "")}</small></td>
     <td>${esc(row.customer.center_name || "—")}</td>
     <td>${esc(row.loan.loan_reference || "—")}</td>
@@ -386,7 +386,7 @@ function renderData() {
     String(a.center_name || "").localeCompare(String(b.center_name || "")) ||
     String(a.full_name || "").localeCompare(String(b.full_name || ""))
   );
-  $("customerRows").innerHTML = customerRegisterRows.map((c,i) => "<tr data-center=\"" + esc(c.center_name || "") + "\" data-day=\"" + esc(c.collection_day || "") + "\"><td>" + (i+1) + "</td><td>" + esc(c.center_name || "—") + "</td><td>" + esc(c.full_name || "—") + "</td><td>" + esc(phone(c.contact_number) || "—") + "</td><td>" + esc(c.customer_code || "—") + "</td><td>" + esc(c.area || "—") + "</td><td>" + esc(c.address || "—") + "</td><td>" + esc(c.collection_day || "—") + "</td><td>" + esc(c.customer_status || "—") + "</td><td>" + (canAdmin() ? "<button type=\"button\" class=\"customer-remove secondary\" data-customer-id=\"" + esc(c.id) + "\">हटाएँ</button>" : "—") + "</td></tr>").join("") || "<tr><td colspan=\"10\" class=\"empty\">कोई ग्राहक नहीं मिला।</td></tr>";
+  $("customerRows").innerHTML = customerRegisterRows.map((c,i) => "<tr data-center=\"" + esc(c.center_name || "") + "\" data-day=\"" + esc(c.collection_day || "") + "\"><td>" + (i+1) + "</td><td>" + esc(c.center_name || "—") + "</td><td>" + esc(c.full_name || "—") + "</td><td>" + esc(phone(c.contact_number) || "—") + "</td><td>" + esc(formatCustomerId(c.customer_code)) + "</td><td>" + esc(c.area || "—") + "</td><td>" + esc(c.address || "—") + "</td><td>" + esc(c.collection_day || "—") + "</td><td>" + esc(c.customer_status || "—") + "</td><td>" + (canAdmin() ? "<button type=\"button\" class=\"customer-remove secondary\" data-customer-id=\"" + esc(c.id) + "\">हटाएँ</button>" : "—") + "</td></tr>").join("") || "<tr><td colspan=\"10\" class=\"empty\">कोई ग्राहक नहीं मिला।</td></tr>";
   // Bind actions directly on each freshly-rendered button; avoid delegated capture handlers.
   $("customerRows").querySelectorAll(".customer-account-create").forEach(button => {
     button.onclick = event => {
@@ -412,7 +412,7 @@ function renderData() {
   const loanFilter = $("loanCustomerFilter");
   if (loanFilter) {
     const selectedLoanCustomer = loanFilter.value;
-    loanFilter.innerHTML = '<option value="">सभी ग्राहक</option>' + operationalCustomers.map(c => `<option value="${esc(c.id)}">${esc(c.customer_code || "")} · ${esc(c.full_name || "")}</option>`).join("");
+    loanFilter.innerHTML = '<option value="">सभी ग्राहक</option>' + operationalCustomers.map(c => `<option value="${esc(c.id)}">${esc(formatCustomerId(c.customer_code))} · ${esc(c.full_name || "")}</option>`).join("");
     if (customers.some(c => c.id === selectedLoanCustomer)) loanFilter.value = selectedLoanCustomer;
   }
   const loanCustomerId = loanFilter?.value || "";
@@ -421,7 +421,7 @@ function renderData() {
     const f = loanFigures(l, totalsByLoan);
     return `<tr><td>${esc(l.loan_reference)}</td><td>${esc(c?.full_name || l.customer_id)}</td><td>${esc(l.loan_type)}</td><td>${money(l.loan_amount)}</td><td>${money(l.emi_amount)}</td><td>${esc(l.total_emis_required)}</td><td>${money(f.collected)}</td><td>${money(f.outstanding)}</td><td>${esc(l.status)}</td></tr>`;
   }).join("") || `<tr><td colspan="9" class="empty">कोई लोन रिकॉर्ड नहीं मिला।</td></tr>`;
-  const customerOptions = `<option value="">ग्राहक चुनें</option>` + operationalCustomers.map(c => `<option value="${esc(c.id)}">${esc(c.customer_code)} · ${esc(c.full_name)}</option>`).join("");
+  const customerOptions = `<option value="">ग्राहक चुनें</option>` + operationalCustomers.map(c => `<option value="${esc(c.id)}">${esc(formatCustomerId(c.customer_code))} · ${esc(c.full_name)}</option>`).join("");
   $("reminderCustomer").innerHTML = customerOptions;
   updateReminderLoanOptions();
   $("payCustomer").innerHTML = customerOptions;
@@ -494,7 +494,7 @@ function renderCustomerMIS() {
   const term = ($("misSearch")?.value || "").trim().toLowerCase();
   const rows = customers.filter(c => (!statusFilter || (c.customer_status || "ACTIVE") === statusFilter) &&
     (!term || [c.customer_code,c.full_name,c.center_name,c.contact_number].some(v => String(v || "").toLowerCase().includes(term))));
-  body.innerHTML = rows.map(c => `<tr data-mis-customer="${esc(c.id)}"><td>${esc(c.customer_code || "—")}</td><td>${esc(c.full_name || "—")}</td><td>${esc(c.center_name || "—")}</td><td>${esc(phone(c.contact_number) || "—")}</td><td><select class="mis-status" ${canAdmin() ? "" : "disabled"}><option value="ACTIVE" ${(c.customer_status || "ACTIVE")==="ACTIVE"?"selected":""}>ACTIVE</option><option value="ABSCONDED" ${c.customer_status==="ABSCONDED"?"selected":""}>ABSCONDED</option><option value="DECEASED" ${c.customer_status==="DECEASED"?"selected":""}>DECEASED</option></select>${c.is_active === false ? '<small class="inactive-flag">INACTIVE</small>' : ""}</td><td><input class="mis-date" type="date" value="${esc(c.status_changed_at || "")}" ${canAdmin()?"":"disabled"}></td><td><input class="mis-reason" value="${esc(c.status_reason || "")}" placeholder="जैसे: संपर्क नहीं / मृत्यु" ${canAdmin()?"":"disabled"}></td><td><input class="mis-notes" value="${esc(c.status_notes || "")}" placeholder="विवरण" ${canAdmin()?"":"disabled"}></td><td><div class="mis-actions"><button type="button" class="mis-save" ${canAdmin()?"":"disabled"}>सेव</button>${canAdmin() ? `<button type="button" class="customer-remove secondary" data-customer-id="${esc(c.id)}">हटाएँ</button>` : ""}</div></td></tr>`).join("") || `<tr><td colspan="9" class="empty">कोई रिकॉर्ड नहीं मिला।</td></tr>`;
+  body.innerHTML = rows.map(c => `<tr data-mis-customer="${esc(c.id)}"><td>${esc(formatCustomerId(c.customer_code))}</td><td>${esc(c.full_name || "—")}</td><td>${esc(c.center_name || "—")}</td><td>${esc(phone(c.contact_number) || "—")}</td><td><select class="mis-status" ${canAdmin() ? "" : "disabled"}><option value="ACTIVE" ${(c.customer_status || "ACTIVE")==="ACTIVE"?"selected":""}>ACTIVE</option><option value="ABSCONDED" ${c.customer_status==="ABSCONDED"?"selected":""}>ABSCONDED</option><option value="DECEASED" ${c.customer_status==="DECEASED"?"selected":""}>DECEASED</option></select>${c.is_active === false ? '<small class="inactive-flag">INACTIVE</small>' : ""}</td><td><input class="mis-date" type="date" value="${esc(c.status_changed_at || "")}" ${canAdmin()?"":"disabled"}></td><td><input class="mis-reason" value="${esc(c.status_reason || "")}" placeholder="जैसे: संपर्क नहीं / मृत्यु" ${canAdmin()?"":"disabled"}></td><td><input class="mis-notes" value="${esc(c.status_notes || "")}" placeholder="विवरण" ${canAdmin()?"":"disabled"}></td><td><div class="mis-actions"><button type="button" class="mis-save" ${canAdmin()?"":"disabled"}>सेव</button>${canAdmin() ? `<button type="button" class="customer-remove secondary" data-customer-id="${esc(c.id)}">हटाएँ</button>` : ""}</div></td></tr>`).join("") || `<tr><td colspan="9" class="empty">कोई रिकॉर्ड नहीं मिला।</td></tr>`;
 }
 async function createCustomerPortalAccount(customerId, button) {
   if (!canAdmin()) return showMessage("Customer Login बनाने का अधिकार केवल Admin को है।", "warn");
@@ -504,7 +504,7 @@ async function createCustomerPortalAccount(customerId, button) {
   if (!/^[0-9]{10}$/.test(String(customer.contact_number || "").replace(/[^0-9]/g, ""))) {
     return showMessage("पहले ग्राहक का सही 10 अंकों का मोबाइल नंबर Customer Register में अपडेट करें।", "warn");
   }
-  if (!window.confirm(`${customer.full_name} (${customer.customer_code}) के लिए Customer Portal Login बनाना है? Login ID उनका registered mobile number होगा।`)) return;
+  if (!window.confirm(`${customer.full_name} (${formatCustomerId(customer.customer_code)}) के लिए Customer Portal Login बनाना है? Login ID उनका registered mobile number होगा।`)) return;
   setBusy(button, true, "Login बन रहा है…");
   try {
     const { data, error } = await supabase.functions.invoke("admin-create-customer-account", { body: { customer_id: customerId } });
@@ -525,7 +525,7 @@ async function removeCustomerRecord(customerId, button) {
   if (!navigator.onLine) return showMessage("ग्राहक हटाने के लिए इंटरनेट कनेक्शन आवश्यक है।", "warn");
   const customer = customers.find(c => c.id === customerId);
   if (!customer) return showMessage("ग्राहक रिकॉर्ड नहीं मिला। Refresh करके दोबारा प्रयास करें।", "error");
-  const confirmed = window.confirm(`क्या आप ग्राहक ${customer.full_name} (${customer.customer_code}) को हटाना चाहते हैं?\n\nयदि Loan या Payment रिकॉर्ड मौजूद है, तो ग्राहक केवल INACTIVE होगा और पुराना हिसाब सुरक्षित रहेगा। बिना Loan/Payment रिकॉर्ड के ही Permanent Delete होगा।\n\nक्या आगे बढ़ें?`);
+  const confirmed = window.confirm(`क्या आप ग्राहक ${customer.full_name} (${formatCustomerId(customer.customer_code)}) को हटाना चाहते हैं?\n\nयदि Loan या Payment रिकॉर्ड मौजूद है, तो ग्राहक केवल INACTIVE होगा और पुराना हिसाब सुरक्षित रहेगा। बिना Loan/Payment रिकॉर्ड के ही Permanent Delete होगा।\n\nक्या आगे बढ़ें?`);
   if (!confirmed) return;
   setBusy(button, true, "प्रक्रिया जारी…");
   const { data, error } = await supabase.rpc("admin_remove_customer", { p_customer_id: customerId });
@@ -599,7 +599,7 @@ async function loadCustomerLedger() {
   }).join("") || `<tr><td colspan="5" class="empty">इस ग्राहक का कोई नया payment transaction उपलब्ध नहीं है।</td></tr>`;
   summary.innerHTML = `<div id="ledgerPrintArea">
     <div class="ledger-print-brand"><img src="./assets/ajsf-logo.png" alt="AJSF Logo" width="72" height="72" style="width:72px;height:72px;max-width:72px;max-height:72px;object-fit:contain;flex:0 0 72px"><div><h2>ARK JAN SAMRIDDHI FOUNDATION</h2><p>SAPNE AAPKE SATH HAMARA</p><strong>CUSTOMER PAYMENT LEDGER / भुगतान खाता</strong></div></div>
-    <div class="ledger-print-customer"><span><small>Customer ID</small><b>${esc(customer?.customer_code || "—")}</b></span><span><small>Customer Name</small><b>${esc(customer?.full_name || "—")}</b></span><span><small>Center</small><b>${esc(customer?.center_name || "—")}</b></span><span><small>Mobile</small><b>${esc(phone(customer?.contact_number) || "—")}</b></span></div>
+    <div class="ledger-print-customer"><span><small>Customer ID</small><b>${esc(formatCustomerId(customer?.customer_code))}</b></span><span><small>Customer Name</small><b>${esc(customer?.full_name || "—")}</b></span><span><small>Center</small><b>${esc(customer?.center_name || "—")}</b></span><span><small>Mobile</small><b>${esc(phone(customer?.contact_number) || "—")}</b></span></div>
     <div class="ledger-print-totals"><span><small>Total Loan Amount</small><b>${money(totalLoanAmount)}</b></span><span><small>All-time Collection</small><b>${money(totalCollected)}</b></span><span><small>Outstanding Balance / कुल बकाया</small><b>${money(totalOutstanding)}</b></span><span><small>Recorded Transactions</small><b>${paymentRows.length.toLocaleString("en-IN")}</b></span></div>
     <h3>Loan-wise Outstanding Balance / लोन अनुसार बाकी राशि</h3>
     <table id="ledgerLoanBalanceTable"><thead><tr><th>Loan Ref</th><th>Loan Amount</th><th>Total Collected</th><th>Remaining Balance</th></tr></thead><tbody>${loanBalanceRows}</tbody></table>
@@ -625,7 +625,7 @@ function filterScheduleCustomers() {
   const current = select.value;
   select.innerHTML = `<option value="">ग्राहक चुनें</option>` + customers
     .filter(c => !q || [c.customer_code,c.full_name,c.contact_number,c.center_name].some(v => String(v || "").toLocaleLowerCase().includes(q)))
-    .map(c => `<option value="${esc(c.id)}">${esc(c.customer_code || "")} · ${esc(c.full_name || "")} · ${esc(phone(c.contact_number))}</option>`).join("");
+    .map(c => `<option value="${esc(c.id)}">${esc(formatCustomerId(c.customer_code))} · ${esc(c.full_name || "")} · ${esc(phone(c.contact_number))}</option>`).join("");
   if (Array.from(select.options).some(o => o.value === current)) select.value = current;
 }
 function populateScheduleLoans() {
@@ -685,7 +685,7 @@ function renderRepaymentSchedule() {
       <h2 class="repayment-customer-title">CUSTOMER DETAILS / ग्राहक विवरण</h2>
       <div class="repayment-customer">
         <div><small>Customer Name / ग्राहक का नाम</small><b>${esc(customer?.full_name || "—")}</b></div>
-        <div><small>Customer ID / ग्राहक आईडी</small><b>${esc(customer?.customer_code || "—")}</b></div>
+        <div><small>Customer ID / ग्राहक आईडी</small><b>${esc(formatCustomerId(customer?.customer_code))}</b></div>
         <div><small>Mobile Number / मोबाइल</small><b>${esc(phone(customer?.contact_number) || "—")}</b></div>
         <div><small>Center Name / केंद्र</small><b>${esc(customer?.center_name || "—")}</b></div>
         <div><small>Loan Reference / लोन नंबर</small><b>${esc(loan.loan_reference || "—")}</b></div>
@@ -738,7 +738,7 @@ function filterLedgerCustomers() {
   const current = select.value;
   select.innerHTML = `<option value="">ग्राहक चुनें</option>` + customers
     .filter(c => !q || [c.customer_code,c.full_name,c.contact_number,c.center_name].some(v => String(v || "").toLocaleLowerCase().includes(q)))
-    .map(c => `<option value="${esc(c.id)}">${esc(c.customer_code || "")} · ${esc(c.full_name || "")} · ${esc(phone(c.contact_number))}</option>`).join("");
+    .map(c => `<option value="${esc(c.id)}">${esc(formatCustomerId(c.customer_code))} · ${esc(c.full_name || "")} · ${esc(phone(c.contact_number))}</option>`).join("");
   if (Array.from(select.options).some(o => o.value === current)) select.value = current;
 }
 function printCustomerLedger() {
@@ -780,7 +780,7 @@ function filterStatementCustomers() {
   const current = select.value;
   select.innerHTML = `<option value="">ग्राहक चुनें</option>` + customers
     .filter(c => !q || [c.customer_code,c.full_name,c.contact_number,c.center_name].some(v => String(v || "").toLocaleLowerCase().includes(q)))
-    .map(c => `<option value="${esc(c.id)}">${esc(c.customer_code)} · ${esc(c.full_name)} · ${esc(phone(c.contact_number))}</option>`).join("");
+    .map(c => `<option value="${esc(c.id)}">${esc(formatCustomerId(c.customer_code))} · ${esc(c.full_name)} · ${esc(phone(c.contact_number))}</option>`).join("");
   if (customers.some(c => c.id === current) && Array.from(select.options).some(o => o.value === current)) select.value = current;
 }
 function renderCustomerStatement() {
@@ -806,7 +806,7 @@ function renderCustomerStatement() {
   root.innerHTML = `<div id="statementPrintArea">
     <div class="statement-brand"><img src="./assets/ajsf-logo.png" alt="AJSF Logo" width="72" height="72" style="width:72px;height:72px;max-width:72px;max-height:72px;object-fit:contain;flex:0 0 72px"><div><h1>ARK JAN SAMRIDDHI FOUNDATION</h1><p>SAPNE AAPKE SATH HAMARA</p></div></div>
     <h2 class="statement-title">CUSTOMER LOAN STATEMENT / ग्राहक ऋण विवरण</h2>
-    <div class="statement-customer"><div><small>Customer ID</small><b>${esc(customer?.customer_code)}</b></div><div><small>Customer Name</small><b>${esc(customer?.full_name)}</b></div><div><small>Center</small><b>${esc(customer?.center_name || "—")}</b></div><div><small>Mobile</small><b>${esc(phone(customer?.contact_number) || "—")}</b></div><div><small>Collection Day</small><b>${esc(customer?.collection_day || "—")}</b></div></div>
+    <div class="statement-customer"><div><small>Customer ID</small><b>${esc(formatCustomerId(customer?.customer_code))}</b></div><div><small>Customer Name</small><b>${esc(customer?.full_name)}</b></div><div><small>Center</small><b>${esc(customer?.center_name || "—")}</b></div><div><small>Mobile</small><b>${esc(phone(customer?.contact_number) || "—")}</b></div><div><small>Collection Day</small><b>${esc(customer?.collection_day || "—")}</b></div></div>
     <div class="statement-totals"><div><small>Total Loan Amount</small><b>${money(totalLoan)}</b></div><div><small>Total Collected</small><b>${money(totalCollected)}</b></div><div><small>Outstanding (OSP)</small><b>${money(totalOutstanding)}</b></div></div>
     <h3>Loan Details</h3><div class="tablewrap"><table><thead><tr><th>Loan Ref</th><th>Disbursement</th><th>Loan Amount</th><th>Weekly EMI</th><th>Terms</th><th>Total Collected</th><th>Outstanding</th><th>Status</th></tr></thead><tbody>${loanRows}</tbody></table></div>
     <h3>Payment History</h3><div class="tablewrap"><table><thead><tr><th>Payment Date</th><th>Receipt No.</th><th>Loan Ref</th><th>Mode</th><th>Amount</th><th>Remarks</th></tr></thead><tbody>${paymentRows}</tbody></table></div>
@@ -856,6 +856,8 @@ async function submitCustomer(event) {
   if (error) return showMessage("ग्राहक सेव नहीं हुआ: " + error.message, "error");
   form.reset(); await loadAll(); showMessage("ग्राहक सफलतापूर्वक सेव हुआ।", "success");
 }
+
+function formatCustomerId(value) { const raw=String(value ?? "").trim(); if(!raw) return "—"; return /^AJSF/i.test(raw) ? raw : "AJSF" + raw; }
 
 function formatDate(value) {
   if (!value) return "—";
@@ -1060,7 +1062,7 @@ function showReceipt(payment, customer, loan) {
     <div class="receipt-title">PAYMENT RECEIPT <span>रसीद</span></div>
     <div class="receipt-meta"><span>Receipt No.: <b>${esc(receiptNo)}</b></span><span>Date: <b>${esc(formatDate(payment.paid_at))}</b></span></div>
     <div class="receipt-grid">
-      <div><small>Customer ID</small><b>${esc(customer.customer_code)}</b></div>
+      <div><small>Customer ID</small><b>${esc(formatCustomerId(customer.customer_code))}</b></div>
       <div><small>Customer Name</small><b>${esc(customer.full_name)}</b></div>
       <div><small>Center</small><b>${esc(customer.center_name || "—")}</b></div>
       <div><small>Mobile</small><b>${esc(phone(customer.contact_number) || "—")}</b></div>
@@ -1161,7 +1163,7 @@ async function renderReceiptCancellationRequests() {
     const actions = canAdmin() && r.status === "pending"
       ? `<button type="button" data-receipt-review="approve" data-request-id="${esc(r.id)}">Approve & Cancel</button> <button type="button" class="secondary" data-receipt-review="reject" data-request-id="${esc(r.id)}">Reject</button>`
       : "";
-    return `<tr><td>${esc((r.payment_id || "").slice(0,8).toUpperCase())}</td><td>${esc(customer?.customer_code || "—")} · ${esc(customer?.full_name || "—")}</td><td>${money(payment?.amount)}</td><td>${esc(formatDate(r.created_at))}</td><td>${esc(r.reason)}</td><td>${esc(collector)}</td><td>${esc(status)}</td><td>${esc(r.admin_note || "—")}</td><td>${actions}</td></tr>`;
+    return `<tr><td>${esc((r.payment_id || "").slice(0,8).toUpperCase())}</td><td>${esc(formatCustomerId(customer?.customer_code))} · ${esc(customer?.full_name || "—")}</td><td>${money(payment?.amount)}</td><td>${esc(formatDate(r.created_at))}</td><td>${esc(r.reason)}</td><td>${esc(collector)}</td><td>${esc(status)}</td><td>${esc(r.admin_note || "—")}</td><td>${actions}</td></tr>`;
   }).join("");
   body.innerHTML = rows || `<tr><td colspan="9" class="empty">अभी कोई Receipt Cancellation Request नहीं है।</td></tr>`;
 }
