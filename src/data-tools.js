@@ -440,15 +440,22 @@ async function importCustomers(event) {
     say("Excel जाँची जा रही है…");
     const bytes=await file.arrayBuffer();
     const wb=XLSX.read(bytes,{type:"array",cellDates:false});
-    const sheet=wb.Sheets[wb.SheetNames[0]];
-    const raw=XLSX.utils.sheet_to_json(sheet,{defval:"",raw:false});
+    const preferredSheetName=wb.SheetNames.find(n=>normalizeExcelHeader(n).includes("weekly emi collection tracker")) || wb.SheetNames[0];
+    const sheet=wb.Sheets[preferredSheetName];
+    const matrix=XLSX.utils.sheet_to_json(sheet,{header:1,defval:"",raw:false});
+    const headerIndex=matrix.findIndex(cells=>{
+      const hs=(cells||[]).map(normalizeExcelHeader);
+      return hs.some(h=>["customer name","name of customer","name"].includes(h)) &&
+        hs.some(h=>["customer id","customer code","customerid","customer code/id"].includes(h));
+    });
+    if (headerIndex<0) throw new Error("इस Excel में Customer Name और Customer ID वाले column नहीं मिले। सही शीट: WEEKLY EMI COLLECTION TRACKER चुनें।");
+    const sourceHeaders=(matrix[headerIndex]||[]).map(v=>String(v??"").trim());
+    const raw=matrix.slice(headerIndex+1).filter(cells=>(cells||[]).some(v=>String(v??"").trim()!=="")).map(cells=>{
+      const record={};
+      sourceHeaders.forEach((h,i)=>{if(h) record[h]=cells?.[i]??"";});
+      return record;
+    });
     if (!raw.length) return say("Excel में कोई डेटा नहीं मिला।","error");
-    const headers=Object.keys(raw[0]).map(normalizeExcelHeader);
-    const hasCustomerName = headers.some(h => ["customer name", "name of customer", "name"].includes(h));
-    const hasCustomerId = headers.some(h => ["customer id", "customer code", "customerid", "customer code/id"].includes(h));
-    if (!hasCustomerName || !hasCustomerId) {
-      throw new Error("यह AJSF Weekly EMI Tracker format नहीं है। Full Excel Export से मिली फ़ाइल इस्तेमाल करें।");
-    }
     const [allCustomers,allLoans,allWeekly,allPayments,allAdvance]=await Promise.all([
       fetchAllRows("customers"),
       fetchAllRows("loans"),
