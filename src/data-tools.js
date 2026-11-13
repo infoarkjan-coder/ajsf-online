@@ -29,8 +29,18 @@ function say(message, type="info") {
 function downloadBlob(blob, name) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href = url; a.download = name; a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1500);
+  a.href = url;
+  a.download = name;
+  a.setAttribute("download", name);
+  a.style.position = "fixed";
+  a.style.left = "-10000px";
+  a.style.top = "0";
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    a.remove();
+    URL.revokeObjectURL(url);
+  }, 120000);
 }
 function dateStamp() { return new Date().toISOString().replace(/[:.]/g,"-").slice(0,19); }
 function normalizeDay(value) {
