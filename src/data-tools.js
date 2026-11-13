@@ -440,8 +440,11 @@ async function importCustomers(event) {
     const sheet=wb.Sheets[wb.SheetNames[0]];
     const raw=XLSX.utils.sheet_to_json(sheet,{defval:"",raw:false});
     if (!raw.length) return say("Excel में कोई डेटा नहीं मिला।","error");
-    const headers=Object.keys(raw[0]).map(x=>String(x).trim().toLowerCase());
-    if (!headers.includes("customer name") || !(headers.includes("customer id") || headers.includes("customer code"))) {
+    const normalizeHeader = value => String(value ?? "").replace(/^\\uFEFF/, "").trim().toLowerCase().replace(/[\\s_]+/g, " ");
+    const headers=Object.keys(raw[0]).map(normalizeHeader);
+    const hasCustomerName = headers.some(h => ["customer name", "name of customer", "name"].includes(h));
+    const hasCustomerId = headers.some(h => ["customer id", "customer code", "customerid", "customer code/id"].includes(h));
+    if (!hasCustomerName || !hasCustomerId) {
       throw new Error("यह AJSF Weekly EMI Tracker format नहीं है। Full Excel Export से मिली फ़ाइल इस्तेमाल करें।");
     }
     const [allCustomers,allLoans,allWeekly,allPayments,allAdvance]=await Promise.all([
