@@ -1640,6 +1640,12 @@ async function loadDailySettlement() {
     if (staffResult.error) throw staffResult.error;
     if (recordsResult.error) throw recordsResult.error;
     settlementCollectors = staffResult.data || [];
+    const dayCollector = $("demandReportCollector");
+    if (dayCollector) {
+      const selectedDayCollector = dayCollector.value;
+      dayCollector.innerHTML = '<option value="">सभी Collector</option>' + settlementCollectors.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.full_name)+'</option>').join("");
+      if (selectedDayCollector) dayCollector.value = selectedDayCollector;
+    }
     const reportCollector = $("settlementReportCollector");
     if (reportCollector) {
       const selected = reportCollector.value;
@@ -1662,6 +1668,7 @@ async function loadDailySettlement() {
       const input = (kind,val) => '<input type="number" min="0" step="0.01" inputmode="decimal" data-settlement-kind="'+kind+'" data-collector-id="'+esc(staff.id)+'" value="'+Number(val||0).toFixed(2)+'" '+lock+' style="width:92px">';
       return '<tr data-settlement-row="'+esc(staff.id)+'"><td><strong>'+esc(staff.full_name)+'</strong><br><small>'+esc(staff.staff_code||"")+'</small></td><td>'+money(system.cash)+'</td><td>'+money(system.upi)+'</td><td>'+money(system.bank_transfer)+'</td><td>'+input("cash",deposited.cash)+'</td><td>'+input("upi",deposited.upi)+'</td><td>'+input("bank_transfer",deposited.bank_transfer)+'</td><td><strong>'+money(difference)+'</strong></td><td><span>'+status+'</span><br>'+(approved ? '<small>By '+esc(saved.approved_by||"Admin")+'</small>' : '<button type="button" class="secondary" data-settlement-action="save" data-collector-id="'+esc(staff.id)+'">Draft सेव करें</button> <button type="button" data-settlement-action="approve" data-collector-id="'+esc(staff.id)+'" '+(saved ? "" : "disabled")+(Math.abs(difference)>0.009 ? ' title="अंतर होने पर भी Approval संभव है; पहले जाँच लें।"' : '')+'>Approve</button>')+'</td></tr>';
     }).join("");
+    loadDayDemandReport();
   } catch (error) {
     body.innerHTML = '<tr><td colspan="9" class="empty">Settlement लोड नहीं हुआ: '+esc(error?.message||String(error))+'</td></tr>';
   }
