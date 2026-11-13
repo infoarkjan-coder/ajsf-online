@@ -366,7 +366,7 @@ function excelRowsToRecords(raw, existingCustomers, existingLoans, existingWeekl
     const terms=numericCell(rowValue(row,"Total EMIs Required"),"Total EMIs Required",rowNo,false);
     const disbursement=parseExcelDate(rowValue(row,"DATE OF DISBURSEMENT","DATE OF DISBERSMENT","Date of Disbursement"));
     const loanTypeRaw=rowValue(row,"FRESH/REPEAT","FRESH/REPEET","FRESH REPEET","Loan Type").toUpperCase();
-    const loanType=loanTypeRaw || "";
+    const loanType=({REPEET:"REPEAT",REPEATE:"REPEAT",REPEATED:"REPEAT"})[loanTypeRaw] || loanTypeRaw || "";
     const hasLoan=loanAmount!==null || emiAmount!==null || terms!==null || !!loanType || !!disbursement;
     if (!hasLoan) return;
     if (loanAmount===null || emiAmount===null || terms===null || !loanType || !["FRESH","REPEAT"].includes(loanType)) {
