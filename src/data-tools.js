@@ -227,7 +227,7 @@ async function exportCustomers() {
       fetchAllRows("advance_ledger")
     ]);
     const customerIds = new Set(allCustomers.map(c=>c.id));
-    const allLoans = fetchedLoans.filter(l=>customerIds.has(l.customer_id));
+    const allLoans = fetchedLoans.filter(l=>customerIds.has(l.customer_id) && l.is_archived !== true);
     const loanIds = new Set(allLoans.map(l=>l.id));
     const allWeekly = fetchedWeekly.filter(w=>loanIds.has(w.loan_id));
     const allPayments = fetchedPayments.filter(p=>loanIds.has(p.loan_id));
@@ -261,7 +261,7 @@ async function exportCustomers() {
       loanByCustomer.get(l.customer_id).push(l);
     });
     const rows = [];
-    allCustomers.forEach(c=>{
+    allCustomers.filter(c=>c.is_active !== false).forEach(c=>{
       const customerLoans = loanByCustomer.get(c.id) || [];
       if (!customerLoans.length) rows.push(exportTrackerRow(c,null,weeklyByLoan,paidByLoan,advanceByLoan,(l,p)=>({collected:0,outstanding:0})));
       else customerLoans.forEach(l=>rows.push(exportTrackerRow(c,l,weeklyByLoan,paidByLoan,advanceByLoan,(loan,payments)=>{
@@ -420,7 +420,8 @@ function excelRowsToRecords(raw, existingCustomers, existingLoans, existingWeekl
       total_emis_required:terms, status:["active","closed","cancelled"].includes(loanStatus)?loanStatus:"active",
       source_total_collected:sourceCollected, source_osp:sourceOsp,
       source_emis_paid:paidCount, source_emis_pending:Math.max(0,terms-paidCount),
-      created_by:oldLoan?.created_by || rowValue(row,"_AJSF Loan Created By") || activeUser.id
+      created_by:oldLoan?.created_by || rowValue(row,"_AJSF Loan Created By") || activeUser.id,
+      is_archived:false
     };
     loans.push(loan);
     if (oldLoan) updateLoanCount++; else newLoanCount++;
@@ -472,12 +473,14 @@ async function importCustomers(event) {
     const uniqueCustomerCount=parsed.customers.length;
     const importedCustomerIds=new Set(parsed.customerIds);
     const archiveCustomers=allCustomers.filter(c=>c.is_active!==false && !importedCustomerIds.has(c.id));
+    const importedLoanIds=new Set(parsed.loans.map(l=>l.id));
+    const archiveLoans=allLoans.filter(l=>l.is_archived!==true && !importedLoanIds.has(l.id));
     const preview="Excel में "+raw.length+" rows हैं।\n"+
       "Customer records: "+uniqueCustomerCount+" (नए/अपडेट मिलाकर)\n"+
       "नए Loan: "+parsed.newLoanCount+" · अपडेट Loan: "+parsed.updateLoanCount+"\n"+
       "Weekly Status: "+parsed.weekly.length+" rows\nAdvance Ledger: "+parsed.advanceLedger.length+" new rows\n"+
       "पुराने ग्राहक जो नई Excel में नहीं हैं: "+archiveCustomers.length+" (Inactive होंगे)\n\n"+
-      "Replace Mode: नई Excel की Customer List मुख्य सूची बनेगी। Excel में न मिलने वाले पुराने ग्राहक Inactive होंगे; उन्हें और उनके Loan/Payment/Advance इतिहास को Delete नहीं किया जाएगा।\n"+
+      "Replace Mode: नई Excel की Customer और Loan List मुख्य सूची बनेगी। Excel में न मिलने वाले पुराने ग्राहक Inactive और पुराने Loan Archived होंगे; उनका Payment/Receipt/Advance इतिहास सुरक्षित रहेगा।\n"+
       "मौजूदा Payment Transactions सुरक्षित रहेंगे। Excel के W1–W24 और Loan totals अपडेट होंगे।\n\nक्या Import जारी रखें?";
     if (!confirm(preview)) return say("Import रद्द किया गया।");
     for(let i=0;i<parsed.customers.length;i+=50) {
@@ -494,6 +497,11 @@ async function importCustomers(event) {
       const {error}=await db.from("loans").upsert(parsed.loans.slice(i,i+50),{onConflict:"id"});
       if(error) throw new Error("Loan batch "+(Math.floor(i/50)+1)+": "+error.message);
     }
+    for(let i=0;i<archiveLoans.length;i+=100) {
+      const ids=archiveLoans.slice(i,i+100).map(l=>l.id);
+      const {error}=await db.from("loans").update({is_archived:true}).in("id",ids);
+      if(error) throw new Error("Old Loan archive batch "+(Math.floor(i/100)+1)+": "+error.message);
+    }
     for(let i=0;i<parsed.weekly.length;i+=100) {
       const {error}=await db.from("loan_weekly_status").upsert(parsed.weekly.slice(i,i+100),{onConflict:"loan_id,week_no"});
       if(error) throw new Error("Weekly Status batch "+(Math.floor(i/100)+1)+": "+error.message);
@@ -505,7 +513,7 @@ async function importCustomers(event) {
       if(error) throw new Error("Advance Ledger batch "+(Math.floor(i/100)+1)+": "+error.message);
     }
     await refreshCustomers();
-    say("Import पूरा हुआ। Customer: "+parsed.customers.length+" · Loan: "+parsed.loans.length+" · W1–W24: "+parsed.weekly.length+" · Advance Ledger: "+parsed.advanceLedger.length+". Dashboard Refresh करें।","success");
+    say("Import पूरा हुआ। Customer: "+parsed.customers.length+" · Active Loan: "+parsed.loans.length+" · Archived पुराने Loan: "+archiveLoans.length+" · W1–W24: "+parsed.weekly.length+" · Advance Ledger: "+parsed.advanceLedger.length+". Dashboard Refresh करें।","success");
     document.dispatchEvent(new CustomEvent("ajsf:data-imported"));
   } catch(e) { say("Import असफल: "+e.message,"error"); }
 }
