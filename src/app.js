@@ -1575,6 +1575,44 @@ function printReceipt() {
 }
 
 
+let dayDemandReport=null;
+function dateOnlyLocal(value){if(!value)return "";const d=new Date(value);if(Number.isNaN(d.getTime()))return "";return [d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-");}
+function loadDayDemandReport(){
+ if(!canAdmin())return;
+ const dateInput=$("demandReportDate"),daySelect=$("demandReportDay"),collectorSelect=$("demandReportCollector");
+ if(!dateInput.value)dateInput.value=localDateValue();
+ const date=dateInput.value,[yy,mm,dd]=date.split("-").map(Number),selectedDate=new Date(yy,mm-1,dd);
+ selectedDate.setHours(0,0,0,0);
+ const weekday=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][selectedDate.getDay()];
+ if(!daySelect.value)daySelect.value=weekday;
+ const selectedDay=daySelect.value,collectorId=collectorSelect.value,customerById=new Map(customers.map(c=>[c.id,c]));
+ const eligibleLoans=loans.filter(l=>{const c=customerById.get(l.customer_id);return c&&c.is_active!==false&&c.customer_status!=="INACTIVE"&&l.status==="active"&&!l.is_archived&&(!selectedDay||c.collection_day===selectedDay)&&(!collectorId||c.assigned_collector===collectorId);});
+ const dueRows=[],odRows=[],rupee=n=>Math.round(Number(n||0)*100)/100;
+ for(const loan of eligibleLoans){const customer=customerById.get(loan.customer_id),count=Math.max(0,Math.min(600,Number(loan.total_emis_required||0)));
+  for(let emi=1;emi<=count;emi++){const due=advanceDueDate(loan,customer,emi);if(!due)continue;due.setHours(0,0,0,0);const dueKey=localISODate(due);if(dueKey>date)break;
+   const nextDue=advanceDueDate(loan,customer,emi+1),ledgerRows=advanceLedger.filter(x=>x.loan_id===loan.id&&Number(x.applied_week_no)===emi&&["cash_applied","advance_adjusted"].includes(x.entry_type));
+   const ledgerPaid=ledgerRows.reduce((sum,x)=>sum+Number(x.amount||0),0),marker=advanceMarkerAmount(loan,emi);let paid=marker+ledgerPaid;
+   if(!ledgerRows.length&&!marker){const start=due.getTime(),end=nextDue?nextDue.getTime():Infinity;paid+=payments.filter(p=>p.loan_id===loan.id&&!p.is_reversal&&!p.offline_pending).filter(p=>{const t=new Date(p.paid_at||p.created_at||"").getTime();return Number.isFinite(t)&&t>=start&&t<end;}).reduce((sum,p)=>sum+Number(p.amount||0),0);}
+   const emiAmount=Number(ledgerRows.find(x=>Number(x.emi_amount_at_allocation)>0)?.emi_amount_at_allocation||loan.emi_amount||0),remaining=rupee(Math.max(0,emiAmount-paid));if(remaining<=0)continue;
+   const row={customer,loan,emi,dueDate:dueKey,demand:emiAmount,received:rupee(Math.min(emiAmount,paid)),remaining};if(dueKey===date)dueRows.push(row);else odRows.push(row);
+  }
+ }
+ const receiptRows=payments.filter(p=>!p.is_reversal&&!p.offline_pending&&dateOnlyLocal(p.paid_at||p.created_at)===date&&(!collectorId||p.collector_id===collectorId)).sort((a,b)=>new Date(a.paid_at)-new Date(b.paid_at));
+ const totalDemand=rupee(dueRows.reduce((s,x)=>s+x.demand,0)),received=rupee(dueRows.reduce((s,x)=>s+x.received,0)),pending=rupee(dueRows.reduce((s,x)=>s+x.remaining,0)),od=rupee(odRows.reduce((s,x)=>s+x.remaining,0));
+ $("dayDemandTotal").textContent=money(totalDemand);$("dayDemandReceived").textContent=money(received);$("dayDemandPending").textContent=money(pending);$("dayDemandOD").textContent=money(od);
+ $("dayDemandReceipts").innerHTML=receiptRows.map(p=>{const c=customerById.get(p.customer_id),l=loans.find(x=>x.id===p.loan_id);return '<tr><td>'+esc((p.id||p.client_tx_id||"").slice(0,8).toUpperCase())+'</td><td>'+esc(c?.full_name||"—")+'</td><td>'+esc(l?.loan_reference||"—")+'</td><td>'+esc(p.payment_mode||"—")+'</td><td>'+money(p.amount)+'</td></tr>';}).join("")||'<tr><td colspan="5" class="empty">इस तारीख की कोई Receipt नहीं मिली।</td></tr>';
+ const dueHtml=r=>'<tr><td>'+esc(r.customer.customer_code||"—")+'</td><td>'+esc(r.customer.full_name||"—")+'</td><td>'+esc(r.customer.center_name||"—")+'</td><td>'+esc(r.loan.loan_reference||"—")+'</td><td>'+r.emi+'</td><td>'+esc(r.dueDate)+'</td><td>'+money(r.demand)+'</td><td>'+money(r.received)+'</td><td><strong>'+money(r.remaining)+'</strong></td></tr>';
+ $("dayDemandPendingRows").innerHTML=dueRows.map(dueHtml).join("")||'<tr><td colspan="9" class="empty">इस दिन कोई Pending Customer नहीं है।</td></tr>';
+ $("dayDemandOdRows").innerHTML=odRows.map(r=>'<tr><td>'+esc(r.customer.customer_code||"—")+'</td><td>'+esc(r.customer.full_name||"—")+'</td><td>'+esc(r.customer.center_name||"—")+'</td><td>'+esc(r.loan.loan_reference||"—")+'</td><td>'+r.emi+'</td><td>'+esc(r.dueDate)+'</td><td><strong>'+money(r.remaining)+'</strong></td></tr>').join("")||'<tr><td colspan="7" class="empty">कोई पुराना OD नहीं है।</td></tr>';
+ dayDemandReport={date,selectedDay,totalDemand,received,pending,od,dueRows,odRows,receiptRows};
+}
+function printDayDemandReport(){
+ if(!dayDemandReport)loadDayDemandReport();if(!dayDemandReport)return;const r=dayDemandReport;
+ const rows=[...r.dueRows,...r.odRows].map(x=>'<tr><td>'+esc(x.customer.customer_code||"—")+'</td><td>'+esc(x.customer.full_name||"—")+'</td><td>'+esc(x.loan.loan_reference||"—")+'</td><td>'+x.emi+'</td><td>'+esc(x.dueDate)+'</td><td>'+money(x.demand)+'</td><td>'+money(x.received)+'</td><td>'+money(x.remaining)+'</td><td>'+(x.dueDate===r.date?'Pending':'OD')+'</td></tr>').join("");
+ const body='<h2>ARK JAN SAMRIDDHI FOUNDATION</h2><h3>Day-wise Demand & Collection — '+esc(r.date)+' ('+esc(r.selectedDay)+')</h3><p>Total Demand: '+money(r.totalDemand)+' | Received: '+money(r.received)+' | Pending: '+money(r.pending)+' | OD: '+money(r.od)+'</p><table><thead><tr><th>Customer ID</th><th>Name</th><th>Loan Ref</th><th>EMI</th><th>Due Date</th><th>Demand</th><th>Received</th><th>Remaining</th><th>Status</th></tr></thead><tbody>'+rows+'</tbody></table>';
+ openAjsfPrint("AJSF Day-wise Demand",body,'@page{size:A4 landscape;margin:8mm}body{font-size:8pt}table{width:100%;border-collapse:collapse}th,td{border:1px solid #999;padding:5px;text-align:left}th{background:#eaf1ed}');
+}
+
 function settlementDateKey(value) {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return "";
@@ -1941,6 +1979,11 @@ async function boot() {
     }
   });
   $("logoutBtn").addEventListener("click", logout);
+  $("runDayDemandBtn")?.addEventListener("click",loadDayDemandReport);
+  $("demandReportDate")?.addEventListener("change",()=>{const d=new Date($("demandReportDate").value+"T00:00:00");$("demandReportDay").value=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][d.getDay()];loadDayDemandReport();});
+  $("demandReportDay")?.addEventListener("change",loadDayDemandReport);
+  $("demandReportCollector")?.addEventListener("change",loadDayDemandReport);
+  $("printDayDemandBtn")?.addEventListener("click",printDayDemandReport);
   const staffAdminSetupBtn = $("staffAdminSetupBtn");
   if (staffAdminSetupBtn) {
     staffAdminSetupBtn.addEventListener("click", async () => {
