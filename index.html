@@ -30,14 +30,14 @@
 <div class="tablewrap"><table><thead><tr><th>Collector</th><th>System Cash</th><th>System UPI</th><th>System Bank</th><th>जमा Cash</th><th>जमा UPI</th><th>जमा Bank</th><th>अंतर</th><th>Status / Action</th></tr></thead><tbody id="settlementRows"><tr><td colspan="9" class="empty">Settlement डेटा लोड हो रहा है…</td></tr></tbody></table></div>
 <p class="small muted">System राशि उस तारीख के दर्ज Payments से आती है। जमा राशि Admin दर्ज करेगा। Draft सेव करने के बाद जाँचकर Approve करें। Approved Settlement लॉक हो जाएगा।</p>
 <div class="divider"></div>
-<div class="panel-head"><div><h3>Settlement Reports</h3><p class="muted">Date-wise और Collector-wise रिपोर्ट देखें, CSV डाउनलोड करें या Print करें।</p></div></div>
+<div class="panel-head"><div><h3>Settlement Reports</h3><p class="muted">Date-wise और Collector-wise रिपोर्ट देखें, PDF / Excel डाउनलोड करें या A4 Landscape Print करें।</p></div></div>
 <div class="formgrid">
 <div class="field"><label for="settlementReportFrom">From Date</label><input id="settlementReportFrom" type="date"></div>
 <div class="field"><label for="settlementReportTo">To Date</label><input id="settlementReportTo" type="date"></div>
 <div class="field"><label for="settlementReportCollector">Collector</label><select id="settlementReportCollector"><option value="">सभी Collector</option></select></div>
 <div class="field"><label for="settlementReportStatus">Status</label><select id="settlementReportStatus"><option value="">सभी Status</option><option value="approved">Approved</option><option value="pending">Pending / Draft</option></select></div>
 </div>
-<div class="actions no-print"><button id="runSettlementReportBtn" type="button">रिपोर्ट देखें</button><button id="downloadSettlementReportBtn" type="button" class="secondary">CSV डाउनलोड</button><button id="printSettlementReportBtn" type="button" class="secondary">Print Report</button></div>
+<div class="actions no-print"><button id="runSettlementReportBtn" type="button">रिपोर्ट देखें</button><button id="downloadSettlementReportPdfBtn" type="button" class="secondary">PDF डाउनलोड</button><button id="downloadSettlementReportBtn" type="button" class="secondary">Excel / CSV डाउनलोड</button><button id="printSettlementReportBtn" type="button" class="secondary">Print Report</button></div>
 <div class="grid" id="settlementReportSummary">
 <div class="card"><div class="label">कुल System Collection</div><div class="metric" id="settlementReportExpected">₹0</div></div>
 <div class="card"><div class="label">कुल जमा राशि</div><div class="metric" id="settlementReportDeposited">₹0</div></div>
