@@ -534,7 +534,7 @@ async function activate(user) {
   const exp=$("exportCustomersExcel"); if(exp) exp.classList.remove("hidden");
 }
 db.auth.onAuthStateChange((event,session) => {
-  if (event === "SIGNED_IN" && session?.user) setTimeout(()=>activate(session.user),0);
+  if ((event === "SIGNED_IN" || event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED") && session?.user) setTimeout(()=>activate(session.user),0);
   if (event === "SIGNED_OUT") { activeUser=null; activeRole=null; }
 });
 document.addEventListener("ajsf:data-imported", () => {
