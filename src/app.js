@@ -686,6 +686,7 @@ function renderRepaymentSchedule() {
         <div><small>Mobile Number / मोबाइल</small><b>${esc(phone(customer?.contact_number) || "—")}</b></div>
         <div><small>Center Name / केंद्र</small><b>${esc(customer?.center_name || "—")}</b></div>
         <div><small>Loan Reference / लोन नंबर</small><b>${esc(loan.loan_reference || "—")}</b></div>
+        <div><small>Disbursement Date / लोन वितरण तारीख</small><b>${formatDate(loan.disbursement_date)}</b></div>
         <div><small>Loan Amount / ऋण राशि</small><b>${money(loan.loan_amount)}</b></div>
         <div><small>Weekly EMI / साप्ताहिक किस्त</small><b>${money(emi)}</b></div>
         <div><small>Collection Day / वसूली दिन</small><b>${esc(weekday)}</b></div>
