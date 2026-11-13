@@ -257,7 +257,7 @@ async function loadAll() {
   let adv;
   try { [c, l, w, adv] = await Promise.all([
     customerQuery,
-    supabase.from("loans").select("id, loan_reference, customer_id, loan_type, disbursement_date, loan_amount, emi_amount, total_emis_required, status, source_total_collected, source_osp, source_emis_paid, source_emis_pending").order("created_at", {ascending:false}),
+    supabase.from("loans").select("id, loan_reference, customer_id, loan_type, disbursement_date, loan_amount, emi_amount, total_emis_required, status, source_total_collected, source_osp, source_emis_paid, source_emis_pending, is_archived").eq("is_archived", false).order("created_at", {ascending:false}),
     weeklyQuery,
     supabase.from("advance_ledger").select("*")
   ]); } catch (networkError) { c = {error:networkError}; l = {error:networkError}; w = {error:networkError}; adv = {error:networkError}; }
