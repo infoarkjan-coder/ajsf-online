@@ -325,6 +325,7 @@ function excelRowsToRecords(raw, existingCustomers, existingLoans, existingWeekl
   const weeklyExisting = new Map();
   existingWeekly.forEach(w=>weeklyExisting.set(w.loan_id+":"+w.week_no,w));
   const customers = new Map(), loans = [], weekly = [], advanceLedger = [], problems=[];
+  const customerIdByCode = new Map(existingCustomers.map(c=>[String(c.customer_code||"").trim(),c.id]));
   const knownAdvanceKeys = new Set((existingAdvance||[]).map(x=>x.idempotency_key));
   let newCustomerCount=0, updateCustomerCount=0, newLoanCount=0, updateLoanCount=0;
   raw.forEach((source,index)=>{
@@ -334,7 +335,9 @@ function excelRowsToRecords(raw, existingCustomers, existingLoans, existingWeekl
     if (!name || !code) { problems.push("Row "+rowNo+": Customer Name और Customer ID जरूरी"); return; }
     const hiddenCustomerId=rowValue(row,"_AJSF Customer UUID");
     const oldCustomer=customerByCode.get(code) || customerById.get(hiddenCustomerId);
-    const customerId=oldCustomer?.id || hiddenCustomerId || crypto.randomUUID();
+    // Customer Code is the stable import key; repeated loan rows reuse one customer UUID.
+    const customerId=oldCustomer?.id || customerIdByCode.get(code) || hiddenCustomerId || crypto.randomUUID();
+    customerIdByCode.set(code,customerId);
     const dayRaw=rowValue(row,"Collection Day");
     const day=normalizeDay(dayRaw);
     if (dayRaw && !day) { problems.push("Row "+rowNo+": Collection Day गलत"); return; }
@@ -429,7 +432,7 @@ function excelRowsToRecords(raw, existingCustomers, existingLoans, existingWeekl
       });
     });
   });
-  return {customers:[...customers.values()],loans,weekly,advanceLedger,problems,newCustomerCount,updateCustomerCount,newLoanCount,updateLoanCount};
+  return {customers:[...customers.values()],customerIds:[...customers.keys()],loans,weekly,advanceLedger,problems,newCustomerCount,updateCustomerCount,newLoanCount,updateLoanCount};
 }
 async function importCustomers(event) {
   const file=event.target.files?.[0];
@@ -467,16 +470,25 @@ async function importCustomers(event) {
     if (parsed.problems.length) throw new Error("Import रोक दिया गया। "+parsed.problems.slice(0,8).join(" | ")+(parsed.problems.length>8?" | और "+(parsed.problems.length-8)+" त्रुटियाँ":""));
     if (!parsed.customers.length) throw new Error("कोई Import योग्य Customer नहीं मिला।");
     const uniqueCustomerCount=parsed.customers.length;
+    const importedCustomerIds=new Set(parsed.customerIds);
+    const archiveCustomers=allCustomers.filter(c=>c.is_active!==false && !importedCustomerIds.has(c.id));
     const preview="Excel में "+raw.length+" rows हैं।\n"+
       "Customer records: "+uniqueCustomerCount+" (नए/अपडेट मिलाकर)\n"+
       "नए Loan: "+parsed.newLoanCount+" · अपडेट Loan: "+parsed.updateLoanCount+"\n"+
-      "Weekly Status: "+parsed.weekly.length+" rows\nAdvance Ledger: "+parsed.advanceLedger.length+" new rows\n\n"+
-      "मौजूदा Payment Transactions delete या duplicate नहीं होंगे। Excel के W1–W24 और Loan totals अपडेट होंगे।\n"+
-      "Excel में न होने वाले पुराने रिकॉर्ड delete नहीं होंगे।\n\nक्या Import जारी रखें?";
+      "Weekly Status: "+parsed.weekly.length+" rows\nAdvance Ledger: "+parsed.advanceLedger.length+" new rows\n"+
+      "पुराने ग्राहक जो नई Excel में नहीं हैं: "+archiveCustomers.length+" (Inactive होंगे)\n\n"+
+      "Replace Mode: नई Excel की Customer List मुख्य सूची बनेगी। Excel में न मिलने वाले पुराने ग्राहक Inactive होंगे; उन्हें और उनके Loan/Payment/Advance इतिहास को Delete नहीं किया जाएगा।\n"+
+      "मौजूदा Payment Transactions सुरक्षित रहेंगे। Excel के W1–W24 और Loan totals अपडेट होंगे।\n\nक्या Import जारी रखें?";
     if (!confirm(preview)) return say("Import रद्द किया गया।");
     for(let i=0;i<parsed.customers.length;i+=50) {
       const {error}=await db.from("customers").upsert(parsed.customers.slice(i,i+50),{onConflict:"id"});
       if(error) throw new Error("Customer batch "+(Math.floor(i/50)+1)+": "+error.message);
+    }
+    // Archive omitted customers without deleting linked financial history.
+    for(let i=0;i<archiveCustomers.length;i+=100) {
+      const ids=archiveCustomers.slice(i,i+100).map(c=>c.id);
+      const {error}=await db.from("customers").update({is_active:false}).in("id",ids);
+      if(error) throw new Error("Old Customer archive batch "+(Math.floor(i/100)+1)+": "+error.message);
     }
     for(let i=0;i<parsed.loans.length;i+=50) {
       const {error}=await db.from("loans").upsert(parsed.loans.slice(i,i+50),{onConflict:"id"});
