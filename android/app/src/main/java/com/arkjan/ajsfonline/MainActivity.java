@@ -96,10 +96,10 @@ public class MainActivity extends Activity {
                 super.onPageFinished(view, url);
                 // APK-only UI cleanup. The hosted website remains unchanged.
                 view.evaluateJavascript("(function() {" +
-                        "var labels = ['तीन Admin Login बनाएं', 'Customer Login बनाएं'];" +
+                        "var labels = ['तीन Admin Login बनाएँ', 'Customer Login बनाएँ'];" +
                         "var hideAjsfButtons = function() {" +
                         "document.querySelectorAll('button,[role=button],a').forEach(function(el) {" +
-                        "var label = (el.innerText || el.textContent || '').replace(/\\\\s+/g, ' ').trim();" +
+                        "var label = (el.innerText || el.textContent || '').replace(/\\s+/g, ' ').trim();" +
                         "if (labels.some(function(item) { return label.indexOf(item) !== -1; })) {" +
                         "el.style.setProperty('display', 'none', 'important');" +
                         "el.setAttribute('aria-hidden', 'true');" +
