@@ -281,14 +281,17 @@ function cell(row, ...keys) {
   for (const key of keys) if (row[key] !== undefined && row[key] !== null) return String(row[key]).trim();
   return "";
 }
+function normalizeExcelHeader(value) {
+  return String(value ?? "").replace(/^\uFEFF/, "").replace(/\u00A0/g, " ").trim().toLowerCase().replace(/[\s_]+/g," ");
+}
 function headerMap(row) {
   const map = {};
-  Object.keys(row || {}).forEach(k=>{ map[String(k).trim().toLowerCase().replace(/[\s_]+/g," ")] = row[k]; });
+  Object.keys(row || {}).forEach(k=>{ map[normalizeExcelHeader(k)] = row[k]; });
   return map;
 }
 function rowValue(row, ...names) {
   for (const name of names) {
-    const key = String(name).trim().toLowerCase().replace(/[\s_]+/g," ");
+    const key = normalizeExcelHeader(name);
     if (row[key] !== undefined && row[key] !== null) return String(row[key]).trim();
   }
   return "";
@@ -361,8 +364,8 @@ function excelRowsToRecords(raw, existingCustomers, existingLoans, existingWeekl
     const loanAmount=numericCell(rowValue(row,"Loan Amount"),"Loan Amount",rowNo,false);
     const emiAmount=numericCell(rowValue(row,"EMI Amount"),"EMI Amount",rowNo,false);
     const terms=numericCell(rowValue(row,"Total EMIs Required"),"Total EMIs Required",rowNo,false);
-    const disbursement=parseExcelDate(rowValue(row,"DATE OF DISBURSEMENT","Date of Disbursement"));
-    const loanTypeRaw=rowValue(row,"FRESH/REPEAT","Loan Type").toUpperCase();
+    const disbursement=parseExcelDate(rowValue(row,"DATE OF DISBURSEMENT","DATE OF DISBERSMENT","Date of Disbursement"));
+    const loanTypeRaw=rowValue(row,"FRESH/REPEAT","FRESH/REPEET","FRESH REPEET","Loan Type").toUpperCase();
     const loanType=loanTypeRaw || "";
     const hasLoan=loanAmount!==null || emiAmount!==null || terms!==null || !!loanType || !!disbursement;
     if (!hasLoan) return;
@@ -440,8 +443,7 @@ async function importCustomers(event) {
     const sheet=wb.Sheets[wb.SheetNames[0]];
     const raw=XLSX.utils.sheet_to_json(sheet,{defval:"",raw:false});
     if (!raw.length) return say("Excel में कोई डेटा नहीं मिला।","error");
-    const normalizeHeader = value => String(value ?? "").replace(/^\\uFEFF/, "").trim().toLowerCase().replace(/[\\s_]+/g, " ");
-    const headers=Object.keys(raw[0]).map(normalizeHeader);
+    const headers=Object.keys(raw[0]).map(normalizeExcelHeader);
     const hasCustomerName = headers.some(h => ["customer name", "name of customer", "name"].includes(h));
     const hasCustomerId = headers.some(h => ["customer id", "customer code", "customerid", "customer code/id"].includes(h));
     if (!hasCustomerName || !hasCustomerId) {
