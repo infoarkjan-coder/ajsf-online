@@ -1589,43 +1589,54 @@ function loadDayDemandReport(){
  if(!daySelect.value)daySelect.value=weekday;
  const selectedDay=daySelect.value,collectorId=collectorSelect.value,customerById=new Map(customers.map(c=>[c.id,c]));
  const eligibleLoans=loans.filter(l=>{const c=customerById.get(l.customer_id);return c&&c.is_active!==false&&c.customer_status!=="INACTIVE"&&l.status==="active"&&!l.is_archived&&(!selectedDay||c.collection_day===selectedDay)&&(!collectorId||c.assigned_collector===collectorId);});
- const dueRows=[],odRows=[],rupee=n=>Math.round(Number(n||0)*100)/100;
- for(const loan of eligibleLoans){const customer=customerById.get(loan.customer_id),count=Math.max(0,Math.min(600,Number(loan.total_emis_required||0)));
-  for(let emi=1;emi<=count;emi++){const due=advanceDueDate(loan,customer,emi);if(!due)continue;due.setHours(0,0,0,0);const dueKey=localISODate(due);if(dueKey>date)break;
-   const nextDue=advanceDueDate(loan,customer,emi+1),ledgerRows=advanceLedger.filter(x=>x.loan_id===loan.id&&Number(x.applied_week_no)===emi&&["cash_applied","advance_adjusted"].includes(x.entry_type));
-   const ledgerPaid=ledgerRows.reduce((sum,x)=>sum+Number(x.amount||0),0),marker=advanceMarkerAmount(loan,emi);let paid=marker+ledgerPaid;
-   if(!ledgerRows.length&&!marker){const start=due.getTime(),end=nextDue?nextDue.getTime():Infinity;paid+=payments.filter(p=>p.loan_id===loan.id&&!p.is_reversal&&!p.offline_pending).filter(p=>{const t=new Date(p.paid_at||p.created_at||"").getTime();return Number.isFinite(t)&&t>=start&&t<end;}).reduce((sum,p)=>sum+Number(p.amount||0),0);}
-   const emiAmount=Number(ledgerRows.find(x=>Number(x.emi_amount_at_allocation)>0)?.emi_amount_at_allocation||loan.emi_amount||0),remaining=rupee(Math.max(0,emiAmount-paid));if(remaining<=0)continue;
-   const row={customer,loan,emi,dueDate:dueKey,demand:emiAmount,received:rupee(Math.min(emiAmount,paid)),remaining};if(dueKey===date)dueRows.push(row);else odRows.push(row);
+ const collectedRows=[],pendingRows=[],rupee=n=>Math.round(Number(n||0)*100)/100;
+ for(const loan of eligibleLoans){
+  const customer=customerById.get(loan.customer_id),count=Math.max(0,Math.min(600,Number(loan.total_emis_required||0)));
+  for(let emi=1;emi<=count;emi++){
+   const due=advanceDueDate(loan,customer,emi);if(!due)continue;due.setHours(0,0,0,0);
+   const dueKey=localISODate(due);if(dueKey>date)break;
+   // This report is strictly for the selected collection date. Earlier dues are not carried into today's OD.
+   if(dueKey!==date)continue;
+   const nextDue=advanceDueDate(loan,customer,emi+1);
+   const ledgerRows=advanceLedger.filter(x=>x.loan_id===loan.id&&Number(x.applied_week_no)===emi&&["cash_applied","advance_adjusted"].includes(x.entry_type));
+   const ledgerPaid=ledgerRows.reduce((sum,x)=>sum+Number(x.amount||0),0),marker=advanceMarkerAmount(loan,emi);
+   let paid=marker+ledgerPaid;
+   if(!ledgerRows.length&&!marker){
+    const startTime=due.getTime(),endTime=nextDue?nextDue.getTime():Infinity;
+    paid+=payments.filter(p=>p.loan_id===loan.id&&!p.is_reversal&&!p.offline_pending).filter(p=>{
+     const t=new Date(p.paid_at||p.created_at||"").getTime();return Number.isFinite(t)&&t>=startTime&&t<endTime;
+    }).reduce((sum,p)=>sum+Number(p.amount||0),0);
+   }
+   const emiAmount=Number(ledgerRows.find(x=>Number(x.emi_amount_at_allocation)>0)?.emi_amount_at_allocation||loan.emi_amount||0);
+   const received=rupee(Math.min(emiAmount,Math.max(0,paid))),remaining=rupee(Math.max(0,emiAmount-received));
+   const row={customer,loan,emi,dueDate:dueKey,demand:emiAmount,received,remaining};
+   if(remaining<=0)collectedRows.push(row);else pendingRows.push(row);
   }
  }
- const receiptRows=payments.filter(p=>!p.is_reversal&&!p.offline_pending&&dateOnlyLocal(p.paid_at||p.created_at)===date&&(!collectorId||p.collector_id===collectorId)).sort((a,b)=>new Date(a.paid_at)-new Date(b.paid_at));
- const totalDemand=rupee(dueRows.reduce((s,x)=>s+x.demand,0)),received=rupee(dueRows.reduce((s,x)=>s+x.received,0)),pending=rupee(dueRows.reduce((s,x)=>s+x.remaining,0)),od=rupee(odRows.reduce((s,x)=>s+x.remaining,0));
- $("dayDemandTotal").textContent=money(totalDemand);$("dayDemandReceived").textContent=money(received);$("dayDemandPending").textContent=money(pending);$("dayDemandOD").textContent=money(od);
- $("dayDemandReceipts").innerHTML=receiptRows.map(p=>{const c=customerById.get(p.customer_id),l=loans.find(x=>x.id===p.loan_id);return '<tr><td>'+esc((p.id||p.client_tx_id||"").slice(0,8).toUpperCase())+'</td><td>'+esc(c?.full_name||"—")+'</td><td>'+esc(l?.loan_reference||"—")+'</td><td>'+esc(p.payment_mode||"—")+'</td><td>'+money(p.amount)+'</td></tr>';}).join("")||'<tr><td colspan="5" class="empty">इस तारीख की कोई Receipt नहीं मिली।</td></tr>';
- const dueHtml=r=>'<tr><td>'+esc(formatCustomerId(r.customer.customer_code))+'</td><td>'+esc(r.customer.full_name||"—")+'</td><td>'+esc(r.customer.center_name||"—")+'</td><td>'+esc(r.loan.loan_reference||"—")+'</td><td>'+r.emi+'</td><td>'+esc(r.dueDate)+'</td><td>'+money(r.demand)+'</td><td>'+money(r.received)+'</td><td><strong>'+money(r.remaining)+'</strong></td></tr>';
- $("dayDemandPendingRows").innerHTML=dueRows.map(dueHtml).join("")||'<tr><td colspan="9" class="empty">इस दिन कोई Pending Customer नहीं है।</td></tr>';
- const odByCustomer=new Map();
- odRows.forEach(r=>{
-  const key=r.customer.id;
-  if(!odByCustomer.has(key))odByCustomer.set(key,{customer:r.customer,rows:[],loanRefs:new Set(),total:0});
-  const group=odByCustomer.get(key);group.rows.push(r);group.loanRefs.add(r.loan.loan_reference||"—");group.total=rupee(group.total+r.remaining);
- });
- const odCustomerRows=[...odByCustomer.values()].sort((a,b)=>String(a.customer.full_name||"").localeCompare(String(b.customer.full_name||"")));
- $("dayDemandOdRows").innerHTML=odCustomerRows.map((g,index)=>{
-  const detailRows=g.rows.map(r=>'<tr><td>'+esc(r.loan.loan_reference||"—")+'</td><td>'+r.emi+'</td><td>'+esc(r.dueDate)+'</td><td>'+money(r.remaining)+'</td></tr>').join("");
-  return '<tr><td>'+esc(formatCustomerId(g.customer.customer_code))+'</td><td>'+esc(g.customer.full_name||"—")+'</td><td>'+esc(g.customer.center_name||"—")+'</td><td>'+g.loanRefs.size+'</td><td>'+g.rows.length+'</td><td><strong>'+money(g.total)+'</strong></td><td><details><summary>'+g.rows.length+' EMI देखें</summary><div class="od-detail"><table><thead><tr><th>Loan Ref</th><th>EMI No.</th><th>Due Date</th><th>बाकी</th></tr></thead><tbody>'+detailRows+'</tbody></table></div></details></td></tr>';
- }).join("")||'<tr><td colspan="7" class="empty">कोई पुराना OD नहीं है।</td></tr>';
- dayDemandReport={date,selectedDay,totalDemand,received,pending,od,dueRows,odRows,odCustomerRows,receiptRows};
+ const receiptRows=payments.filter(p=>!p.is_reversal&&!p.offline_pending&&dateOnlyLocal(p.paid_at||p.created_at)===date&&(!collectorId||p.collector_id===collectorId)).sort((a,b)=>new Date(a.paid_at||a.created_at)-new Date(b.paid_at||b.created_at));
+ const allDayRows=[...collectedRows,...pendingRows];
+ const customerCount=new Set(allDayRows.map(x=>x.customer.id)).size;
+ const totalDemand=rupee(allDayRows.reduce((s,x)=>s+x.demand,0));
+ const collectedAmount=rupee(collectedRows.reduce((s,x)=>s+x.demand,0));
+ const pendingAmount=rupee(pendingRows.reduce((s,x)=>s+x.remaining,0));
+ const receivedAmount=rupee(allDayRows.reduce((s,x)=>s+x.received,0));
+ $("dayDemandCustomers").textContent=String(customerCount);
+ $("dayDemandTotal").textContent=money(totalDemand);
+ $("dayDemandCollected").textContent=collectedRows.length+" EMI · "+money(collectedAmount);
+ $("dayDemandPending").textContent=pendingRows.length+" EMI · "+money(pendingAmount);
+ $("dayDemandReceived").textContent=money(receivedAmount);
+ $("dayDemandOD").textContent=money(pendingAmount);
+ $("dayDemandReceipts").innerHTML=receiptRows.map(p=>{const c=customerById.get(p.customer_id),l=loans.find(x=>x.id===p.loan_id);return '<tr><td>'+esc((p.id||p.client_tx_id||"").slice(0,8).toUpperCase())+'</td><td>'+esc(formatCustomerId(c?.customer_code))+' · '+esc(c?.full_name||"—")+'</td><td>'+esc(l?.loan_reference||"—")+'</td><td>'+esc(p.payment_mode||"—")+'</td><td>'+money(p.amount)+'</td></tr>';}).join("")||'<tr><td colspan="5" class="empty">इस तारीख की कोई Receipt नहीं मिली।</td></tr>';
+ const emiHtml=r=>'<tr><td>'+esc(formatCustomerId(r.customer.customer_code))+'</td><td>'+esc(r.customer.full_name||"—")+'</td><td>'+esc(r.customer.center_name||"—")+'</td><td>'+esc(r.loan.loan_reference||"—")+'</td><td>'+r.emi+'</td><td>'+esc(r.dueDate)+'</td><td>'+money(r.demand)+'</td><td>'+money(r.received)+'</td><td><strong>'+money(r.remaining)+'</strong></td></tr>';
+ $("dayDemandCollectedRows").innerHTML=collectedRows.map(emiHtml).join("")||'<tr><td colspan="9" class="empty">इस दिन की कोई पूरी EMI collect नहीं हुई।</td></tr>';
+ $("dayDemandPendingRows").innerHTML=pendingRows.map(emiHtml).join("")||'<tr><td colspan="9" class="empty">इस दिन कोई EMI Pending / OD नहीं है।</td></tr>';
+ dayDemandReport={date,selectedDay,customerCount,totalDemand,collectedAmount,pendingAmount,receivedAmount,collectedRows,pendingRows,receiptRows};
 }
 function printDayDemandReport(){
  if(!dayDemandReport)loadDayDemandReport();if(!dayDemandReport)return;const r=dayDemandReport;
- const pendingRows=r.dueRows.map(x=>'<tr><td>'+esc(formatCustomerId(x.customer.customer_code))+'</td><td>'+esc(x.customer.full_name||"—")+'</td><td>'+esc(x.loan.loan_reference||"—")+'</td><td>'+x.emi+'</td><td>'+esc(x.dueDate)+'</td><td>'+money(x.demand)+'</td><td>'+money(x.received)+'</td><td>'+money(x.remaining)+'</td></tr>').join("");
- const groups=r.odCustomerRows||[];
- const odSummary=groups.map(g=>'<tr><td>'+esc(formatCustomerId(g.customer.customer_code))+'</td><td>'+esc(g.customer.full_name||"—")+'</td><td>'+esc(g.customer.center_name||"—")+'</td><td>'+g.loanRefs.size+'</td><td>'+g.rows.length+'</td><td>'+money(g.total)+'</td></tr>').join("");
- const odDetails=groups.map(g=>'<h4>'+esc(formatCustomerId(g.customer.customer_code))+' · '+esc(g.customer.full_name||"—")+'</h4><table><thead><tr><th>Loan Ref</th><th>EMI No.</th><th>Due Date</th><th>बाकी OD</th></tr></thead><tbody>'+g.rows.map(x=>'<tr><td>'+esc(x.loan.loan_reference||"—")+'</td><td>'+x.emi+'</td><td>'+esc(x.dueDate)+'</td><td>'+money(x.remaining)+'</td></tr>').join("")+'</tbody></table>').join("");
- const body='<h2>ARK JAN SAMRIDDHI FOUNDATION</h2><h3>Day-wise Demand & Collection — '+esc(r.date)+' ('+esc(r.selectedDay)+')</h3><p>Total Demand: '+money(r.totalDemand)+' | Received: '+money(r.received)+' | Pending: '+money(r.pending)+' | Total OD: '+money(r.od)+'</p><h3>Selected Day Pending</h3><table><thead><tr><th>Customer ID</th><th>Name</th><th>Loan Ref</th><th>EMI</th><th>Due Date</th><th>Demand</th><th>Received</th><th>Remaining</th></tr></thead><tbody>'+pendingRows+'</tbody></table><h3>Overdue Customers — Customer-wise Summary</h3><table><thead><tr><th>Customer ID</th><th>Name</th><th>Center</th><th>Loans</th><th>Pending EMI</th><th>Total OD</th></tr></thead><tbody>'+odSummary+'</tbody></table><h3>Overdue EMI Details</h3>'+odDetails;
- openAjsfPrint("AJSF Day-wise Demand",body,'@page{size:A4 landscape;margin:8mm}body{font-size:8pt}table{width:100%;border-collapse:collapse;margin:5px 0 12px}th,td{border:1px solid #999;padding:5px;text-align:left}th{background:#eaf1ed}h3{margin-top:14px}h4{margin:10px 0 3px;page-break-after:avoid}');
+ const rowsHtml=items=>items.map(x=>'<tr><td>'+esc(formatCustomerId(x.customer.customer_code))+'</td><td>'+esc(x.customer.full_name||"—")+'</td><td>'+esc(x.loan.loan_reference||"—")+'</td><td>'+x.emi+'</td><td>'+esc(x.dueDate)+'</td><td>'+money(x.demand)+'</td><td>'+money(x.received)+'</td><td>'+money(x.remaining)+'</td></tr>').join("");
+ const body='<h2>ARK JAN SAMRIDDHI FOUNDATION</h2><h3>Daily Collection Settlement — '+esc(r.date)+' ('+esc(r.selectedDay)+')</h3><p>No. of Customers: '+r.customerCount+' | Demand: '+money(r.totalDemand)+' | Fully Collected EMI: '+r.collectedRows.length+' ('+money(r.collectedAmount)+') | Pending / OD EMI: '+r.pendingRows.length+' ('+money(r.pendingAmount)+')</p><h3>Collected EMI — Selected Date Only</h3><table><thead><tr><th>Customer ID</th><th>Name</th><th>Loan Ref</th><th>EMI No.</th><th>Due Date</th><th>Demand</th><th>Received</th><th>Remaining</th></tr></thead><tbody>'+rowsHtml(r.collectedRows)+'</tbody></table><h3>Pending / OD EMI — Selected Date Only</h3><table><thead><tr><th>Customer ID</th><th>Name</th><th>Loan Ref</th><th>EMI No.</th><th>Due Date</th><th>Demand</th><th>Received</th><th>Remaining</th></tr></thead><tbody>'+rowsHtml(r.pendingRows)+'</tbody></table>';
+ openAjsfPrint("AJSF Daily Collection Settlement",body,'@page{size:A4 landscape;margin:8mm}body{font-size:8pt}table{width:100%;border-collapse:collapse;margin:5px 0 12px}th,td{border:1px solid #999;padding:5px;text-align:left}th{background:#eaf1ed}h3{margin-top:14px}');
 }
 
 function settlementDateKey(value) {
