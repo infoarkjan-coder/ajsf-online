@@ -1624,8 +1624,6 @@ function loadDayDemandReport(){
  $("dayDemandTotal").textContent=money(totalDemand);
  $("dayDemandCollected").textContent=collectedRows.length+" EMI · "+money(collectedAmount);
  $("dayDemandPending").textContent=pendingRows.length+" EMI · "+money(pendingAmount);
- $("dayDemandReceived").textContent=money(receivedAmount);
- $("dayDemandOD").textContent=money(pendingAmount);
  $("dayDemandReceipts").innerHTML=receiptRows.map(p=>{const c=customerById.get(p.customer_id),l=loans.find(x=>x.id===p.loan_id);return '<tr><td>'+esc((p.id||p.client_tx_id||"").slice(0,8).toUpperCase())+'</td><td>'+esc(formatCustomerId(c?.customer_code))+' · '+esc(c?.full_name||"—")+'</td><td>'+esc(l?.loan_reference||"—")+'</td><td>'+esc(p.payment_mode||"—")+'</td><td>'+money(p.amount)+'</td></tr>';}).join("")||'<tr><td colspan="5" class="empty">इस तारीख की कोई Receipt नहीं मिली।</td></tr>';
  const emiHtml=r=>'<tr><td>'+esc(formatCustomerId(r.customer.customer_code))+'</td><td>'+esc(r.customer.full_name||"—")+'</td><td>'+esc(r.customer.center_name||"—")+'</td><td>'+esc(r.loan.loan_reference||"—")+'</td><td>'+r.emi+'</td><td>'+esc(r.dueDate)+'</td><td>'+money(r.demand)+'</td><td>'+money(r.received)+'</td><td><strong>'+money(r.remaining)+'</strong></td></tr>';
  $("dayDemandCollectedRows").innerHTML=collectedRows.map(emiHtml).join("")||'<tr><td colspan="9" class="empty">इस दिन की कोई पूरी EMI collect नहीं हुई।</td></tr>';
