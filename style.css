@@ -525,3 +525,68 @@ input,select,button{min-height:42px}
   pointer-events:auto;
   cursor:pointer;
 }
+
+
+/* AJSF professional interface refresh */
+:root{
+  --ajsf-ink:#123f35;--ajsf-green:#176b4b;--ajsf-muted:#63776d;
+  --ajsf-line:#d8e6dd;--ajsf-soft:#f2f7f3;--ajsf-shadow:0 18px 48px rgba(18,63,53,.10);
+}
+body{background:radial-gradient(ellipse at 50% 0%,#e4f1e9 0%,#f4f8f5 42%,#eef4f0 100%);color:#19372d}
+#appShell:not(.logged-in).shell.wide{width:min(100% - 32px,560px)!important;max-width:560px!important;padding:34px 0 48px!important}
+#appShell:not(.logged-in)>.brand{justify-content:center;gap:16px;margin:0 auto 26px!important;padding:0 8px}
+#appShell:not(.logged-in)>.brand .brand-logo{width:82px;height:82px;padding:4px;border:1px solid #d5e4da;box-shadow:0 6px 18px rgba(18,63,53,.10)}
+#appShell:not(.logged-in)>.brand h1{font-size:clamp(17px,3vw,22px);line-height:1.22;letter-spacing:.15px}
+#appShell:not(.logged-in)>.brand p{font-size:12px;letter-spacing:1.25px;margin-top:7px}
+#appDownloadCard{margin:0 auto 22px!important;padding:12px!important;border-radius:18px!important;box-shadow:0 10px 26px rgba(18,63,53,.07)!important}
+#appDownloadCard .app-download-link{min-height:56px!important;border-radius:12px!important;font-size:16px!important;letter-spacing:.15px;box-shadow:0 5px 14px rgba(18,63,53,.18)!important;transition:transform .18s ease,box-shadow .18s ease}
+#appDownloadCard .app-download-link:hover{transform:translateY(-1px);box-shadow:0 8px 18px rgba(18,63,53,.22)!important}
+#loginCard{width:100%;max-width:560px;margin:0 auto!important;padding:30px 34px!important;border:1px solid #dce9e1;border-radius:20px!important;box-shadow:var(--ajsf-shadow)!important;position:relative;overflow:hidden}
+#loginCard:before{content:"";position:absolute;inset:0 0 auto;height:5px;background:linear-gradient(90deg,#176b4b,#b4d4bf,#123f35)}
+#loginCard .eyebrow{display:inline-flex;align-items:center;gap:7px;padding:6px 10px;border-radius:999px;background:#edf6f0;color:#276449;font-size:10px;letter-spacing:1px}
+#loginCard .eyebrow:before{content:"";width:7px;height:7px;border-radius:50%;background:#2c9b63;box-shadow:0 0 0 3px #d8eee0}
+#loginCard h2{font-size:27px;margin:12px 0 5px;letter-spacing:-.3px}
+#loginCard>p.muted{margin:0 0 22px;font-size:13px}
+#loginCard form{gap:10px;margin:0}
+#loginCard form label{font-size:13px;font-weight:700;color:#29483d;margin-top:4px}
+#loginCard input{height:49px;padding:12px 14px;border:1px solid #d1dfd6;border-radius:10px;background:#fbfdfb;font-size:15px;transition:border-color .15s,box-shadow .15s}
+#loginCard input:focus{outline:0;border-color:#4d9470;box-shadow:0 0 0 3px rgba(77,148,112,.14);background:#fff}
+#loginCard button{height:49px;margin-top:10px;border-radius:10px;background:linear-gradient(110deg,#176b4b,#123f35);font-size:15px;box-shadow:0 6px 14px rgba(18,63,53,.16);transition:transform .15s,box-shadow .15s}
+#loginCard button:hover{transform:translateY(-1px);box-shadow:0 9px 18px rgba(18,63,53,.22)}
+#loginCard .small{margin:16px 0 0;text-align:center;color:#7b8b83}
+#loginMessage{margin:8px 0 0}
+#appShell.logged-in.shell.wide{max-width:1580px!important}
+#appShell.logged-in>.brand{padding:8px 4px 18px;border-bottom:1px solid #dce8e1}
+#appShell.logged-in>.brand .brand-logo{width:68px;height:68px}
+#appShell.logged-in>.brand h1{font-size:20px}
+#appShell.logged-in>.brand p{font-size:11px}
+#dashboardCard>.grid{gap:14px;margin:14px 0 18px}
+#dashboardCard>.grid>.card{border-radius:14px;border:1px solid #deebe3;box-shadow:0 5px 18px rgba(18,63,53,.055);padding:18px}
+#dashboardCard>.grid>.card .metric{font-size:26px}
+.dashboard-layout>.sidebar{padding:15px!important;border-radius:16px!important;background:rgba(255,255,255,.94)!important}
+.sidebar-title{font-size:12px!important;letter-spacing:1.3px!important}
+.sidebar .tabs{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:8px!important}
+.sidebar .tabs button{min-width:0!important;min-height:44px!important;padding:10px 12px!important;border-radius:10px!important;font-size:12px!important;line-height:1.3;white-space:normal;overflow-wrap:anywhere}
+.dashboard-content>.panel{border-radius:16px;box-shadow:0 8px 28px rgba(18,63,53,.06)}
+.panel-head{margin-bottom:12px}
+.panel-head h2{line-height:1.3}
+@media(max-width:760px){
+ #appShell:not(.logged-in).shell.wide{width:min(100% - 24px,520px)!important;padding:22px 0 32px!important}
+ #appShell:not(.logged-in)>.brand{gap:11px;margin-bottom:20px!important}
+ #appShell:not(.logged-in)>.brand .brand-logo{width:64px;height:64px}
+ #appShell:not(.logged-in)>.brand h1{font-size:15px}
+ #appShell:not(.logged-in)>.brand p{font-size:9px;letter-spacing:.7px}
+ #loginCard{padding:24px 20px!important;border-radius:16px!important}
+ #loginCard h2{font-size:24px}
+ #appDownloadCard .app-download-link{font-size:14px!important}
+ #dashboardCard>.grid>.card{padding:13px}
+ #dashboardCard>.grid>.card .metric{font-size:21px}
+ .sidebar .tabs{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+ .sidebar .tabs button{font-size:11px!important;min-height:46px!important}
+}
+@media(max-width:380px){
+ #appShell:not(.logged-in)>.brand h1{font-size:13px}
+ #loginCard{padding:21px 16px!important}
+ .sidebar .tabs{grid-template-columns:1fr 1fr!important}
+ .sidebar .tabs button{padding:8px 6px!important;font-size:10px!important}
+}
