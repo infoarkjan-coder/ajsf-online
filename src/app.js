@@ -187,6 +187,8 @@ function renderShell() {
   const collectorOnly = $("collectorOnly");
   if (adminOnly) adminOnly.classList.toggle("hidden", !canAdmin());
   if (collectorOnly) collectorOnly.classList.toggle("hidden", canAdmin());
+  const loanAdminTools = $("loanAdminTools");
+  if (loanAdminTools) loanAdminTools.classList.toggle("hidden", !canAdmin());
   const dashboard = $("dashboardCard");
   dashboard.classList.toggle("collector-mode", !canAdmin());
   dashboard.classList.remove("collector-payment-mode");
