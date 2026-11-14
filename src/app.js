@@ -257,7 +257,7 @@ async function loadAll() {
   let adv;
   try { [c, l, w, adv] = await Promise.all([
     customerQuery,
-    supabase.from("loans").select("id, loan_reference, customer_id, loan_type, disbursement_date, loan_amount, emi_amount, total_emis_required, status, source_total_collected, source_osp, source_emis_paid, source_emis_pending, is_archived").eq("is_archived", false).order("created_at", {ascending:false}),
+    supabase.from("loans").select("id, loan_reference, customer_id, loan_type, disbursement_date, loan_amount, emi_amount, total_emis_required, status, source_total_collected, source_osp, source_emis_paid, source_emis_pending, previous_loan_id, is_archived").eq("is_archived", false).order("created_at", {ascending:false}),
     weeklyQuery,
     supabase.from("advance_ledger").select("*")
   ]); } catch (networkError) { c = {error:networkError}; l = {error:networkError}; w = {error:networkError}; adv = {error:networkError}; }
@@ -422,6 +422,11 @@ function renderData() {
     return `<tr><td>${esc(l.loan_reference)}</td><td>${esc(c?.full_name || l.customer_id)}</td><td>${esc(l.loan_type)}</td><td>${money(l.loan_amount)}</td><td>${money(l.emi_amount)}</td><td>${esc(l.total_emis_required)}</td><td>${money(f.collected)}</td><td>${money(f.outstanding)}</td><td>${esc(l.status)}</td></tr>`;
   }).join("") || `<tr><td colspan="9" class="empty">कोई लोन रिकॉर्ड नहीं मिला।</td></tr>`;
   const customerOptions = `<option value="">ग्राहक चुनें</option>` + operationalCustomers.map(c => `<option value="${esc(c.id)}">${esc(formatCustomerId(c.customer_code))} · ${esc(c.full_name)}</option>`).join("");
+  if ($("newLoanCustomer")) $("newLoanCustomer").innerHTML = customerOptions;
+  if ($("closeLoanSelect")) $("closeLoanSelect").innerHTML = '<option value="">Active Loan चुनें</option>' + loans.filter(l=>l.status==="active").map(l=>{const c=customers.find(x=>x.id===l.customer_id);return '<option value="'+esc(l.id)+'">'+esc(l.loan_reference)+' · '+esc(c?.full_name||"")+'</option>';}).join("");
+  if ($("newLoanPrevious")) updateRepeatLoanOptions();
+  if ($("closeLoanSelect") && !$("closeLoanSelect").value) updateClosurePaymentOptions();
+
   $("reminderCustomer").innerHTML = customerOptions;
   updateReminderLoanOptions();
   $("payCustomer").innerHTML = customerOptions;
@@ -836,6 +841,66 @@ function printCustomerStatement() {
     .statement-generated{text-align:right;font-size:7pt;margin-top:8px}
     .statement-note{font-size:6.5pt;margin-top:6px}
   `);
+}
+
+async function submitNewLoan(event) {
+  event.preventDefault();
+  if (!canAdmin()) return showMessage("नया Loan बनाने का अधिकार केवल Admin को है।","warn");
+  const form=event.currentTarget, btn=form.querySelector('[type="submit"]'), d=Object.fromEntries(new FormData(form));
+  const customer=customers.find(c=>c.id===d.customer_id && c.is_active!==false && (c.customer_status||"ACTIVE")==="ACTIVE");
+  const previous=d.previous_loan_id ? loans.find(l=>l.id===d.previous_loan_id) : null;
+  const amount=Number(d.loan_amount), emi=Number(d.emi_amount), terms=Number(d.total_emis_required);
+  const ref=d.loan_reference.trim();
+  if(!customer) return showMessage("सक्रिय ग्राहक चुनें।","warn");
+  if(previous && (previous.customer_id!==customer.id || previous.status!=="closed")) return showMessage("Repeat Loan के लिए उसी ग्राहक का CLOSED पुराना Loan चुनें।","warn");
+  if(!ref || !d.loan_type.trim() || !d.disbursement_date || !(amount>0) || !(emi>0) || !Number.isInteger(terms) || terms<1) return showMessage("सभी Loan विवरण सही भरें।","warn");
+  if(loans.some(l=>String(l.loan_reference||"").trim().toLowerCase()===ref.toLowerCase())) return showMessage("यह Loan Ref पहले से मौजूद है। नया Ref डालें।","warn");
+  setBusy(btn,true,"Loan सेव हो रहा है…");
+  try {
+    const {error}=await supabase.from("loans").insert({
+      loan_reference:ref, customer_id:customer.id, loan_type:d.loan_type.trim(),
+      disbursement_date:d.disbursement_date, loan_amount:amount, emi_amount:emi,
+      total_emis_required:terms, status:"active", created_by:currentUser.id,
+      is_archived:false, previous_loan_id:previous?.id||null
+    });
+    if(error) throw error;
+    form.reset(); await loadAll();
+    showMessage("नया Loan सफलतापूर्वक सेव हुआ। पुराना Loan अलग history में सुरक्षित है।","success");
+  } catch(err) { showMessage("नया Loan सेव नहीं हुआ: "+(err?.message||String(err)),"error"); }
+  finally { setBusy(btn,false); }
+}
+function updateRepeatLoanOptions() {
+  const customerId=$("newLoanCustomer")?.value;
+  const closed=loans.filter(l=>l.customer_id===customerId && l.status==="closed");
+  if($("newLoanPrevious")) $("newLoanPrevious").innerHTML='<option value="">नया Loan / कोई पिछला Loan नहीं</option>'+closed.map(l=>'<option value="'+esc(l.id)+'">'+esc(l.loan_reference)+' · बंद</option>').join("");
+}
+function updateClosurePaymentOptions() {
+  const loanId=$("closeLoanSelect")?.value;
+  const rows=payments.filter(p=>p.loan_id===loanId && p.id && !p.is_reversal && !p.offline_pending);
+  if($("closeFinalPayment")) $("closeFinalPayment").innerHTML='<option value="">अंतिम रसीद चुनें</option>'+rows.map(p=>'<option value="'+esc(p.id)+'">'+esc((p.id||"").slice(0,8).toUpperCase())+' · '+money(p.amount)+' · '+esc(formatDate(p.paid_at))+'</option>').join("");
+}
+async function submitLoanClosure(event) {
+  event.preventDefault();
+  if(!canAdmin()) return showMessage("Loan बंद करने का अधिकार केवल Admin को है।","warn");
+  const form=event.currentTarget, btn=form.querySelector('[type="submit"]'), d=Object.fromEntries(new FormData(form));
+  const loan=loans.find(l=>l.id===d.loan_id && l.status==="active");
+  const payment=payments.find(p=>p.id===d.final_payment_id && p.loan_id===d.loan_id && !p.is_reversal && !p.offline_pending);
+  if(!loan || !payment) return showMessage("सही Active Loan और उसी की सेव हुई अंतिम रसीद चुनें।","warn");
+  const figures=loanFigures(loan,paymentsByLoan());
+  const beforeFinal=Math.max(0,figures.outstanding+Number(payment.amount||0));
+  if(figures.outstanding>0.01) return showMessage("Loan अभी बंद नहीं हो सकता। वर्तमान बकाया "+money(figures.outstanding)+" है। पहले पूरा भुगतान दर्ज करें।","warn");
+  if(Number(payment.amount||0)<=0 || beforeFinal<=0.01) return showMessage("अंतिम रसीद की राशि जाँचें।","warn");
+  setBusy(btn,true,"Loan बंद हो रहा है…");
+  try {
+    const {data,error}=await supabase.rpc("close_loan_after_final_payment",{
+      p_loan_id:loan.id,p_final_payment_id:payment.id,
+      p_closure_date:d.closure_date||localDateValue(),p_reason:d.reason||null
+    });
+    if(error) throw error;
+    await loadAll();
+    showMessage("Loan बंद हो गया। Final payment से पहले बकाया "+money(data?.outstanding_before_final)+" था। अब इसी ग्राहक का Repeat Loan अलग से बनाया जा सकता है।","success");
+  } catch(err) { showMessage("Loan बंद नहीं हुआ: "+(err?.message||String(err)),"error"); }
+  finally { setBusy(btn,false); }
 }
 
 async function submitCustomer(event) {
@@ -1993,6 +2058,12 @@ async function boot() {
       await loadProfile(currentUser);
       renderShell();
       $("customerForm").addEventListener("submit",submitCustomer);
+      $("newLoanForm")?.addEventListener("submit",submitNewLoan);
+      $("closeLoanForm")?.addEventListener("submit",submitLoanClosure);
+      $("newLoanCustomer")?.addEventListener("change",updateRepeatLoanOptions);
+      $("closeLoanSelect")?.addEventListener("change",updateClosurePaymentOptions);
+      $("closureDate") && ($("closureDate").value=localDateValue());
+
       $("paymentForm").addEventListener("submit",submitPayment);
       try {
         await loadAll();
