@@ -590,3 +590,71 @@ body{background:radial-gradient(ellipse at 50% 0%,#e4f1e9 0%,#f4f8f5 42%,#eef4f0
  .sidebar .tabs{grid-template-columns:1fr 1fr!important}
  .sidebar .tabs button{padding:8px 6px!important;font-size:10px!important}
 }
+
+
+/* Final layout correction: compact APK link and full-width staff workspace */
+#appShell:has(#dashboardCard:not(.hidden)).shell.wide{
+  width:min(100% - 40px,1580px)!important;
+  max-width:1580px!important;
+  padding:20px 0 36px!important;
+}
+#appShell:has(#dashboardCard:not(.hidden))>.brand{
+  justify-content:flex-start!important;
+  margin:0 0 16px!important;
+  padding:0 4px 14px!important;
+}
+#appShell:has(#dashboardCard:not(.hidden)) #appDownloadCard{display:none!important}
+#appShell:not(:has(#dashboardCard:not(.hidden))) #appDownloadCard{
+  width:min(100%,380px)!important;
+  margin:0 auto 18px!important;
+  padding:8px!important;
+  border-radius:14px!important;
+}
+#appShell:not(:has(#dashboardCard:not(.hidden))) #appDownloadCard .app-download-link{
+  min-height:42px!important;
+  padding:9px 14px!important;
+  font-size:14px!important;
+  gap:9px!important;
+  border-radius:9px!important;
+  box-shadow:0 3px 9px rgba(18,63,53,.14)!important;
+}
+#appShell:not(:has(#dashboardCard:not(.hidden))) #appDownloadCard .app-download-link span:first-child{
+  width:25px!important;height:25px!important;font-size:16px!important;
+}
+#appShell:has(#dashboardCard:not(.hidden)) .dashboard-layout{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr)!important;
+  gap:14px!important;
+}
+#appShell:has(#dashboardCard:not(.hidden)) .dashboard-layout>.sidebar{
+  width:100%!important;position:static!important;
+}
+#appShell:has(#dashboardCard:not(.hidden)) .sidebar .tabs{
+  display:grid!important;
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:9px!important;
+}
+#appShell:has(#dashboardCard:not(.hidden)) .sidebar .tabs button{
+  min-width:0!important;
+  min-height:43px!important;
+  padding:9px 10px!important;
+  font-size:12px!important;
+  line-height:1.25!important;
+  white-space:normal!important;
+  overflow-wrap:anywhere!important;
+}
+#appShell:has(#dashboardCard:not(.hidden)) .dashboard-content{
+  width:100%!important;max-width:none!important;
+}
+#appShell:has(#dashboardCard:not(.hidden)) .dashboard-content>.panel{
+  width:100%!important;max-width:none!important;
+}
+@media(max-width:1000px){
+ #appShell:has(#dashboardCard:not(.hidden)) .sidebar .tabs{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+}
+@media(max-width:650px){
+ #appShell:has(#dashboardCard:not(.hidden)).shell.wide{width:100%!important;padding:12px 10px 24px!important}
+ #appShell:has(#dashboardCard:not(.hidden)) .sidebar .tabs{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important}
+ #appShell:has(#dashboardCard:not(.hidden)) .sidebar .tabs button{min-height:42px!important;font-size:11px!important;padding:8px 6px!important}
+ #appShell:not(:has(#dashboardCard:not(.hidden))) #appDownloadCard{width:min(100%,330px)!important}
+}
