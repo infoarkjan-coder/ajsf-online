@@ -25,34 +25,66 @@
 </div><button id="staffPasswordSaveBtn" type="submit">पासवर्ड अपडेट करें</button>
 </form><p class="small muted">पासवर्ड केवल चयनित अकाउंट पर लागू होगा। इसे सुरक्षित तरीके से संबंधित कर्मचारी तक पहुँचाएँ।</p>
 </section>
-<section class="card panel hidden" data-panel="daily-settlement">
-<div class="panel-head"><div><h2>Daily Collection Settlement</h2><p class="muted">Collector-wise Cash / UPI / Bank मिलान और Admin Approval</p></div><div class="field"><label for="settlementDate">Settlement Date</label><input id="settlementDate" type="date"></div></div>
-<div class="tablewrap"><table><thead><tr><th>Collector</th><th>System Cash</th><th>System UPI</th><th>System Bank</th><th>जमा Cash</th><th>जमा UPI</th><th>जमा Bank</th><th>अंतर</th><th>Status / Action</th></tr></thead><tbody id="settlementRows"><tr><td colspan="9" class="empty">Settlement डेटा लोड हो रहा है…</td></tr></tbody></table></div>
-<p class="small muted">System राशि उस तारीख के दर्ज Payments से आती है। जमा राशि Admin दर्ज करेगा। Draft सेव करने के बाद जाँचकर Approve करें। Approved Settlement लॉक हो जाएगा।</p>
-<div class="divider"></div>
-<div class="panel-head"><div><h3>Day-wise Demand & Collection / दिनवार मांग और वसूली</h3><p class="muted">तारीख और Collection Day चुनें। रिपोर्ट में केवल उसी दिन की Demand, पूरी Collect हुई EMI और उसी दिन की Pending / OD EMI दिखेंगी।</p></div></div>
-<div class="formgrid"><div class="field"><label for="demandReportDate">रिपोर्ट की तारीख</label><input id="demandReportDate" type="date"></div><div class="field"><label for="demandReportDay">Collection Day</label><select id="demandReportDay"><option value="">तारीख का दिन (Auto)</option><option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option><option>Sunday</option><option>MONTHLY</option></select></div><div class="field"><label for="demandReportCollector">Collector</label><select id="demandReportCollector"><option value="">सभी Collector</option></select></div></div>
-<div class="actions no-print"><button id="runDayDemandBtn" type="button">Demand देखें</button><button id="printDayDemandBtn" type="button" class="secondary">Print Demand</button></div>
-<div class="grid demand-metrics"><div class="card"><div class="label">कुल ग्राहक</div><div class="metric" id="dayDemandCustomers">0</div></div><div class="card"><div class="label">उस दिन की Total Demand</div><div class="metric" id="dayDemandTotal">₹0</div></div><div class="card"><div class="label">पूरी Collect हुई EMI</div><div class="metric" id="dayDemandCollected">0 EMI · ₹0</div></div><div class="card"><div class="label">Pending / OD EMI (उसी दिन की)</div><div class="metric" id="dayDemandPending">0 EMI · ₹0</div></div></div>
-<h3>Selected Day Receipts / उस दिन की रसीदें</h3><div class="tablewrap"><table><thead><tr><th>Receipt No.</th><th>Customer</th><th>Loan Ref</th><th>Mode</th><th>जमा राशि</th></tr></thead><tbody id="dayDemandReceipts"><tr><td colspan="5" class="empty">तारीख चुनकर Demand देखें।</td></tr></tbody></table></div>
-<h3>Collected EMI / उसी दिन पूरी जमा हुई EMI</h3><div class="tablewrap"><table><thead><tr><th>Customer ID</th><th>ग्राहक</th><th>Center</th><th>Loan Ref</th><th>EMI No.</th><th>Due Date</th><th>Demand</th><th>Received</th><th>Remaining</th></tr></thead><tbody id="dayDemandCollectedRows"><tr><td colspan="9" class="empty">रिपोर्ट देखें।</td></tr></tbody></table></div>
-<h3>Pending / OD EMI / उसी दिन अधूरी या जमा नहीं हुई EMI</h3><div class="tablewrap"><table><thead><tr><th>Customer ID</th><th>ग्राहक</th><th>Center</th><th>Loan Ref</th><th>EMI No.</th><th>Due Date</th><th>Demand</th><th>Received</th><th>Pending</th></tr></thead><tbody id="dayDemandPendingRows"><tr><td colspan="9" class="empty">रिपोर्ट देखें।</td></tr></tbody></table></div>
-<div class="divider"></div>
-<div class="panel-head"><div><h3>Settlement Reports</h3><p class="muted">Date-wise और Collector-wise रिपोर्ट देखें, PDF / Excel डाउनलोड करें या A4 Landscape Print करें।</p></div></div>
-<div class="formgrid">
-<div class="field"><label for="settlementReportFrom">From Date</label><input id="settlementReportFrom" type="date"></div>
-<div class="field"><label for="settlementReportTo">To Date</label><input id="settlementReportTo" type="date"></div>
-<div class="field"><label for="settlementReportCollector">Collector</label><select id="settlementReportCollector"><option value="">सभी Collector</option></select></div>
-<div class="field"><label for="settlementReportStatus">Status</label><select id="settlementReportStatus"><option value="">सभी Status</option><option value="approved">Approved</option><option value="pending">Pending / Draft</option></select></div>
-</div>
-<div class="actions no-print"><button id="runSettlementReportBtn" type="button">रिपोर्ट देखें</button><button id="downloadSettlementReportPdfBtn" type="button" class="secondary">PDF डाउनलोड</button><button id="downloadSettlementReportBtn" type="button" class="secondary">Excel / CSV डाउनलोड</button><button id="printSettlementReportBtn" type="button" class="secondary">Print Report</button></div>
-<div class="grid" id="settlementReportSummary">
-<div class="card"><div class="label">कुल System Collection</div><div class="metric" id="settlementReportExpected">₹0</div></div>
-<div class="card"><div class="label">कुल जमा राशि</div><div class="metric" id="settlementReportDeposited">₹0</div></div>
-<div class="card"><div class="label">कुल अंतर</div><div class="metric" id="settlementReportDifference">₹0</div></div>
-<div class="card"><div class="label">Approved / Pending</div><div class="metric" id="settlementReportStatusCount">0 / 0</div></div>
-</div>
-<div class="tablewrap"><table id="settlementReportTable"><thead><tr><th>तारीख</th><th>Collector</th><th>System Total</th><th>जमा Total</th><th>अंतर</th><th>Cash (System / जमा)</th><th>UPI (System / जमा)</th><th>Bank (System / जमा)</th><th>Status</th></tr></thead><tbody id="settlementReportRows"><tr><td colspan="9" class="empty">रिपोर्ट देखने के लिए तारीख चुनें।</td></tr></tbody></table></div>
+<section class="card panel hidden daily-settlement-workspace" data-panel="daily-settlement">
+  <div class="settlement-hero">
+    <div><span class="settlement-kicker">AJSF • DAILY CONTROL</span><h2>Daily Collection Settlement</h2><p>Collector का दिनवार हिसाब — Demand, EMI Collection, Cash / UPI और बाकी रकम का मिलान</p></div>
+    <div class="field settlement-date-field"><label for="settlementDate">Collection Date</label><input id="settlementDate" type="date"></div>
+  </div>
+  <div class="settlement-steps">
+    <div><b>01</b><span>आज की Demand</span><small>किससे कितनी EMI लेनी थी</small></div>
+    <div><b>02</b><span>आज की Collection</span><small>कितना Cash / UPI मिला</small></div>
+    <div><b>03</b><span>Collector Handover</span><small>कितना जमा हुआ, कितना अंतर</small></div>
+    <div><b>04</b><span>Final Report</span><small>Print करके सुरक्षित रखें</small></div>
+  </div>
+
+  <section class="settlement-block demand-block">
+    <div class="settlement-block-head"><div><span class="settlement-kicker">STEP 01</span><h3>दिन की Demand & EMI स्थिति</h3><p>चुनी हुई तारीख की निर्धारित EMI, पूरी वसूली और उसी दिन की बाकी EMI। पुराने OD को आज की Demand में नहीं मिलाया जाएगा।</p></div></div>
+    <div class="formgrid settlement-filters">
+      <div class="field"><label for="demandReportDate">रिपोर्ट की तारीख</label><input id="demandReportDate" type="date"></div>
+      <div class="field"><label for="demandReportDay">Collection Day</label><select id="demandReportDay"><option value="">तारीख का दिन (Auto)</option><option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option><option>Sunday</option><option>MONTHLY</option></select></div>
+      <div class="field"><label for="demandReportCollector">Collector</label><select id="demandReportCollector"><option value="">सभी Collector</option></select></div>
+      <div class="field settlement-run-field"><label>&nbsp;</label><button id="runDayDemandBtn" type="button">Demand अपडेट करें</button></div>
+    </div>
+    <div class="grid demand-metrics settlement-metrics">
+      <div class="card"><div class="label">आज के ग्राहक</div><div class="metric" id="dayDemandCustomers">0</div></div>
+      <div class="card"><div class="label">आज की Total Demand</div><div class="metric" id="dayDemandTotal">₹0</div></div>
+      <div class="card"><div class="label">पूरी EMI वसूली</div><div class="metric" id="dayDemandCollected">0 EMI · ₹0</div></div>
+      <div class="card"><div class="label">बाकी / Partial EMI</div><div class="metric" id="dayDemandPending">0 EMI · ₹0</div></div>
+    </div>
+    <h4 class="settlement-table-title">Customer-wise Demand Reconciliation</h4>
+    <div class="tablewrap"><table><thead><tr><th>Customer ID</th><th>ग्राहक</th><th>Center</th><th>Loan Ref</th><th>EMI No.</th><th>Due Date</th><th>Demand</th><th>Received</th><th>Remaining</th></tr></thead><tbody id="dayDemandCollectedRows"><tr><td colspan="9" class="empty">रिपोर्ट देखें।</td></tr></tbody></table></div>
+    <h4 class="settlement-table-title">Pending / Partial EMI — आज की बाकी वसूली</h4>
+    <div class="tablewrap"><table><thead><tr><th>Customer ID</th><th>ग्राहक</th><th>Center</th><th>Loan Ref</th><th>EMI No.</th><th>Due Date</th><th>Demand</th><th>Received</th><th>Pending</th></tr></thead><tbody id="dayDemandPendingRows"><tr><td colspan="9" class="empty">रिपोर्ट देखें।</td></tr></tbody></table></div>
+  </section>
+
+  <section class="settlement-block collection-block">
+    <div class="settlement-block-head"><div><span class="settlement-kicker">STEP 02</span><h3>आज की वास्तविक Collection</h3><p>हर सफल Receipt का विवरण। Cash, UPI और Bank अलग-अलग गिने जाएँगे।</p></div></div>
+    <div class="tablewrap"><table><thead><tr><th>Receipt / Payment ID</th><th>Customer</th><th>Loan Ref</th><th>Payment Time</th><th>Mode</th><th>Amount</th></tr></thead><tbody id="dayDemandReceipts"><tr><td colspan="6" class="empty">तारीख चुनकर Demand देखें।</td></tr></tbody></table></div>
+  </section>
+
+  <section class="settlement-block handover-block">
+    <div class="settlement-block-head"><div><span class="settlement-kicker">STEP 03</span><h3>Collector Cash / UPI Handover मिलान</h3><p>System में दर्ज Collection और Collector द्वारा जमा की गई रकम का मिलान करें। अंतर को जाँचे बिना Settlement Approve न करें।</p></div></div>
+    <div class="tablewrap"><table><thead><tr><th>Collector</th><th>System Cash</th><th>System UPI</th><th>System Bank</th><th>जमा Cash</th><th>जमा UPI</th><th>जमा Bank</th><th>अंतर</th><th>Status / Action</th></tr></thead><tbody id="settlementRows"><tr><td colspan="9" class="empty">Settlement डेटा लोड हो रहा है…</td></tr></tbody></table></div>
+    <p class="settlement-warning">नियम: System Collection ≠ Collector Deposit होने पर अंतर की वजह Notes / Remarks में दर्ज करके ही Approve करें। Approved Settlement लॉक हो जाएगा।</p>
+  </section>
+
+  <section class="settlement-block report-block">
+    <div class="settlement-block-head"><div><span class="settlement-kicker">STEP 04</span><h3>पुरानी Settlement Reports</h3><p>किसी भी तारीख की Collector-wise रिपोर्ट दोबारा देखें, PDF / Excel डाउनलोड करें या A4 Landscape Print करें।</p></div></div>
+    <div class="formgrid">
+      <div class="field"><label for="settlementReportFrom">From Date</label><input id="settlementReportFrom" type="date"></div>
+      <div class="field"><label for="settlementReportTo">To Date</label><input id="settlementReportTo" type="date"></div>
+      <div class="field"><label for="settlementReportCollector">Collector</label><select id="settlementReportCollector"><option value="">सभी Collector</option></select></div>
+      <div class="field"><label for="settlementReportStatus">Status</label><select id="settlementReportStatus"><option value="">सभी Status</option><option value="approved">Approved</option><option value="pending">Pending / Draft</option></select></div>
+    </div>
+    <div class="actions no-print"><button id="runSettlementReportBtn" type="button">रिपोर्ट देखें</button><button id="downloadSettlementReportPdfBtn" type="button" class="secondary">PDF डाउनलोड</button><button id="downloadSettlementReportBtn" type="button" class="secondary">Excel / CSV डाउनलोड</button><button id="printSettlementReportBtn" type="button" class="secondary">Print Report</button></div>
+    <div class="grid" id="settlementReportSummary">
+      <div class="card"><div class="label">कुल System Collection</div><div class="metric" id="settlementReportExpected">₹0</div></div>
+      <div class="card"><div class="label">कुल जमा राशि</div><div class="metric" id="settlementReportDeposited">₹0</div></div>
+      <div class="card"><div class="label">कुल अंतर</div><div class="metric" id="settlementReportDifference">₹0</div></div>
+      <div class="card"><div class="label">Approved / Pending</div><div class="metric" id="settlementReportStatusCount">0 / 0</div></div>
+    </div>
+    <div class="tablewrap"><table id="settlementReportTable"><thead><tr><th>तारीख</th><th>Collector</th><th>System Total</th><th>जमा Total</th><th>अंतर</th><th>Cash (System / जमा)</th><th>UPI (System / जमा)</th><th>Bank (System / जमा)</th><th>Status</th></tr></thead><tbody id="settlementReportRows"><tr><td colspan="9" class="empty">रिपोर्ट देखने के लिए तारीख चुनें।</td></tr></tbody></table></div>
+  </section>
 </section>
 <section class="card panel" data-panel="collector-demand">
 <div class="panel-head"><div><h2>मेरी साप्ताहिक वसूली मांग</h2><p class="muted">दिन चुनें और अपने assigned ग्राहकों की EMI मांग देखें।</p></div><div class="field demand-day-field"><label for="collectorDemandDay">Collection Day चुनें</label><select id="collectorDemandDay"><option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option><option>MONTHLY</option></select></div></div>
