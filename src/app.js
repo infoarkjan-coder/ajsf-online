@@ -1070,6 +1070,7 @@ function verificationPdfHtml(customer, verification, photoUrl, homePhoto1Url, ho
     <div class="detail"><small>Area</small><strong>${esc(customer.area || "—")}</strong></div>
     <div class="detail wide"><small>Residential Address</small><strong>${esc(customer.address || "—")}</strong></div>
   </div></div></section>
+  ${homePhotos}
   <section class="section"><div class="section-head">FIELD GPS & LOCATION VERIFICATION</div><div class="rows">
     <div class="line"><span class="label">Latitude</span><span class="value">${verification.latitude ?? "Not captured"}</span></div>
     <div class="line"><span class="label">Longitude</span><span class="value">${verification.longitude ?? "Not captured"}</span></div>
