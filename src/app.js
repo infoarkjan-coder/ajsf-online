@@ -1151,7 +1151,7 @@ async function submitCustomerVerification(event) {
     $("verificationHome1Preview").classList.add("hidden"); $("verificationHome2Preview").classList.add("hidden");
     $("verificationHome1Status").textContent="घर की फोटो 1 सेव हो गई।"; $("verificationHome2Status").textContent="घर की फोटो 2 सेव हो गई।";
     $("verificationLocationStatus").textContent="GPS record सेव हो गया।";
-    $("verificationCamera").value=""; $("verificationGallery").value="";
+    $("verificationGallery").value=""; $("verificationHome1Gallery").value=""; $("verificationHome2Gallery").value="";
     $("verificationConsent").checked=false; $("verificationNotes").value="";
   } catch(err) {
     if(autoPdfWindow && !autoPdfWindow.closed) autoPdfWindow.close();
