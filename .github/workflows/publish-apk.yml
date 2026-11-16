@@ -1,5 +1,5 @@
 name: Publish AJSF APK to website
-# Camera and GPS permissions build publish; republish latest verified APK
+# Camera/GPS permissions + WebView cache refresh APK publish
 
 on:
   push:
