@@ -1057,7 +1057,7 @@ function captureVerificationGps() {
     status.textContent = error.code === 1 ? "Location Permission नहीं मिली। Browser Settings में अनुमति दें।" : "GPS Location नहीं मिल सकी। खुले स्थान पर दोबारा प्रयास करें।";
   }, { enableHighAccuracy:true, timeout:20000, maximumAge:0 });
 }
-function verificationPdfHtml(customer, verification, photoUrl, homePhoto1Url, homePhoto2Url, aadhaarFrontUrl, aadhaarBackUrl, panFrontUrl) {
+function verificationPdfHtml(customer, verification, photoUrl, homePhoto1Url, homePhoto2Url, aadhaarFrontUrl, aadhaarBackUrl) {
   const maps = verification.latitude != null && verification.longitude != null
     ? "https://www.google.com/maps?q=" + encodeURIComponent(verification.latitude + "," + verification.longitude) : "";
   const accuracy = verification.accuracy_meters == null ? null : Number(verification.accuracy_meters);
@@ -1071,56 +1071,56 @@ function verificationPdfHtml(customer, verification, photoUrl, homePhoto1Url, ho
     ? '<img class="customer-photo" src="' + photoUrl + '" alt="Customer verification photo">'
     : '<div class="customer-photo photo-placeholder">CUSTOMER PHOTO NOT AVAILABLE</div>';
   const homePhotos = `<section class="section"><div class="section-head">CUSTOMER HOUSE PHOTOGRAPHS</div><div class="home-photo-grid"><div><img src="${homePhoto1Url}" alt="House front view"><b>घर की फोटो 1 — सामने से</b></div><div><img src="${homePhoto2Url}" alt="House second angle"><b>घर की फोटो 2 — दूसरा एंगल</b></div></div></section>`;
-  const identityDocs = `<section class="section"><div class="section-head">MASKED IDENTITY DOCUMENTS</div><div class="home-photo-grid"><div><img src="${aadhaarFrontUrl}" alt="Masked Aadhaar Front"><b>Aadhaar Front — Masked</b></div><div><img src="${aadhaarBackUrl}" alt="Masked Aadhaar Back"><b>Aadhaar Back — Masked</b></div><div><img src="${panFrontUrl}" alt="Masked PAN Front"><b>PAN Front — Masked</b></div></div><p style="font-size:8px;color:#52685d">Document numbers are masked in the saved copies. Original unmasked files are not stored.</p></section>`;
+  const identityDocs = `<section class="section identity-section"><div class="section-head">MASKED AADHAAR DOCUMENTS</div><div class="identity-grid"><div><img src="${aadhaarFrontUrl}" alt="Masked Aadhaar Front"><b>Aadhaar Front — Masked</b></div><div><img src="${aadhaarBackUrl}" alt="Masked Aadhaar Back"><b>Aadhaar Back — Masked</b></div></div><p class="privacy-note">Aadhaar numbers are masked in the saved copies. Original unmasked files are not stored.</p></section>`;
   const verificationId = verification.id || verification.verification_id || "—";
   const verifiedAt = formatDate(verification.verified_at || new Date().toISOString());
   const gpsTone = accuracy == null || accuracy > 100 ? "warning" : "good";
   return `<!doctype html><html lang="hi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base href="${esc(document.baseURI)}"><title>AJSF Customer Verification Report</title><style>
-  @page{size:A4 portrait;margin:10mm}
+  @page{size:A4 portrait;margin:6mm}
   *{box-sizing:border-box}
   html,body{margin:0;padding:0;background:#fff}
-  body{font-family:Arial,"Noto Sans Devanagari",sans-serif;color:#1d3028;font-size:10.5px;line-height:1.42}
-  .sheet{width:100%;max-width:190mm;margin:0 auto}
+  body{font-family:Arial,"Noto Sans Devanagari",sans-serif;color:#1d3028;font-size:8.5px;line-height:1.22}
+  .sheet{width:100%;max-width:198mm;margin:0 auto}
   .masthead{display:flex;align-items:center;gap:13px;padding:0 0 10px;border-bottom:3px solid #174c3c}
-  .logo{width:62px;height:62px;object-fit:contain;flex:0 0 62px}
+  .logo{width:46px;height:46px;object-fit:contain;flex:0 0 46px}
   .brand-name{font-size:17px;font-weight:800;letter-spacing:.2px;color:#123f35;line-height:1.2}
   .brand-tag{font-size:9px;letter-spacing:1px;color:#527367;font-weight:700;margin-top:5px}
   .doc-meta{margin-left:auto;text-align:right;font-size:9px;color:#65766e}
   .doc-meta strong{display:block;color:#174c3c;font-size:10px;margin-bottom:3px}
-  .title-wrap{text-align:center;padding:12px 0 10px}
+  .title-wrap{text-align:center;padding:6px 0 5px}
   .eyebrow{font-size:8px;letter-spacing:1.5px;color:#6b8579;font-weight:700}
-  h1{font-size:17px;letter-spacing:.5px;color:#123f35;margin:3px 0 0}
+  h1{font-size:13px;letter-spacing:.5px;color:#123f35;margin:3px 0 0}
   .subtitle{font-size:9px;color:#6a7d73;margin-top:3px}
-  .customer-card{display:grid;grid-template-columns:53mm 1fr;gap:15px;padding:12px;border:1px solid #d8e4dc;border-radius:8px;background:#fbfdfb;align-items:stretch}
-  .photo-frame{border:1px solid #cbd9d0;border-radius:6px;background:#eef4f0;padding:5px;display:flex;align-items:center;justify-content:center;min-height:61mm}
-  .customer-photo{display:block;width:100%;height:60mm;object-fit:cover;object-position:center;border-radius:3px;background:#edf3ef}
-  .home-photo-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.home-photo-grid img{width:100%;height:58mm;object-fit:cover;border:1px solid #cbd9d0;border-radius:5px}.home-photo-grid b{display:block;text-align:center;font-size:8px;margin-top:4px;color:#52685d}.photo-placeholder{display:flex;align-items:center;justify-content:center;text-align:center;color:#74857c;font-size:10px;font-weight:700;letter-spacing:.5px;padding:10px}
+  .customer-card{display:grid;grid-template-columns:38mm 1fr;gap:9px;padding:7px;border:1px solid #d8e4dc;border-radius:8px;background:#fbfdfb;align-items:stretch}
+  .photo-frame{border:1px solid #cbd9d0;border-radius:5px;background:#eef4f0;padding:3px;display:flex;align-items:center;justify-content:center;min-height:42mm}
+  .customer-photo{display:block;width:100%;height:40mm;object-fit:cover;object-position:center;border-radius:3px;background:#edf3ef}
+  .home-photo-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}.home-photo-grid img{width:100%;height:34mm;object-fit:cover;border:1px solid #cbd9d0;border-radius:5px}.home-photo-grid b{display:block;text-align:center;font-size:8px;margin-top:4px;color:#52685d}.photo-placeholder{display:flex;align-items:center;justify-content:center;text-align:center;color:#74857c;font-size:10px;font-weight:700;letter-spacing:.5px;padding:10px}
   .photo-caption{text-align:center;font-size:8px;color:#62766b;margin-top:5px;font-weight:700}
   .details{min-width:0}
   .section-title{display:flex;align-items:center;gap:7px;color:#174c3c;font-size:10px;font-weight:800;letter-spacing:.5px;margin:0 0 6px}
   .section-title:before{content:"";width:3px;height:13px;background:#23805e;border-radius:2px}
   .detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
-  .detail{padding:6px 8px;border:1px solid #e2eae5;border-radius:5px;background:#fff;min-width:0}
+  .detail{padding:4px 6px;border:1px solid #e2eae5;border-radius:5px;background:#fff;min-width:0}
   .detail.wide{grid-column:1/-1}
   .detail small{display:block;color:#718278;font-size:8px;margin-bottom:2px}
   .detail strong{display:block;color:#253a30;font-size:10px;overflow-wrap:anywhere}
-  .section{margin-top:11px}
-  .section-head{font-size:10px;font-weight:800;color:#174c3c;padding:7px 9px;background:#edf5f0;border:1px solid #d9e7dd;border-left:3px solid #23805e;border-radius:4px;margin-bottom:5px;letter-spacing:.35px}
+  .section{margin-top:6px}
+  .section-head{font-size:8px;font-weight:800;color:#174c3c;padding:7px 9px;background:#edf5f0;border:1px solid #d9e7dd;border-left:3px solid #23805e;border-radius:4px;margin-bottom:5px;letter-spacing:.35px}
   .rows{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
-  .line{display:grid;grid-template-columns:104px 1fr;gap:8px;padding:6px 3px;border-bottom:1px solid #e7ede9;min-width:0}
+  .line{display:grid;grid-template-columns:90px 1fr;gap:6px;padding:3px 2px;border-bottom:1px solid #e7ede9;min-width:0}
   .label{color:#64766c;font-weight:700}
   .value{color:#263a30;overflow-wrap:anywhere}
-  .gps-panel{padding:8px 10px;border:1px solid ${gpsTone==="warning"?"#e8c58b":"#b9d9c7"};background:${gpsTone==="warning"?"#fff8eb":"#f0f8f3"};border-radius:5px;margin-top:7px}
+  .gps-panel{padding:5px 7px;border:1px solid ${gpsTone==="warning"?"#e8c58b":"#b9d9c7"};background:${gpsTone==="warning"?"#fff8eb":"#f0f8f3"};border-radius:5px;margin-top:7px}
   .gps-panel strong{display:block;color:${gpsTone==="warning"?"#89520c":"#176b4b"};font-size:10px}
   .gps-panel p{margin:3px 0 0;color:#665b49;font-size:8.5px}
   .map-link{display:inline-block;color:#176b4b;font-weight:700;text-decoration:underline}
   .verification-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   .verification-grid .detail{padding:7px 9px}
-  .signatures{display:grid;grid-template-columns:1fr 1fr;gap:35px;margin:25px 4px 0}
+  .signatures{display:grid;grid-template-columns:1fr 1fr;gap:25px;margin:12px 4px 0}
   .signature{border-top:1px solid #65766d;text-align:center;padding-top:6px;color:#4c6257;font-size:9px;min-height:25px}
-  .footer{margin-top:14px;padding-top:8px;border-top:1px solid #dce6df;display:flex;justify-content:space-between;gap:12px;color:#738279;font-size:8px}
+  .footer{margin-top:7px;padding-top:5px;border-top:1px solid #dce6df;display:flex;justify-content:space-between;gap:12px;color:#738279;font-size:8px}
   .footer strong{color:#174c3c}
-  .actions{display:flex;justify-content:center;gap:8px;margin:15px 0}
+  .actions{display:flex;justify-content:center;gap:8px;margin:8px 0}
   .actions button{border:0;border-radius:5px;background:#174c3c;color:#fff;padding:9px 18px;font-weight:700;cursor:pointer}
   @media print{.actions{display:none}body{print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{max-width:none}}
   @media screen{body{padding:12px;background:#eef3f0}.sheet{background:#fff;padding:10mm;box-shadow:0 4px 24px #102b1d18;border-radius:8px}}
