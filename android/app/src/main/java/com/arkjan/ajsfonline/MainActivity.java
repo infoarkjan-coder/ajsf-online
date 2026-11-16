@@ -32,7 +32,8 @@ import android.webkit.JavascriptInterface;
 import android.widget.Toast;
 
 public class MainActivity extends Activity {
-    private static final String APP_URL = "https://ajsf-online.vercel.app/";
+    private static final String APP_URL = "https://ajsf-online.vercel.app/?app_refresh=20261117-apk-cachefix";
+    private static final String APK_CACHE_BUST = "ajsf-apk-cachefix-20261117";
     private static final String APP_HOST = "ajsf-online.vercel.app";
     private static final int FILE_CHOOSER_REQUEST = 4102;
 
@@ -103,6 +104,15 @@ public class MainActivity extends Activity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
+                // Remove stale website Service Worker/cache from older APK sessions, then reload once.
+                view.evaluateJavascript("(function() {" +
+                        "var marker='ajsf-apk-cachefix-20261117';" +
+                        "if (new URLSearchParams(location.search).get('apk_cache_bust') === marker) return;" +
+                        "var jobs=[];" +
+                        "if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) jobs.push(navigator.serviceWorker.getRegistrations().then(function(rs){return Promise.all(rs.map(function(r){return r.unregister();}));}));" +
+                        "if (window.caches && caches.keys) jobs.push(caches.keys().then(function(ks){return Promise.all(ks.map(function(k){return caches.delete(k);}));}));" +
+                        "Promise.all(jobs).finally(function(){var u=new URL(location.href);u.searchParams.set('apk_cache_bust',marker);location.replace(u.toString());});" +
+                        "})()", null);
                 // APK-only UI cleanup. The hosted website remains unchanged.
                 view.evaluateJavascript("(function() {" +
                         "var labels = ['तीन Admin Login बनाएँ', 'Customer Login बनाएँ'];" +
