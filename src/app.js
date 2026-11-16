@@ -1029,6 +1029,7 @@ function resetCustomerVerificationForm() {
   verificationPhotoFile=null; verificationHomePhoto1=null; verificationHomePhoto2=null;
   Object.keys(maskedIdentityDocs).forEach(k=>{maskedIdentityDocs[k]=null;if($("doc-"+k))$("doc-"+k).value="";if($("confirm-"+k))$("confirm-"+k).checked=false;if($("canvas-"+k)){const c=$("canvas-"+k);c.getContext("2d").clearRect(0,0,c.width,c.height);c.width=0;c.height=0;}if($("status-"+k))$("status-"+k).textContent="फोटो चुनें और नंबर पर काला मास्क लगाएं।";});
   verificationLocation=null; lastVerificationId=null; existingCustomerVerification=null;
+  if($("verificationHistory")){$("verificationHistory").innerHTML="";$("verificationHistory").classList.add("hidden");}
   ["verificationGallery","verificationHome1Gallery","verificationHome2Gallery"].forEach(id=>{if($(id)) $(id).value="";});
   [["verificationPhotoPreview","verificationPhotoStatus","ग्राहक की स्पष्ट फोटो अनिवार्य है।"],["verificationHome1Preview","verificationHome1Status","घर का सामने वाला हिस्सा"],["verificationHome2Preview","verificationHome2Status","घर का दूसरा स्पष्ट एंगल"]].forEach(([p,s,msg])=>{if($(p)){$(p).src="";$(p).classList.add("hidden");}if($(s))$(s).textContent=msg;});
   if($("verificationLocationStatus")) $("verificationLocationStatus").textContent="अभी GPS Location नहीं ली गई है।";
