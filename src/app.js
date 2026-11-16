@@ -1038,6 +1038,7 @@ function resetCustomerVerificationForm() {
   if($("openVerificationPdf")) $("openVerificationPdf").disabled=true;
   if($("saveCustomerVerification")) $("saveCustomerVerification").textContent="Verification सेव करें और PDF बनाएं";
   if($("verificationNotes")) $("verificationNotes").value="";
+  ["familyFatherName","familyMotherName","familyMaritalStatus","familySpouseName","familyMaidenVillage","familyMaidenPost","familyMaidenTehsil","familyMaidenDistrict","familyMaidenState","familyMaidenFather","familyBrothers","familySisters","familyFatherInLaw","familyMotherInLaw","familyBrothersInLaw","familySistersInLaw","familySons","familyDaughters","familyChildrenNames","familyOtherMembers","familyOtherNotes"].forEach(id=>{if($(id))$(id).value="";});
   if($("verificationSignaturePreview")){$("verificationSignaturePreview").src="";$("verificationSignaturePreview").classList.add("hidden");}
   if($("verificationSignatureStatus"))$("verificationSignatureStatus").textContent="ग्राहक के हस्ताक्षर की फोटो अपलोड करें (वैकल्पिक)।";
   if($("verificationSignatureGallery"))$("verificationSignatureGallery").value="";
@@ -1068,6 +1069,9 @@ async function loadCustomerVerification(customerId) {
     verificationLocation=data.latitude!=null&&data.longitude!=null?{latitude:data.latitude,longitude:data.longitude,accuracy_meters:data.accuracy_meters,captured_at:data.location_captured_at}:null;
     if($("verificationLocationStatus")) $("verificationLocationStatus").textContent=verificationLocation?"पुरानी GPS लोकेशन रिकॉर्ड में उपलब्ध है · "+Number(data.latitude).toFixed(6)+", "+Number(data.longitude).toFixed(6):"पुराने रिकॉर्ड में GPS उपलब्ध नहीं है।";
     if($("verificationNotes")) $("verificationNotes").value=data.notes||"";
+    const fd=data.family_details||{};
+    const familyMap={familyFatherName:"father_name",familyMotherName:"mother_name",familyMaritalStatus:"marital_status",familySpouseName:"spouse_name",familyMaidenVillage:"maiden_village",familyMaidenPost:"maiden_post",familyMaidenTehsil:"maiden_tehsil",familyMaidenDistrict:"maiden_district",familyMaidenState:"maiden_state",familyMaidenFather:"maiden_father_name",familyBrothers:"brothers_count",familySisters:"sisters_count",familyFatherInLaw:"father_in_law",familyMotherInLaw:"mother_in_law",familyBrothersInLaw:"brothers_in_law",familySistersInLaw:"sisters_in_law",familySons:"sons_count",familyDaughters:"daughters_count",familyChildrenNames:"children_names",familyOtherMembers:"other_members",familyOtherNotes:"other_notes"};
+    Object.entries(familyMap).forEach(([id,key])=>{if($(id)&&fd[key]!=null)$(id).value=fd[key];});
     if($("verificationConsent")) $("verificationConsent").checked=!!data.consent_given;
     if($("openVerificationPdf")) $("openVerificationPdf").disabled=false;
     if($("saveCustomerVerification")) $("saveCustomerVerification").textContent="पुराना Verification Edit / Update करें";
@@ -1114,6 +1118,10 @@ function verificationPdfHtml(customer, verification, photoUrl, homePhoto1Url, ho
     ? '<img class="customer-photo" src="' + photoUrl + '" alt="Customer verification photo">'
     : '<div class="customer-photo photo-placeholder">CUSTOMER PHOTO NOT AVAILABLE</div>';
   const homePhotos = `<section class="section"><div class="section-head">CUSTOMER HOUSE PHOTOGRAPHS</div><div class="home-photo-grid"><div><img src="${homePhoto1Url}" alt="House front view"><b>घर की फोटो 1 — सामने से</b></div><div><img src="${homePhoto2Url}" alt="House second angle"><b>घर की फोटो 2 — दूसरा एंगल</b></div></div></section>`;
+  const fd=verification.family_details||{};
+  const familyLabels={father_name:"पिता का नाम",mother_name:"माता का नाम",marital_status:"वैवाहिक स्थिति",spouse_name:"पति / पत्नी",maiden_village:"मायके का गाँव / शहर",maiden_post:"मायके का पोस्ट",maiden_tehsil:"मायके की तहसील",maiden_district:"मायके का जिला",maiden_state:"मायके का राज्य",maiden_father_name:"मायके में पिता का नाम",brothers_count:"भाई",sisters_count:"बहनें",father_in_law:"ससुर",mother_in_law:"सास",brothers_in_law:"देवर",sisters_in_law:"ननद",sons_count:"पुत्र",daughters_count:"पुत्रियाँ",children_names:"बच्चों के नाम",other_members:"अन्य परिवार सदस्य",other_notes:"अन्य जानकारी"};
+  const familyRows=Object.entries(familyLabels).filter(([key])=>fd[key]!==undefined&&fd[key]!==null&&String(fd[key]).trim()!=="").map(([key,label])=>'<div class="line"><span class="label">'+label+'</span><span class="value">'+esc(fd[key])+'</span></div>').join("");
+  const familySection=familyRows?'<section class="section"><div class="section-head">FAMILY BACKGROUND · पारिवारिक विवरण</div><div class="rows">'+familyRows+'</div></section>':"";
   const identityDocs = `<section class="section identity-section"><div class="section-head">MASKED AADHAAR DOCUMENTS</div><div class="identity-grid"><div><img src="${aadhaarFrontUrl}" alt="Masked Aadhaar Front"><b>Aadhaar Front — Masked</b></div><div><img src="${aadhaarBackUrl}" alt="Masked Aadhaar Back"><b>Aadhaar Back — Masked</b></div></div><p class="privacy-note">Aadhaar numbers are masked in the saved copies. Original unmasked files are not stored.</p></section>`;
   const verificationId = verification.id || verification.verification_id || "—";
   const signatureBlock = signatureUrl ? '<img src="' + signatureUrl + '" alt="Customer Signature" style="display:block;max-width:100%;height:22mm;object-fit:contain;margin:0 auto 4px">' : '<div style="height:22mm;display:flex;align-items:center;justify-content:center;color:#87958d;font-size:8px">हस्ताक्षर अपलोड नहीं किए गए</div>';
@@ -1187,6 +1195,7 @@ function verificationPdfHtml(customer, verification, photoUrl, homePhoto1Url, ho
     <div class="detail wide"><small>Residential Address</small><strong>${esc(customer.address || "—")}</strong></div>
   </div></div></section>
   ${homePhotos}
+  ${familySection}
   ${identityDocs}
   <section class="section"><div class="section-head">FIELD GPS & LOCATION VERIFICATION</div><div class="rows">
     <div class="line"><span class="label">Latitude</span><span class="value">${verification.latitude ?? "Not captured"}</span></div>
@@ -1248,6 +1257,7 @@ async function submitCustomerVerification(event) {
       latitude:verificationLocation?.latitude ?? old?.latitude ?? null,longitude:verificationLocation?.longitude ?? old?.longitude ?? null,
       accuracy_meters:verificationLocation?.accuracy_meters ?? old?.accuracy_meters ?? null,location_captured_at:verificationLocation?.captured_at ?? old?.location_captured_at ?? null,
       consent_given:true,consent_text:"Customer was informed about photo and field GPS collection and consented.",
+      family_details:(()=>{const map={familyFatherName:"father_name",familyMotherName:"mother_name",familyMaritalStatus:"marital_status",familySpouseName:"spouse_name",familyMaidenVillage:"maiden_village",familyMaidenPost:"maiden_post",familyMaidenTehsil:"maiden_tehsil",familyMaidenDistrict:"maiden_district",familyMaidenState:"maiden_state",familyMaidenFather:"maiden_father_name",familyBrothers:"brothers_count",familySisters:"sisters_count",familyFatherInLaw:"father_in_law",familyMotherInLaw:"mother_in_law",familyBrothersInLaw:"brothers_in_law",familySistersInLaw:"sisters_in_law",familySons:"sons_count",familyDaughters:"daughters_count",familyChildrenNames:"children_names",familyOtherMembers:"other_members",familyOtherNotes:"other_notes"};const out={};Object.entries(map).forEach(([id,key])=>{const v=$(id)?.value?.trim();if(v)out[key]=v;});return out;})(),
       verified_by:currentUser.id,verified_by_name:profile?.full_name||null,notes:$("verificationNotes").value.trim()||null
     };
     let saved;
