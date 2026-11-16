@@ -203,8 +203,6 @@ function renderShell() {
   if (staffPasswordResetBtn) staffPasswordResetBtn.classList.toggle("hidden", !canAdmin());
   const settlementAdminOnly = $("settlementAdminOnly");
   if (settlementAdminOnly) settlementAdminOnly.classList.toggle("hidden", !canAdmin());
-  const customerActionHeader = $("customerActionHeader");
-  if (customerActionHeader) customerActionHeader.classList.toggle("hidden", !canAdmin());
 }
 
 function activateTab(tab) {
@@ -388,13 +386,19 @@ function renderData() {
     String(a.center_name || "").localeCompare(String(b.center_name || "")) ||
     String(a.full_name || "").localeCompare(String(b.full_name || ""))
   );
-  $("customerRows").innerHTML = customerRegisterRows.map((c,i) => "<tr data-center=\"" + esc(c.center_name || "") + "\" data-day=\"" + esc(c.collection_day || "") + "\"><td>" + (i+1) + "</td><td>" + esc(c.center_name || "—") + "</td><td>" + esc(c.full_name || "—") + "</td><td>" + esc(phone(c.contact_number) || "—") + "</td><td>" + esc(formatCustomerId(c.customer_code)) + "</td><td>" + esc(c.area || "—") + "</td><td>" + esc(c.address || "—") + "</td><td>" + esc(c.collection_day || "—") + "</td><td>" + esc(c.customer_status || "—") + "</td><td>" + (canAdmin() ? "<button type=\"button\" class=\"customer-remove secondary\" data-customer-id=\"" + esc(c.id) + "\">हटाएँ</button>" : "—") + "</td></tr>").join("") || "<tr><td colspan=\"10\" class=\"empty\">कोई ग्राहक नहीं मिला।</td></tr>";
+  $("customerRows").innerHTML = customerRegisterRows.map((c,i) => "<tr data-center=\"" + esc(c.center_name || "") + "\" data-day=\"" + esc(c.collection_day || "") + "\"><td>" + (i+1) + "</td><td>" + esc(c.center_name || "—") + "</td><td>" + esc(c.full_name || "—") + "</td><td>" + esc(phone(c.contact_number) || "—") + "</td><td>" + esc(formatCustomerId(c.customer_code)) + "</td><td>" + esc(c.area || "—") + "</td><td>" + esc(c.address || "—") + "</td><td>" + esc(c.collection_day || "—") + "</td><td>" + esc(c.customer_status || "—") + "</td><td>" + "<button type=\"button\" class=\"customer-verify secondary\" data-customer-id=\"" + esc(c.id) + "\">Field Verify</button> " + (canAdmin() ? "<button type=\"button\" class=\"customer-remove secondary\" data-customer-id=\"" + esc(c.id) + "\">हटाएँ</button>" : "") + "</td></tr>").join("") || "<tr><td colspan=\"10\" class=\"empty\">कोई ग्राहक नहीं मिला।</td></tr>";
   // Bind actions directly on each freshly-rendered button; avoid delegated capture handlers.
   $("customerRows").querySelectorAll(".customer-account-create").forEach(button => {
     button.onclick = event => {
       event.preventDefault();
       event.stopPropagation();
       createCustomerPortalAccount(button.dataset.customerId, button);
+    };
+  });
+  $("customerRows").querySelectorAll(".customer-verify").forEach(button => {
+    button.onclick = event => {
+      event.preventDefault(); event.stopPropagation();
+      openCustomerVerification(button.dataset.customerId);
     };
   });
   $("customerRows").querySelectorAll(".customer-remove").forEach(button => {
@@ -424,6 +428,11 @@ function renderData() {
     return `<tr><td>${esc(l.loan_reference)}</td><td>${esc(c?.full_name || l.customer_id)}</td><td>${esc(l.loan_type)}</td><td>${money(l.loan_amount)}</td><td>${money(l.emi_amount)}</td><td>${esc(l.total_emis_required)}</td><td>${money(f.collected)}</td><td>${money(f.outstanding)}</td><td>${esc(l.status)}</td></tr>`;
   }).join("") || `<tr><td colspan="9" class="empty">कोई लोन रिकॉर्ड नहीं मिला।</td></tr>`;
   const customerOptions = `<option value="">ग्राहक चुनें</option>` + operationalCustomers.map(c => `<option value="${esc(c.id)}">${esc(formatCustomerId(c.customer_code))} · ${esc(c.full_name)}</option>`).join("");
+  if ($("verificationCustomer")) {
+    const selectedVerificationCustomer = $("verificationCustomer").value;
+    $("verificationCustomer").innerHTML = customerOptions;
+    if (customers.some(c => c.id === selectedVerificationCustomer)) $("verificationCustomer").value = selectedVerificationCustomer;
+  }
   if ($("newLoanCustomer")) $("newLoanCustomer").innerHTML = customerOptions;
   if ($("closeLoanSelect")) $("closeLoanSelect").innerHTML = '<option value="">Active Loan चुनें</option>' + loans.filter(l=>l.status==="active").map(l=>{const c=customers.find(x=>x.id===l.customer_id);return '<option value="'+esc(l.id)+'">'+esc(l.loan_reference)+' · '+esc(c?.full_name||"")+'</option>';}).join("");
   if ($("newLoanPrevious")) updateRepeatLoanOptions();
@@ -903,6 +912,135 @@ async function submitLoanClosure(event) {
     showMessage("Loan बंद हो गया। Final payment से पहले बकाया "+money(data?.outstanding_before_final)+" था। अब इसी ग्राहक का Repeat Loan अलग से बनाया जा सकता है।","success");
   } catch(err) { showMessage("Loan बंद नहीं हुआ: "+(err?.message||String(err)),"error"); }
   finally { setBusy(btn,false); }
+}
+
+let verificationPhotoFile = null;
+let verificationLocation = null;
+let lastVerificationId = null;
+
+function openCustomerVerification(customerId) {
+  if (!currentUser) return;
+  activateTab("customer-verification");
+  const select = $("verificationCustomer");
+  if (select) select.value = customerId || "";
+  verificationPhotoFile = null;
+  verificationLocation = null;
+  lastVerificationId = null;
+  if ($("verificationCamera")) $("verificationCamera").value = "";
+  if ($("verificationGallery")) $("verificationGallery").value = "";
+  if ($("verificationPhotoPreview")) { $("verificationPhotoPreview").src = ""; $("verificationPhotoPreview").classList.add("hidden"); }
+  if ($("verificationPhotoStatus")) $("verificationPhotoStatus").textContent = "Camera या Gallery से एक फोटो चुनें।";
+  if ($("verificationLocationStatus")) $("verificationLocationStatus").textContent = "अभी GPS Location नहीं ली गई है।";
+  if ($("verificationMessage")) $("verificationMessage").textContent = "";
+  if ($("openVerificationPdf")) $("openVerificationPdf").disabled = true;
+}
+function setVerificationPhoto(file) {
+  if (!file) return;
+  if (!file.type.startsWith("image/")) return showMessage("कृपया फोटो फ़ाइल चुनें।","warn");
+  if (file.size > 5 * 1024 * 1024) return showMessage("फोटो 5 MB से छोटी होनी चाहिए।","warn");
+  verificationPhotoFile = file;
+  const preview = $("verificationPhotoPreview");
+  preview.src = URL.createObjectURL(file);
+  preview.classList.remove("hidden");
+  $("verificationPhotoStatus").textContent = "फोटो तैयार: " + file.name;
+}
+function captureVerificationGps() {
+  const status = $("verificationLocationStatus");
+  if (!navigator.geolocation) { status.textContent = "इस डिवाइस / Browser में GPS उपलब्ध नहीं है।"; return; }
+  status.textContent = "GPS Location ली जा रही है…";
+  navigator.geolocation.getCurrentPosition(position => {
+    verificationLocation = {
+      latitude: position.coords.latitude, longitude: position.coords.longitude,
+      accuracy_meters: position.coords.accuracy, captured_at: new Date(position.timestamp || Date.now()).toISOString()
+    };
+    status.textContent = "Location मिल गई · Accuracy लगभग " + Math.round(verificationLocation.accuracy_meters) + " मीटर · " +
+      verificationLocation.latitude.toFixed(6) + ", " + verificationLocation.longitude.toFixed(6);
+  }, error => {
+    verificationLocation = null;
+    status.textContent = error.code === 1 ? "Location Permission नहीं मिली। Browser Settings में अनुमति दें।" : "GPS Location नहीं मिल सकी। खुले स्थान पर दोबारा प्रयास करें।";
+  }, { enableHighAccuracy:true, timeout:20000, maximumAge:0 });
+}
+function verificationPdfHtml(customer, verification, photoUrl) {
+  const maps = verification.latitude != null && verification.longitude != null
+    ? "https://www.google.com/maps?q=" + encodeURIComponent(verification.latitude + "," + verification.longitude) : "";
+  const img = photoUrl ? '<img class="photo" src="' + photoUrl + '">' : '<div class="photo placeholder">PHOTO NOT AVAILABLE</div>';
+  return `<!doctype html><html lang="hi"><head><meta charset="utf-8"><title>AJSF Customer Verification</title><style>
+  @page{size:A4;margin:14mm}body{font-family:Arial,sans-serif;color:#17231d;font-size:12px}header{text-align:center;border-bottom:2px solid #176b4b;padding-bottom:12px;margin-bottom:18px}h1{font-size:20px;margin:0;color:#123f35}h2{text-align:center;font-size:17px;margin:18px 0}.tag{font-size:10px;letter-spacing:1px;color:#527264}.top{display:flex;gap:20px;align-items:flex-start}.photo{width:125px;height:150px;object-fit:cover;border:1px solid #9aa99f;border-radius:5px}.placeholder{display:grid;place-items:center;background:#f1f5f2;color:#64756b}.details{flex:1}.line{padding:9px 0;border-bottom:1px solid #dbe4de}.label{font-weight:bold;color:#506459;display:inline-block;min-width:145px}.section{font-weight:bold;background:#edf5f0;padding:8px;margin-top:18px}.sign{display:flex;justify-content:space-between;margin-top:65px}.sign div{width:42%;border-top:1px solid #53665a;text-align:center;padding-top:8px}.small{font-size:10px;color:#64756b;margin-top:20px}.actions{margin:16px 0}.actions button{padding:8px 14px}@media print{.actions{display:none}}
+  </style></head><body><header><h1>ARK JAN SAMRIDDHI FOUNDATION</h1><div class="tag">SAPNE AAPKE SATH HAMARA HAI</div></header><h2>CUSTOMER VERIFICATION FORM</h2><div class="top">${img}<div class="details">
+  <div class="line"><span class="label">Customer ID</span>${esc(formatCustomerId(customer.customer_code))}</div>
+  <div class="line"><span class="label">Customer Name</span>${esc(customer.full_name)}</div>
+  <div class="line"><span class="label">Mobile</span>${esc(customer.contact_number || "—")}</div>
+  <div class="line"><span class="label">Center</span>${esc(customer.center_name || "—")}</div>
+  <div class="line"><span class="label">Collection Day</span>${esc(customer.collection_day || "—")}</div>
+  </div></div><div class="section">ADDRESS DETAILS</div><div class="line"><span class="label">Address</span>${esc(customer.address || "—")}</div><div class="line"><span class="label">Area</span>${esc(customer.area || "—")}</div>
+  <div class="section">FIELD GPS VERIFICATION</div><div class="line"><span class="label">Latitude</span>${verification.latitude ?? "Not captured"}</div><div class="line"><span class="label">Longitude</span>${verification.longitude ?? "Not captured"}</div><div class="line"><span class="label">GPS Accuracy</span>${verification.accuracy_meters != null ? Math.round(verification.accuracy_meters)+" metres" : "—"}</div><div class="line"><span class="label">Location Map</span>${maps ? '<a href="'+maps+'">Google Maps पर देखें</a>' : "—"}</div>
+  <div class="section">VERIFICATION RECORD</div><div class="line"><span class="label">Verification Date</span>${esc(formatDate(verification.verified_at || new Date().toISOString()))}</div><div class="line"><span class="label">Verified By</span>${esc(profile?.full_name || "AJSF Staff")}</div><div class="line"><span class="label">Remarks</span>${esc(verification.notes || "—")}</div><div class="line"><span class="label">Consent</span>Customer consent recorded</div>
+  <div class="sign"><div>Customer Signature</div><div>Verified By / AJSF Representative</div></div><p class="small">यह दस्तावेज़ AJSF Customer Verification Record है। फोटो और GPS केवल ग्राहक की सहमति से रिकॉर्ड किए गए हैं।</p><div class="actions"><button onclick="window.print()">Print / Save as PDF</button></div></body></html>`;
+}
+async function openVerificationPdf(verificationId) {
+  const id = verificationId || lastVerificationId;
+  if (!id) return showMessage("पहले Customer Verification सेव करें।","warn");
+  const win = window.open("", "_blank");
+  if (!win) return showMessage("Popup blocked है। इस पेज के Popups Allow करके PDF बटन दोबारा दबाएँ।","warn");
+  try {
+    const {data,error}=await supabase.from("customer_verifications").select("*").eq("id",id).single();
+    if(error) throw error;
+    const customer=customers.find(c=>c.id===data.customer_id);
+    if(!customer) throw new Error("ग्राहक रिकॉर्ड नहीं मिला।");
+    let photoUrl=null;
+    if(data.photo_path){
+      const signed=await supabase.storage.from("customer-verification").createSignedUrl(data.photo_path,300);
+      if(signed.error) throw signed.error;
+      photoUrl=signed.data.signedUrl;
+    }
+    win.document.open(); win.document.write(verificationPdfHtml(customer,data,photoUrl)); win.document.close();
+  } catch(err) { win.close(); showMessage("PDF नहीं खुली: "+(err?.message||String(err)),"error"); }
+}
+async function submitCustomerVerification(event) {
+  event.preventDefault();
+  const form=event.currentTarget,btn=$("saveCustomerVerification");
+  const customerId=$("verificationCustomer").value;
+  const customer=customers.find(c=>c.id===customerId);
+  if(!customer) return showMessage("ग्राहक चुनें।","warn");
+  if(!verificationPhotoFile) return showMessage("Camera या Gallery से ग्राहक का फोटो चुनें।","warn");
+  if(!$("verificationConsent").checked) return showMessage("ग्राहक की सहमति आवश्यक है।","warn");
+  setBusy(btn,true,"Verification सेव हो रहा है…");
+  try {
+    const ext=verificationPhotoFile.type==="image/png"?"png":verificationPhotoFile.type==="image/webp"?"webp":"jpg";
+    const path=customerId+"/"+crypto.randomUUID()+"."+ext;
+    const uploaded=await supabase.storage.from("customer-verification").upload(path,verificationPhotoFile,{contentType:verificationPhotoFile.type,cacheControl:"3600",upsert:false});
+    if(uploaded.error) throw uploaded.error;
+    const record={
+      customer_id:customerId,photo_path:path,
+      latitude:verificationLocation?.latitude ?? null,
+      longitude:verificationLocation?.longitude ?? null,
+      accuracy_meters:verificationLocation?.accuracy_meters ?? null,
+      location_captured_at:verificationLocation?.captured_at ?? null,
+      consent_given:true,
+      consent_text:"Customer was informed about photo and field GPS collection and consented.",
+      verified_by:currentUser.id,
+      notes:$("verificationNotes").value.trim()||null
+    };
+    const saved=await supabase.from("customer_verifications").insert(record).select("id").single();
+    if(saved.error) {
+      await supabase.storage.from("customer-verification").remove([path]);
+      throw saved.error;
+    }
+    lastVerificationId=saved.data.id;
+    $("openVerificationPdf").disabled=false;
+    $("verificationMessage").textContent="Customer Verification सेव हो गया। PDF तैयार है।";
+    $("verificationMessage").className="message success";
+    await openVerificationPdf(lastVerificationId);
+    verificationPhotoFile=null; verificationLocation=null;
+    $("verificationPhotoPreview").classList.add("hidden");
+    $("verificationPhotoStatus").textContent="फोटो सेव हो गया। नया Verification करने के लिए फोटो चुनें।";
+    $("verificationLocationStatus").textContent="GPS record सेव हो गया।";
+    $("verificationCamera").value=""; $("verificationGallery").value="";
+    $("verificationConsent").checked=false; $("verificationNotes").value="";
+  } catch(err) {
+    $("verificationMessage").textContent="Verification सेव नहीं हुआ: "+(err?.message||String(err));
+    $("verificationMessage").className="message error";
+  } finally { setBusy(btn,false); }
 }
 
 async function submitCustomer(event) {
@@ -2060,6 +2198,11 @@ async function boot() {
       await loadProfile(currentUser);
       renderShell();
       $("customerForm").addEventListener("submit",submitCustomer);
+      $("verificationCamera")?.addEventListener("change",e=>setVerificationPhoto(e.target.files?.[0]));
+      $("verificationGallery")?.addEventListener("change",e=>setVerificationPhoto(e.target.files?.[0]));
+      $("captureVerificationLocation")?.addEventListener("click",captureVerificationGps);
+      $("customerVerificationForm")?.addEventListener("submit",submitCustomerVerification);
+      $("openVerificationPdf")?.addEventListener("click",()=>openVerificationPdf());
       $("newLoanForm")?.addEventListener("submit",submitNewLoan);
       $("closeLoanForm")?.addEventListener("submit",submitLoanClosure);
       $("newLoanCustomer")?.addEventListener("change",updateRepeatLoanOptions);
