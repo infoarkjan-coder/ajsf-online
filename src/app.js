@@ -1137,7 +1137,7 @@ function verificationPdfHtml(customer, verification, photoUrl, homePhoto1Url, ho
   .pdf-page+.pdf-page{break-before:page;page-break-before:always;padding-top:2mm}
   .page-kicker{font-size:9px;font-weight:800;letter-spacing:.7px;color:#174c3c;background:#edf5f0;border-left:3px solid #23805e;padding:7px 10px;margin:0 0 8px;border-radius:4px}
   .masthead{display:flex;align-items:center;gap:13px;padding:0 0 10px;border-bottom:3px solid #174c3c}
-  .logo{width:46px;height:46px;object-fit:contain;flex:0 0 46px}
+  .logo-mark{width:46px;height:46px;flex:0 0 46px;border:2px solid #174c3c;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#174c3c;font-size:11px;font-weight:900;letter-spacing:.3px;background:#f0f7f2}
   .brand-name{font-size:17px;font-weight:800;letter-spacing:.2px;color:#123f35;line-height:1.2}
   .brand-tag{font-size:9px;letter-spacing:1px;color:#527367;font-weight:700;margin-top:5px}
   .doc-meta{margin-left:auto;text-align:right;font-size:9px;color:#65766e}
@@ -1188,7 +1188,7 @@ function verificationPdfHtml(customer, verification, photoUrl, homePhoto1Url, ho
   .pdf-page-two{display:flex;flex-direction:column}\n  .pdf-page-two .signatures{margin-top:auto;padding-top:14mm}\n  .pdf-page-two .footer{margin-top:10mm;padding-top:8px}\n  @media print{.actions{display:none}.pdf-page{min-height:282mm!important;break-inside:avoid!important;page-break-inside:avoid!important}.pdf-page+.pdf-page{break-before:page!important;page-break-before:always!important}body{padding:0!important;print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{max-width:none!important;padding:0!important;box-shadow:none!important;border-radius:0!important}.identity-section,.identity-grid,.customer-card,.masthead,.title-wrap{break-inside:avoid!important;page-break-inside:avoid!important}}
   @media screen{body{padding:8px;background:#eef3f0}.sheet{background:#fff;padding:6mm;box-shadow:0 4px 24px #102b1d18;border-radius:8px}}
   </style></head><body><main class="sheet">
-  <section class="pdf-page pdf-page-one"><header class="masthead"><img class="logo" src="./assets/ajsf-logo.png" alt="AJSF Logo"><div><div class="brand-name">ARK JAN SAMRIDDHI FOUNDATION</div><div class="brand-tag">SAPNE AAPKE SATH HAMARA</div></div><div class="doc-meta"><strong>OFFICIAL FIELD RECORD</strong>Customer Verification<br>Confidential Document</div></header>
+  <section class="pdf-page pdf-page-one"><header class="masthead"><div class="logo-mark" aria-label="AJSF">AJSF</div><div><div class="brand-name">ARK JAN SAMRIDDHI FOUNDATION</div><div class="brand-tag">SAPNE AAPKE SATH HAMARA</div></div><div class="doc-meta"><strong>OFFICIAL FIELD RECORD</strong>Customer Verification<br>Confidential Document</div></header>
   <div class="title-wrap"><div class="eyebrow">CUSTOMER DUE DILIGENCE & FIELD CHECK</div><h1>CUSTOMER VERIFICATION REPORT</h1><div class="subtitle">ग्राहक पहचान एवं फील्ड सत्यापन रिपोर्ट</div></div>
   <section class="customer-card"><div><div class="photo-frame">${img}</div><div class="photo-caption">CUSTOMER PHOTOGRAPH</div></div><div class="details"><div class="section-title">CUSTOMER PROFILE</div><div class="detail-grid">
     <div class="detail"><small>Customer ID</small><strong>${esc(formatCustomerId(customer.customer_code))}</strong></div>
