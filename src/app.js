@@ -1142,8 +1142,6 @@ async function submitCustomerVerification(event) {
   const autoPdfWindow=window.open("about:blank","_blank");
   setBusy(btn,true,"Verification सेव हो रहा है…");
   try {
-    const ext=verificationPhotoFile.type==="image/png"?"png":verificationPhotoFile.type==="image/webp"?"webp":"jpg";
-    const path=customerId+"/"+crypto.randomUUID()+"."+ext;
     const uploadPhoto=async(file)=>{const ext=file.type==="image/png"?"png":file.type==="image/webp"?"webp":"jpg";const p=customerId+"/"+crypto.randomUUID()+"."+ext;const up=await supabase.storage.from("customer-verification").upload(p,file,{contentType:file.type,cacheControl:"3600",upsert:false});if(up.error) throw up.error;return p;};
     const uploadedPaths=[];
     const path=await uploadPhoto(verificationPhotoFile); uploadedPaths.push(path);
