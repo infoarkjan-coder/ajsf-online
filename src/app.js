@@ -1122,8 +1122,14 @@ function verificationPdfHtml(customer, verification, photoUrl, homePhoto1Url, ho
   .footer strong{color:#174c3c}
   .actions{display:flex;justify-content:center;gap:8px;margin:8px 0}
   .actions button{border:0;border-radius:5px;background:#174c3c;color:#fff;padding:9px 18px;font-weight:700;cursor:pointer}
-  @media print{.actions{display:none}body{print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{max-width:none}}
-  @media screen{body{padding:12px;background:#eef3f0}.sheet{background:#fff;padding:10mm;box-shadow:0 4px 24px #102b1d18;border-radius:8px}}
+  .identity-grid{display:grid!important;grid-template-columns:1fr 1fr!important;gap:6px!important;align-items:start}
+  .identity-grid>div{min-width:0;break-inside:avoid;page-break-inside:avoid}
+  .identity-grid img{display:block!important;width:100%!important;height:25mm!important;max-height:25mm!important;object-fit:contain!important;object-position:center!important;border:1px solid #cbd9d0;border-radius:4px;background:#fff}
+  .identity-grid b{display:block;text-align:center;font-size:7px;margin-top:2px;color:#52685d}
+  .privacy-note{font-size:7px;color:#52685d;margin:3px 0 0}
+  .identity-section{break-inside:avoid;page-break-inside:avoid}
+  @media print{.actions{display:none}body{padding:0!important;print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{max-width:none!important;padding:0!important;box-shadow:none!important;border-radius:0!important}.identity-section,.identity-grid,.customer-card,.masthead,.title-wrap{break-inside:avoid!important;page-break-inside:avoid!important}}
+  @media screen{body{padding:8px;background:#eef3f0}.sheet{background:#fff;padding:6mm;box-shadow:0 4px 24px #102b1d18;border-radius:8px}}
   </style></head><body><main class="sheet">
   <header class="masthead"><img class="logo" src="./assets/ajsf-logo.png" alt="AJSF Logo"><div><div class="brand-name">ARK JAN SAMRIDDHI FOUNDATION</div><div class="brand-tag">SAPNE AAPKE SATH HAMARA HAI</div></div><div class="doc-meta"><strong>OFFICIAL FIELD RECORD</strong>Customer Verification<br>Confidential Document</div></header>
   <div class="title-wrap"><div class="eyebrow">CUSTOMER DUE DILIGENCE & FIELD CHECK</div><h1>CUSTOMER VERIFICATION REPORT</h1><div class="subtitle">ग्राहक पहचान एवं फील्ड सत्यापन रिपोर्ट</div></div>
