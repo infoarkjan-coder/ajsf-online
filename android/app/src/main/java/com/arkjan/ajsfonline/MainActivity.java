@@ -196,7 +196,7 @@ public class MainActivity extends Activity {
         // clearCache() does not erase localStorage/IndexedDB, so queued app data is preserved.
         webView.clearCache(true);
         webView.clearHistory();
-        webView.loadUrl(APP_URL + "?app_refresh=20261112");
+        webView.loadUrl(APP_URL + "?app_refresh=20261117-apk-final");
     }
 
     // Never let WebView try to load app-specific schemes such as whatsapp://.
