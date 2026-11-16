@@ -1043,8 +1043,15 @@ async function loadCustomerVerification(customerId) {
   const msg=$("verificationMessage");
   if(msg) msg.textContent="पुराना Verification रिकॉर्ड खोजा जा रहा है…";
   try {
-    const {data,error}=await supabase.from("customer_verifications").select("*").eq("customer_id",customerId).order("verified_at",{ascending:false}).limit(1).maybeSingle();
+    const {data:history,error}=await supabase.from("customer_verifications").select("*").eq("customer_id",customerId).order("verified_at",{ascending:false});
     if(error) throw error;
+    const records=history||[];
+    const historyBox=$("verificationHistory");
+    if(historyBox) {
+      historyBox.innerHTML=records.length?'<div class="small muted">पुराने Verification / PDF रिकॉर्ड:</div>'+records.map((r,i)=>'<button type="button" class="secondary verification-history-item" data-verification-id="'+esc(r.id)+'">PDF '+(i+1)+' · '+esc(formatDate(r.verified_at||r.created_at))+'</button>').join(" "):"";
+      historyBox.classList.toggle("hidden",!records.length);
+    }
+    const data=records[0];
     if(!data) { if(msg) msg.textContent="इस ग्राहक का Verification अभी नहीं हुआ है। नया Verification किया जा सकता है।"; return; }
     existingCustomerVerification=data; lastVerificationId=data.id;
     const signed=async path=>{if(!path)return "";const r=await supabase.storage.from("customer-verification").createSignedUrl(path,300);if(r.error)throw r.error;return r.data.signedUrl;};
@@ -2422,6 +2429,7 @@ async function boot() {
       $("captureVerificationLocation")?.addEventListener("click",captureVerificationGps);
       $("customerVerificationForm")?.addEventListener("submit",submitCustomerVerification);
       $("verificationCustomer")?.addEventListener("change",event=>loadCustomerVerification(event.target.value));
+      $("verificationHistory")?.addEventListener("click",event=>{const button=event.target.closest("[data-verification-id]");if(button)openVerificationPdf(button.dataset.verificationId);});
       $("openVerificationPdf")?.addEventListener("click",()=>openVerificationPdf());
       $("newLoanForm")?.addEventListener("submit",submitNewLoan);
       $("closeLoanForm")?.addEventListener("submit",submitLoanClosure);
