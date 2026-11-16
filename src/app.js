@@ -974,7 +974,7 @@ function verificationPdfHtml(customer, verification, photoUrl) {
   <div class="line"><span class="label">Collection Day</span>${esc(customer.collection_day || "—")}</div>
   </div></div><div class="section">ADDRESS DETAILS</div><div class="line"><span class="label">Address</span>${esc(customer.address || "—")}</div><div class="line"><span class="label">Area</span>${esc(customer.area || "—")}</div>
   <div class="section">FIELD GPS VERIFICATION</div><div class="line"><span class="label">Latitude</span>${verification.latitude ?? "Not captured"}</div><div class="line"><span class="label">Longitude</span>${verification.longitude ?? "Not captured"}</div><div class="line"><span class="label">GPS Accuracy</span>${verification.accuracy_meters != null ? Math.round(verification.accuracy_meters)+" metres" : "—"}</div><div class="line"><span class="label">Location Map</span>${maps ? '<a href="'+maps+'">Google Maps पर देखें</a>' : "—"}</div>
-  <div class="section">VERIFICATION RECORD</div><div class="line"><span class="label">Verification Date</span>${esc(formatDate(verification.verified_at || new Date().toISOString()))}</div><div class="line"><span class="label">Verified By</span>${esc(profile?.full_name || "AJSF Staff")}</div><div class="line"><span class="label">Remarks</span>${esc(verification.notes || "—")}</div><div class="line"><span class="label">Consent</span>Customer consent recorded</div>
+  <div class="section">VERIFICATION RECORD</div><div class="line"><span class="label">Verification Date</span>${esc(formatDate(verification.verified_at || new Date().toISOString()))}</div><div class="line"><span class="label">Verified By</span>${esc(verification.verified_by_name || "AJSF Staff")}</div><div class="line"><span class="label">Remarks</span>${esc(verification.notes || "—")}</div><div class="line"><span class="label">Consent</span>Customer consent recorded</div>
   <div class="sign"><div>Customer Signature</div><div>Verified By / AJSF Representative</div></div><p class="small">यह दस्तावेज़ AJSF Customer Verification Record है। फोटो और GPS केवल ग्राहक की सहमति से रिकॉर्ड किए गए हैं।</p><div class="actions"><button onclick="window.print()">Print / Save as PDF</button></div></body></html>`;
 }
 async function openVerificationPdf(verificationId, existingWindow) {
@@ -1020,6 +1020,7 @@ async function submitCustomerVerification(event) {
       consent_given:true,
       consent_text:"Customer was informed about photo and field GPS collection and consented.",
       verified_by:currentUser.id,
+      verified_by_name:profile?.full_name || null,
       notes:$("verificationNotes").value.trim()||null
     };
     const saved=await supabase.from("customer_verifications").insert(record).select("id").single();
