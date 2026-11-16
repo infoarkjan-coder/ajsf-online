@@ -1104,7 +1104,7 @@ function captureVerificationGps() {
     status.textContent = error.code === 1 ? "Location Permission नहीं मिली। Browser Settings में अनुमति दें।" : "GPS Location नहीं मिल सकी। खुले स्थान पर दोबारा प्रयास करें।";
   }, { enableHighAccuracy:true, timeout:20000, maximumAge:0 });
 }
-function verificationPdfHtml(customer, verification, photoUrl, homePhoto1Url, homePhoto2Url, aadhaarFrontUrl, aadhaarBackUrl, signatureUrl) {
+function verificationPdfHtml(customer, verification, photoUrl, homePhoto1Url, homePhoto2Url, aadhaarFrontUrl, aadhaarBackUrl, panFrontUrl, signatureUrl) {
   const maps = verification.latitude != null && verification.longitude != null
     ? "https://www.google.com/maps?q=" + encodeURIComponent(verification.latitude + "," + verification.longitude) : "";
   const accuracy = verification.accuracy_meters == null ? null : Number(verification.accuracy_meters);
@@ -1121,8 +1121,8 @@ function verificationPdfHtml(customer, verification, photoUrl, homePhoto1Url, ho
   const fd=verification.family_details||{};
   const familyLabels={mother_name:"माता का नाम",marital_status:"वैवाहिक स्थिति",spouse_name:"पति / पत्नी",maiden_village:"मूल परिवार का गाँव / शहर",maiden_post:"मूल परिवार का पोस्ट",maiden_tehsil:"मूल परिवार की तहसील",maiden_district:"मूल परिवार का जिला",maiden_state:"मूल परिवार का राज्य",brothers_count:"भाई",sisters_count:"बहनें",father_in_law:"ससुर",mother_in_law:"सास",brothers_in_law:"देवर",sisters_in_law:"ननद",sons_count:"पुत्र",daughters_count:"पुत्रियाँ",children_names:"बच्चों के नाम",other_members:"अन्य परिवार सदस्य",other_notes:"अन्य जानकारी"};
   const familyRows=Object.entries(familyLabels).filter(([key])=>fd[key]!==undefined&&fd[key]!==null&&String(fd[key]).trim()!=="").map(([key,label])=>'<div class="line"><span class="label">'+label+'</span><span class="value">'+esc(fd[key])+'</span></div>').join("");
-  const familySection=familyRows?'<section class="section"><div class="section-head">मूल परिवार का विवरण · पारिवारिक जानकारी</div><div class="rows">'+familyRows+'</div></section>':"";
-  const identityDocs = `<section class="section identity-section"><div class="section-head">MASKED AADHAAR DOCUMENTS</div><div class="identity-grid"><div><img src="${aadhaarFrontUrl}" alt="Masked Aadhaar Front"><b>Aadhaar Front — Masked</b></div><div><img src="${aadhaarBackUrl}" alt="Masked Aadhaar Back"><b>Aadhaar Back — Masked</b></div></div><p class="privacy-note">Aadhaar numbers are masked in the saved copies. Original unmasked files are not stored.</p></section>`;
+  const familySection=familyRows?'<section class="section family-section"><div class="section-head">मूल परिवार का विवरण · पारिवारिक जानकारी</div><div class="family-intro">ग्राहक द्वारा उपलब्ध कराई गई पारिवारिक जानकारी</div><div class="rows family-rows">'+familyRows+'</div></section>':"";
+  const identityDocs = `<section class="section identity-section"><div class="section-head">IDENTITY DOCUMENTS · MASKED COPIES</div><div class="identity-grid"><div><img src="${aadhaarFrontUrl}" alt="Masked Aadhaar Front"><b>Aadhaar Front — Masked</b></div><div><img src="${aadhaarBackUrl}" alt="Masked Aadhaar Back"><b>Aadhaar Back — Masked</b></div>${panFrontUrl?`<div><img src="${panFrontUrl}" alt="PAN Front"><b>PAN Card — Front</b></div>`:""}</div><p class="privacy-note">Aadhaar numbers are masked in the saved copies. PAN card is shown as uploaded. Original unmasked Aadhaar files are not stored.</p></section>`;
   const verificationId = verification.id || verification.verification_id || "—";
   const signatureBlock = signatureUrl ? '<img src="' + signatureUrl + '" alt="Customer Signature" style="display:block;max-width:100%;height:22mm;object-fit:contain;margin:0 auto 4px">' : '<div style="height:22mm;display:flex;align-items:center;justify-content:center;color:#87958d;font-size:8px">हस्ताक्षर अपलोड नहीं किए गए</div>';
   const verifiedAt = formatDate(verification.verified_at || new Date().toISOString());
@@ -1177,7 +1177,7 @@ function verificationPdfHtml(customer, verification, photoUrl, homePhoto1Url, ho
   .footer strong{color:#174c3c}
   .actions{display:flex;justify-content:center;gap:8px;margin:8px 0}
   .actions button{border:0;border-radius:5px;background:#174c3c;color:#fff;padding:9px 18px;font-weight:700;cursor:pointer}
-  .identity-grid{display:grid!important;grid-template-columns:1fr 1fr!important;gap:6px!important;align-items:start}
+  .identity-grid{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:9px!important;align-items:start}\n  .family-section{padding:10px 12px 12px;border:1px solid #d8e7de;border-radius:8px;background:linear-gradient(135deg,#f4faf6 0%,#fff 72%);box-shadow:0 2px 7px #174c3c0c}\n  .family-section .section-head{font-size:11px;padding:10px 12px;margin-bottom:7px}\n  .family-intro{font-size:9px;color:#718278;margin:0 2px 7px}\n  .family-rows{gap:2px 18px}\n  .family-rows .line{grid-template-columns:minmax(100px,42%) 1fr;gap:8px;padding:7px 6px;border:1px solid #e5eee8;border-radius:4px;background:#fff;margin-bottom:3px}\n  .family-rows .label{font-size:10px;color:#466557}\n  .family-rows .value{font-size:11px;font-weight:700;color:#1f3d30}\n  .identity-grid img{height:48mm!important;max-height:48mm!important}
   .identity-grid>div{min-width:0;break-inside:avoid;page-break-inside:avoid}
   .identity-grid img{display:block!important;width:100%!important;height:66mm!important;max-height:66mm!important;object-fit:contain!important;object-position:center!important;border:1px solid #cbd9d0;border-radius:4px;background:#fff}
   .identity-grid b{display:block;text-align:center;font-size:7px;margin-top:2px;color:#52685d}
@@ -1233,7 +1233,7 @@ async function openVerificationPdf(verificationId, existingWindow) {
     if(!customer) throw new Error("ग्राहक रिकॉर्ड नहीं मिला।");
     const signPhoto=async path=>{if(!path) return "";const signed=await supabase.storage.from("customer-verification").createSignedUrl(path,300);if(signed.error) throw signed.error;return signed.data.signedUrl;};
     const [photoUrl,homePhoto1Url,homePhoto2Url,aadhaarFrontUrl,aadhaarBackUrl,panFrontUrl,signatureUrl]=await Promise.all([signPhoto(data.photo_path),signPhoto(data.home_photo1_path),signPhoto(data.home_photo2_path),signPhoto(data.aadhaar_front_masked_path),signPhoto(data.aadhaar_back_masked_path),signPhoto(data.pan_front_masked_path),signPhoto(data.customer_signature_path)]);
-    win.document.open(); win.document.write(verificationPdfHtml(customer,data,photoUrl,homePhoto1Url,homePhoto2Url,aadhaarFrontUrl,aadhaarBackUrl,signatureUrl)); win.document.close();
+    win.document.open(); win.document.write(verificationPdfHtml(customer,data,photoUrl,homePhoto1Url,homePhoto2Url,aadhaarFrontUrl,aadhaarBackUrl,panFrontUrl,signatureUrl)); win.document.close();
   } catch(err) { win.close(); showMessage("PDF नहीं खुली: "+(err?.message||String(err)),"error"); }
 }
 async function submitCustomerVerification(event) {
