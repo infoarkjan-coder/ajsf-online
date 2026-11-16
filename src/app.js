@@ -953,8 +953,12 @@ function captureVerificationGps() {
       latitude: position.coords.latitude, longitude: position.coords.longitude,
       accuracy_meters: position.coords.accuracy, captured_at: new Date(position.timestamp || Date.now()).toISOString()
     };
-    status.textContent = "Location मिल गई · Accuracy लगभग " + Math.round(verificationLocation.accuracy_meters) + " मीटर · " +
-      verificationLocation.latitude.toFixed(6) + ", " + verificationLocation.longitude.toFixed(6);
+    const accuracy = verificationLocation.accuracy_meters;
+    const quality = accuracy <= 100 ? "अच्छी लोकेशन" : accuracy <= 500 ? "कमज़ोर लोकेशन" : "बहुत कमज़ोर GPS";
+    status.textContent = quality + " · Accuracy " + Math.round(accuracy) + " मीटर · " +
+      verificationLocation.latitude.toFixed(6) + ", " + verificationLocation.longitude.toFixed(6) +
+      (accuracy > 100 ? " · बेहतर GPS के लिए खुले स्थान पर दोबारा Fetch करें।" : " · लोकेशन स्वीकार्य है।");
+    status.style.color = accuracy <= 100 ? "#176b4b" : "#b45309";
   }, error => {
     verificationLocation = null;
     status.textContent = error.code === 1 ? "Location Permission नहीं मिली। Browser Settings में अनुमति दें।" : "GPS Location नहीं मिल सकी। खुले स्थान पर दोबारा प्रयास करें।";
@@ -963,19 +967,59 @@ function captureVerificationGps() {
 function verificationPdfHtml(customer, verification, photoUrl) {
   const maps = verification.latitude != null && verification.longitude != null
     ? "https://www.google.com/maps?q=" + encodeURIComponent(verification.latitude + "," + verification.longitude) : "";
-  const img = photoUrl ? '<img class="photo" src="' + photoUrl + '">' : '<div class="photo placeholder">PHOTO NOT AVAILABLE</div>';
-  return `<!doctype html><html lang="hi"><head><meta charset="utf-8"><title>AJSF Customer Verification</title><style>
-  @page{size:A4;margin:14mm}body{font-family:Arial,sans-serif;color:#17231d;font-size:12px}header{text-align:center;border-bottom:2px solid #176b4b;padding-bottom:12px;margin-bottom:18px}h1{font-size:20px;margin:0;color:#123f35}h2{text-align:center;font-size:17px;margin:18px 0}.tag{font-size:10px;letter-spacing:1px;color:#527264}.top{display:flex;gap:20px;align-items:flex-start}.photo{width:125px;height:150px;object-fit:cover;border:1px solid #9aa99f;border-radius:5px}.placeholder{display:grid;place-items:center;background:#f1f5f2;color:#64756b}.details{flex:1}.line{padding:9px 0;border-bottom:1px solid #dbe4de}.label{font-weight:bold;color:#506459;display:inline-block;min-width:145px}.section{font-weight:bold;background:#edf5f0;padding:8px;margin-top:18px}.sign{display:flex;justify-content:space-between;margin-top:65px}.sign div{width:42%;border-top:1px solid #53665a;text-align:center;padding-top:8px}.small{font-size:10px;color:#64756b;margin-top:20px}.actions{margin:16px 0}.actions button{padding:8px 14px}@media print{.actions{display:none}}
-  </style></head><body><header><h1>ARK JAN SAMRIDDHI FOUNDATION</h1><div class="tag">SAPNE AAPKE SATH HAMARA HAI</div></header><h2>CUSTOMER VERIFICATION FORM</h2><div class="top">${img}<div class="details">
-  <div class="line"><span class="label">Customer ID</span>${esc(formatCustomerId(customer.customer_code))}</div>
-  <div class="line"><span class="label">Customer Name</span>${esc(customer.full_name)}</div>
-  <div class="line"><span class="label">Mobile</span>${esc(customer.contact_number || "—")}</div>
-  <div class="line"><span class="label">Center</span>${esc(customer.center_name || "—")}</div>
-  <div class="line"><span class="label">Collection Day</span>${esc(customer.collection_day || "—")}</div>
-  </div></div><div class="section">ADDRESS DETAILS</div><div class="line"><span class="label">Address</span>${esc(customer.address || "—")}</div><div class="line"><span class="label">Area</span>${esc(customer.area || "—")}</div>
-  <div class="section">FIELD GPS VERIFICATION</div><div class="line"><span class="label">Latitude</span>${verification.latitude ?? "Not captured"}</div><div class="line"><span class="label">Longitude</span>${verification.longitude ?? "Not captured"}</div><div class="line"><span class="label">GPS Accuracy</span>${verification.accuracy_meters != null ? Math.round(verification.accuracy_meters)+" metres" : "—"}</div><div class="line"><span class="label">Location Map</span>${maps ? '<a href="'+maps+'">Google Maps पर देखें</a>' : "—"}</div>
-  <div class="section">VERIFICATION RECORD</div><div class="line"><span class="label">Verification Date</span>${esc(formatDate(verification.verified_at || new Date().toISOString()))}</div><div class="line"><span class="label">Verified By</span>${esc(verification.verified_by_name || "AJSF Staff")}</div><div class="line"><span class="label">Remarks</span>${esc(verification.notes || "—")}</div><div class="line"><span class="label">Consent</span>Customer consent recorded</div>
-  <div class="sign"><div>Customer Signature</div><div>Verified By / AJSF Representative</div></div><p class="small">यह दस्तावेज़ AJSF Customer Verification Record है। फोटो और GPS केवल ग्राहक की सहमति से रिकॉर्ड किए गए हैं।</p><div class="actions"><button onclick="window.print()">Print / Save as PDF</button></div></body></html>`;
+  const accuracy = verification.accuracy_meters == null ? null : Number(verification.accuracy_meters);
+  const accuracyLabel = accuracy == null ? "GPS उपलब्ध नहीं" : accuracy <= 100 ? "GOOD · अच्छी सटीकता" : accuracy <= 500 ? "FAIR · सीमित सटीकता" : "LOW · कमजोर GPS";
+  const accuracyNote = accuracy == null
+    ? "इस सत्यापन में GPS लोकेशन रिकॉर्ड नहीं हुई।"
+    : accuracy <= 100
+      ? "GPS सटीकता 100 मीटर के भीतर है।"
+      : "चेतावनी: GPS सटीकता 100 मीटर से अधिक है। यह लोकेशन अनुमानित हो सकती है। खुले स्थान पर दोबारा GPS लेकर सत्यापन अपडेट करें।";
+  const img = photoUrl ? '<img class="photo" src="' + photoUrl + '" alt="Customer verification photo">' : '<div class="photo placeholder">PHOTO NOT AVAILABLE</div>';
+  return `<!doctype html><html lang="hi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AJSF Customer Verification</title><style>
+  @page{size:A4 portrait;margin:12mm}
+  *{box-sizing:border-box}html,body{margin:0;padding:0}body{font-family:Arial,"Noto Sans Devanagari",sans-serif;color:#17231d;font-size:12px;line-height:1.45}
+  header{text-align:center;border-bottom:2px solid #176b4b;padding:0 0 11px;margin-bottom:15px}
+  h1{font-size:21px;line-height:1.2;margin:0;color:#123f35;letter-spacing:.15px}
+  .tag{font-size:10px;letter-spacing:.35px;white-space:nowrap;color:#527264;margin-top:5px}
+  h2{text-align:center;font-size:17px;letter-spacing:.3px;margin:14px 0 17px;color:#123f35}
+  .top{display:flex;gap:20px;align-items:flex-start}
+  .photo{flex:0 0 132px;width:132px;height:158px;object-fit:cover;border:1px solid #9aa99f;border-radius:5px;background:#f1f5f2}
+  .placeholder{display:flex;align-items:center;justify-content:center;color:#64756b;font-size:10px}
+  .details{flex:1;min-width:0}.line{display:grid;grid-template-columns:170px 1fr;gap:10px;align-items:start;padding:8px 9px;border-bottom:1px solid #dbe4de;min-height:32px}
+  .label{font-weight:bold;color:#506459}.section{font-weight:bold;color:#123f35;background:#edf5f0;border-left:3px solid #176b4b;padding:8px 10px;margin-top:15px;margin-bottom:2px;letter-spacing:.25px}
+  .gps-status{margin:8px 0 0;padding:9px 11px;border:1px solid ${accuracy == null || accuracy > 100 ? "#e7b46b" : "#a8cdb8"};background:${accuracy == null || accuracy > 100 ? "#fff7e8" : "#eff8f2"};color:${accuracy == null || accuracy > 100 ? "#8a4b08" : "#176b4b"};border-radius:4px;font-weight:bold}
+  .gps-note{font-size:10px;line-height:1.4;margin:5px 0 0;color:#66533b}
+  .sign{display:flex;justify-content:space-between;gap:50px;margin-top:48px}.sign div{flex:1;border-top:1px solid #53665a;text-align:center;padding-top:8px}
+  .small{font-size:10px;color:#64756b;margin-top:16px;line-height:1.5}
+  .actions{margin:16px 0}.actions button{padding:8px 14px}
+  @media print{.actions{display:none}body{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
+  </style></head><body>
+  <header><h1>ARK JAN SAMRIDDHI FOUNDATION</h1><div class="tag">SAPNE AAPKE SATH HAMARA HAI</div></header>
+  <h2>CUSTOMER VERIFICATION FORM</h2>
+  <div class="top">${img}<div class="details">
+  <div class="line"><span class="label">Customer ID</span><span>${esc(formatCustomerId(customer.customer_code))}</span></div>
+  <div class="line"><span class="label">Customer Name</span><span>${esc(customer.full_name)}</span></div>
+  <div class="line"><span class="label">Mobile</span><span>${esc(customer.contact_number || "—")}</span></div>
+  <div class="line"><span class="label">Center</span><span>${esc(customer.center_name || "—")}</span></div>
+  <div class="line"><span class="label">Collection Day</span><span>${esc(customer.collection_day || "—")}</span></div>
+  </div></div>
+  <div class="section">ADDRESS DETAILS</div>
+  <div class="line"><span class="label">Address</span><span>${esc(customer.address || "—")}</span></div>
+  <div class="line"><span class="label">Area</span><span>${esc(customer.area || "—")}</span></div>
+  <div class="section">FIELD GPS VERIFICATION</div>
+  <div class="line"><span class="label">Latitude</span><span>${verification.latitude ?? "Not captured"}</span></div>
+  <div class="line"><span class="label">Longitude</span><span>${verification.longitude ?? "Not captured"}</span></div>
+  <div class="line"><span class="label">GPS Accuracy</span><span>${accuracy == null ? "—" : Math.round(accuracy) + " metres"} · ${accuracyLabel}</span></div>
+  <div class="gps-status">${accuracyLabel}</div><p class="gps-note">${accuracyNote}</p>
+  <div class="line"><span class="label">Location Map</span><span>${maps ? '<a href="' + maps + '">Google Maps पर देखें</a>' : "—"}</span></div>
+  <div class="section">VERIFICATION RECORD</div>
+  <div class="line"><span class="label">Verification Date</span><span>${esc(formatDate(verification.verified_at || new Date().toISOString()))}</span></div>
+  <div class="line"><span class="label">Verified By</span><span>${esc(verification.verified_by_name || "AJSF Staff")}</span></div>
+  <div class="line"><span class="label">Remarks</span><span>${esc(verification.notes || "—")}</span></div>
+  <div class="line"><span class="label">Consent</span><span>Customer consent recorded</span></div>
+  <div class="sign"><div>Customer Signature</div><div>Verified By / AJSF Representative</div></div>
+  <p class="small">यह दस्तावेज़ AJSF Customer Verification Record है। फोटो और GPS केवल ग्राहक की सहमति से रिकॉर्ड किए गए हैं। GPS Accuracy वास्तविक डिवाइस और नेटवर्क के अनुसार बदल सकती है।</p>
+  <div class="actions"><button onclick="window.print()">Print / Save as PDF</button></div></body></html>`;
 }
 async function openVerificationPdf(verificationId, existingWindow) {
   const id = verificationId || lastVerificationId;
