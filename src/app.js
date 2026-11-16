@@ -915,34 +915,62 @@ async function submitLoanClosure(event) {
 }
 
 let verificationPhotoFile = null;
+let verificationHomePhoto1 = null, verificationHomePhoto2 = null;
+let verificationCameraStream = null, verificationCameraTarget = null;
 let verificationLocation = null;
 let lastVerificationId = null;
 
+function stopVerificationCamera() {
+  if (verificationCameraStream) verificationCameraStream.getTracks().forEach(track=>track.stop());
+  verificationCameraStream=null;
+  const video=$("verificationCameraVideo"); if(video) video.srcObject=null;
+  $("verificationCameraModal")?.classList.add("hidden");
+}
+async function openVerificationCamera(target) {
+  verificationCameraTarget=target;
+  const modal=$("verificationCameraModal"),video=$("verificationCameraVideo"),error=$("verificationCameraError");
+  modal?.classList.remove("hidden"); if(error) error.textContent="कैमरा अनुमति की प्रतीक्षा…";
+  try {
+    if(!navigator.mediaDevices?.getUserMedia) throw new Error("इस browser में live camera उपलब्ध नहीं है। Gallery विकल्प इस्तेमाल करें।");
+    verificationCameraStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}},audio:false});
+    video.srcObject=verificationCameraStream; await video.play(); if(error) error.textContent="";
+  } catch(err) { if(error) error.textContent=(err?.message||"कैमरा नहीं खुला।") + " कृपया Camera permission दें या Gallery चुनें।"; }
+}
+function setVerificationPhotoFor(target,file) {
+  if(!file) return;
+  if(!file.type.startsWith("image/")) return showMessage("कृपया फोटो फ़ाइल चुनें।","warn");
+  if(file.size>5*1024*1024) return showMessage("हर फोटो 5 MB से छोटी होनी चाहिए।","warn");
+  const map={customer:["verificationPhotoPreview","verificationPhotoStatus"],home1:["verificationHome1Preview","verificationHome1Status"],home2:["verificationHome2Preview","verificationHome2Status"]};
+  if(target==="customer") verificationPhotoFile=file;
+  if(target==="home1") verificationHomePhoto1=file;
+  if(target==="home2") verificationHomePhoto2=file;
+  const [previewId,statusId]=map[target],preview=$(previewId);
+  if(preview.dataset.objectUrl) URL.revokeObjectURL(preview.dataset.objectUrl);
+  preview.dataset.objectUrl=URL.createObjectURL(file); preview.src=preview.dataset.objectUrl; preview.classList.remove("hidden");
+  $(statusId).textContent="फोटो तैयार: "+file.name;
+}
+function captureVerificationCameraPhoto() {
+  const video=$("verificationCameraVideo");
+  if(!video?.videoWidth) return $("verificationCameraError").textContent="कैमरा तैयार नहीं है।";
+  const canvas=document.createElement("canvas"); canvas.width=video.videoWidth; canvas.height=video.videoHeight;
+  canvas.getContext("2d").drawImage(video,0,0,canvas.width,canvas.height);
+  canvas.toBlob(blob=>{
+    if(!blob) return showMessage("कैमरा फोटो तैयार नहीं हुई।","error");
+    const file=new File([blob],"AJSF-"+verificationCameraTarget+"-"+Date.now()+".jpg",{type:"image/jpeg"});
+    setVerificationPhotoFor(verificationCameraTarget,file); stopVerificationCamera();
+  },"image/jpeg",0.88);
+}
 function openCustomerVerification(customerId) {
   if (!currentUser) return;
-  activateTab("customer-verification");
-  const select = $("verificationCustomer");
-  if (select) select.value = customerId || "";
-  verificationPhotoFile = null;
-  verificationLocation = null;
-  lastVerificationId = null;
-  if ($("verificationCamera")) $("verificationCamera").value = "";
-  if ($("verificationGallery")) $("verificationGallery").value = "";
-  if ($("verificationPhotoPreview")) { $("verificationPhotoPreview").src = ""; $("verificationPhotoPreview").classList.add("hidden"); }
-  if ($("verificationPhotoStatus")) $("verificationPhotoStatus").textContent = "Camera या Gallery से एक फोटो चुनें।";
-  if ($("verificationLocationStatus")) $("verificationLocationStatus").textContent = "अभी GPS Location नहीं ली गई है।";
-  if ($("verificationMessage")) $("verificationMessage").textContent = "";
-  if ($("openVerificationPdf")) $("openVerificationPdf").disabled = true;
-}
-function setVerificationPhoto(file) {
-  if (!file) return;
-  if (!file.type.startsWith("image/")) return showMessage("कृपया फोटो फ़ाइल चुनें।","warn");
-  if (file.size > 5 * 1024 * 1024) return showMessage("फोटो 5 MB से छोटी होनी चाहिए।","warn");
-  verificationPhotoFile = file;
-  const preview = $("verificationPhotoPreview");
-  preview.src = URL.createObjectURL(file);
-  preview.classList.remove("hidden");
-  $("verificationPhotoStatus").textContent = "फोटो तैयार: " + file.name;
+  stopVerificationCamera(); activateTab("customer-verification");
+  const select=$("verificationCustomer"); if(select) select.value=customerId||"";
+  verificationPhotoFile=null; verificationHomePhoto1=null; verificationHomePhoto2=null;
+  verificationLocation=null; lastVerificationId=null;
+  ["verificationGallery","verificationHome1Gallery","verificationHome2Gallery"].forEach(id=>{if($(id)) $(id).value="";});
+  [["verificationPhotoPreview","verificationPhotoStatus","ग्राहक की स्पष्ट फोटो अनिवार्य है।"],["verificationHome1Preview","verificationHome1Status","घर का सामने वाला हिस्सा"],["verificationHome2Preview","verificationHome2Status","घर का दूसरा स्पष्ट एंगल"]].forEach(([p,s,msg])=>{if($(p)){$(p).src="";$(p).classList.add("hidden");}if($(s))$(s).textContent=msg;});
+  if($("verificationLocationStatus")) $("verificationLocationStatus").textContent="अभी GPS Location नहीं ली गई है।";
+  if($("verificationMessage")) $("verificationMessage").textContent="";
+  if($("openVerificationPdf")) $("openVerificationPdf").disabled=true;
 }
 function captureVerificationGps() {
   const status = $("verificationLocationStatus");
@@ -964,7 +992,7 @@ function captureVerificationGps() {
     status.textContent = error.code === 1 ? "Location Permission नहीं मिली। Browser Settings में अनुमति दें।" : "GPS Location नहीं मिल सकी। खुले स्थान पर दोबारा प्रयास करें।";
   }, { enableHighAccuracy:true, timeout:20000, maximumAge:0 });
 }
-function verificationPdfHtml(customer, verification, photoUrl) {
+function verificationPdfHtml(customer, verification, photoUrl, homePhoto1Url, homePhoto2Url) {
   const maps = verification.latitude != null && verification.longitude != null
     ? "https://www.google.com/maps?q=" + encodeURIComponent(verification.latitude + "," + verification.longitude) : "";
   const accuracy = verification.accuracy_meters == null ? null : Number(verification.accuracy_meters);
@@ -977,6 +1005,7 @@ function verificationPdfHtml(customer, verification, photoUrl) {
   const img = photoUrl
     ? '<img class="customer-photo" src="' + photoUrl + '" alt="Customer verification photo">'
     : '<div class="customer-photo photo-placeholder">CUSTOMER PHOTO NOT AVAILABLE</div>';
+  const homePhotos = `<section class="section"><div class="section-head">CUSTOMER HOUSE PHOTOGRAPHS</div><div class="home-photo-grid"><div><img src="${homePhoto1Url}" alt="House front view"><b>घर की फोटो 1 — सामने से</b></div><div><img src="${homePhoto2Url}" alt="House second angle"><b>घर की फोटो 2 — दूसरा एंगल</b></div></div></section>`;
   const verificationId = verification.id || verification.verification_id || "—";
   const verifiedAt = formatDate(verification.verified_at || new Date().toISOString());
   const gpsTone = accuracy == null || accuracy > 100 ? "warning" : "good";
@@ -999,7 +1028,7 @@ function verificationPdfHtml(customer, verification, photoUrl) {
   .customer-card{display:grid;grid-template-columns:53mm 1fr;gap:15px;padding:12px;border:1px solid #d8e4dc;border-radius:8px;background:#fbfdfb;align-items:stretch}
   .photo-frame{border:1px solid #cbd9d0;border-radius:6px;background:#eef4f0;padding:5px;display:flex;align-items:center;justify-content:center;min-height:61mm}
   .customer-photo{display:block;width:100%;height:60mm;object-fit:cover;object-position:center;border-radius:3px;background:#edf3ef}
-  .photo-placeholder{display:flex;align-items:center;justify-content:center;text-align:center;color:#74857c;font-size:10px;font-weight:700;letter-spacing:.5px;padding:10px}
+  .home-photo-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.home-photo-grid img{width:100%;height:58mm;object-fit:cover;border:1px solid #cbd9d0;border-radius:5px}.home-photo-grid b{display:block;text-align:center;font-size:8px;margin-top:4px;color:#52685d}.photo-placeholder{display:flex;align-items:center;justify-content:center;text-align:center;color:#74857c;font-size:10px;font-weight:700;letter-spacing:.5px;padding:10px}
   .photo-caption{text-align:center;font-size:8px;color:#62766b;margin-top:5px;font-weight:700}
   .details{min-width:0}
   .section-title{display:flex;align-items:center;gap:7px;color:#174c3c;font-size:10px;font-weight:800;letter-spacing:.5px;margin:0 0 6px}
@@ -1069,13 +1098,9 @@ async function openVerificationPdf(verificationId, existingWindow) {
     if(error) throw error;
     const customer=customers.find(c=>c.id===data.customer_id);
     if(!customer) throw new Error("ग्राहक रिकॉर्ड नहीं मिला।");
-    let photoUrl=null;
-    if(data.photo_path){
-      const signed=await supabase.storage.from("customer-verification").createSignedUrl(data.photo_path,300);
-      if(signed.error) throw signed.error;
-      photoUrl=signed.data.signedUrl;
-    }
-    win.document.open(); win.document.write(verificationPdfHtml(customer,data,photoUrl)); win.document.close();
+    const signPhoto=async path=>{if(!path) return "";const signed=await supabase.storage.from("customer-verification").createSignedUrl(path,300);if(signed.error) throw signed.error;return signed.data.signedUrl;};
+    const [photoUrl,homePhoto1Url,homePhoto2Url]=await Promise.all([signPhoto(data.photo_path),signPhoto(data.home_photo1_path),signPhoto(data.home_photo2_path)]);
+    win.document.open(); win.document.write(verificationPdfHtml(customer,data,photoUrl,homePhoto1Url,homePhoto2Url)); win.document.close();
   } catch(err) { win.close(); showMessage("PDF नहीं खुली: "+(err?.message||String(err)),"error"); }
 }
 async function submitCustomerVerification(event) {
@@ -1084,17 +1109,21 @@ async function submitCustomerVerification(event) {
   const customerId=$("verificationCustomer").value;
   const customer=customers.find(c=>c.id===customerId);
   if(!customer) return showMessage("ग्राहक चुनें।","warn");
-  if(!verificationPhotoFile) return showMessage("Camera या Gallery से ग्राहक का फोटो चुनें।","warn");
+  if(!verificationPhotoFile) return showMessage("ग्राहक की फोटो Camera या Gallery से चुनें।","warn");
+  if(!verificationHomePhoto1 || !verificationHomePhoto2) return showMessage("घर की दोनों फोटो अनिवार्य हैं — सामने से और दूसरे एंगल से।","warn");
   if(!$("verificationConsent").checked) return showMessage("ग्राहक की सहमति आवश्यक है।","warn");
   const autoPdfWindow=window.open("about:blank","_blank");
   setBusy(btn,true,"Verification सेव हो रहा है…");
   try {
     const ext=verificationPhotoFile.type==="image/png"?"png":verificationPhotoFile.type==="image/webp"?"webp":"jpg";
     const path=customerId+"/"+crypto.randomUUID()+"."+ext;
-    const uploaded=await supabase.storage.from("customer-verification").upload(path,verificationPhotoFile,{contentType:verificationPhotoFile.type,cacheControl:"3600",upsert:false});
-    if(uploaded.error) throw uploaded.error;
+    const uploadPhoto=async(file)=>{const ext=file.type==="image/png"?"png":file.type==="image/webp"?"webp":"jpg";const p=customerId+"/"+crypto.randomUUID()+"."+ext;const up=await supabase.storage.from("customer-verification").upload(p,file,{contentType:file.type,cacheControl:"3600",upsert:false});if(up.error) throw up.error;return p;};
+    const uploadedPaths=[];
+    const path=await uploadPhoto(verificationPhotoFile); uploadedPaths.push(path);
+    const home1Path=await uploadPhoto(verificationHomePhoto1); uploadedPaths.push(home1Path);
+    const home2Path=await uploadPhoto(verificationHomePhoto2); uploadedPaths.push(home2Path);
     const record={
-      customer_id:customerId,photo_path:path,
+      customer_id:customerId,photo_path:path,home_photo1_path:home1Path,home_photo2_path:home2Path,
       latitude:verificationLocation?.latitude ?? null,
       longitude:verificationLocation?.longitude ?? null,
       accuracy_meters:verificationLocation?.accuracy_meters ?? null,
@@ -1107,7 +1136,7 @@ async function submitCustomerVerification(event) {
     };
     const saved=await supabase.from("customer_verifications").insert(record).select("id").single();
     if(saved.error) {
-      await supabase.storage.from("customer-verification").remove([path]);
+      await supabase.storage.from("customer-verification").remove(uploadedPaths);
       throw saved.error;
     }
     lastVerificationId=saved.data.id;
@@ -1115,9 +1144,11 @@ async function submitCustomerVerification(event) {
     $("verificationMessage").textContent="Customer Verification सेव हो गया। PDF तैयार है।";
     $("verificationMessage").className="message success";
     await openVerificationPdf(lastVerificationId,autoPdfWindow);
-    verificationPhotoFile=null; verificationLocation=null;
+    verificationPhotoFile=null; verificationHomePhoto1=null; verificationHomePhoto2=null; verificationLocation=null;
     $("verificationPhotoPreview").classList.add("hidden");
-    $("verificationPhotoStatus").textContent="फोटो सेव हो गया। नया Verification करने के लिए फोटो चुनें।";
+    $("verificationPhotoStatus").textContent="ग्राहक की फोटो सेव हो गई।";
+    $("verificationHome1Preview").classList.add("hidden"); $("verificationHome2Preview").classList.add("hidden");
+    $("verificationHome1Status").textContent="घर की फोटो 1 सेव हो गई।"; $("verificationHome2Status").textContent="घर की फोटो 2 सेव हो गई।";
     $("verificationLocationStatus").textContent="GPS record सेव हो गया।";
     $("verificationCamera").value=""; $("verificationGallery").value="";
     $("verificationConsent").checked=false; $("verificationNotes").value="";
@@ -2283,8 +2314,12 @@ async function boot() {
       await loadProfile(currentUser);
       renderShell();
       $("customerForm").addEventListener("submit",submitCustomer);
-      $("verificationCamera")?.addEventListener("change",e=>setVerificationPhoto(e.target.files?.[0]));
-      $("verificationGallery")?.addEventListener("change",e=>setVerificationPhoto(e.target.files?.[0]));
+      $("verificationGallery")?.addEventListener("change",e=>setVerificationPhotoFor("customer",e.target.files?.[0]));
+      $("verificationHome1Gallery")?.addEventListener("change",e=>setVerificationPhotoFor("home1",e.target.files?.[0]));
+      $("verificationHome2Gallery")?.addEventListener("change",e=>setVerificationPhotoFor("home2",e.target.files?.[0]));
+      document.querySelectorAll("[data-open-camera]").forEach(btn=>btn.addEventListener("click",()=>openVerificationCamera(btn.dataset.openCamera)));
+      $("takeVerificationPhoto")?.addEventListener("click",captureVerificationCameraPhoto);
+      $("closeVerificationCamera")?.addEventListener("click",stopVerificationCamera);
       $("captureVerificationLocation")?.addEventListener("click",captureVerificationGps);
       $("customerVerificationForm")?.addEventListener("submit",submitCustomerVerification);
       $("openVerificationPdf")?.addEventListener("click",()=>openVerificationPdf());
