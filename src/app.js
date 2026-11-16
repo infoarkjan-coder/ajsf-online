@@ -915,6 +915,7 @@ async function submitLoanClosure(event) {
 }
 
 let verificationPhotoFile = null;
+let verificationSignatureFile = null;
 const maskedIdentityDocs = {aadhaarFront:null,aadhaarBack:null,panFront:null};
 const identityDocEditors = {};
 let verificationHomePhoto1 = null, verificationHomePhoto2 = null;
@@ -1026,7 +1027,7 @@ function setupIdentityDocEditor(key) {
 }
 
 function resetCustomerVerificationForm() {
-  verificationPhotoFile=null; verificationHomePhoto1=null; verificationHomePhoto2=null;
+  verificationPhotoFile=null; verificationSignatureFile=null; verificationHomePhoto1=null; verificationHomePhoto2=null;
   Object.keys(maskedIdentityDocs).forEach(k=>{maskedIdentityDocs[k]=null;if($("doc-"+k))$("doc-"+k).value="";if($("confirm-"+k))$("confirm-"+k).checked=false;if($("canvas-"+k)){const c=$("canvas-"+k);c.getContext("2d").clearRect(0,0,c.width,c.height);c.width=0;c.height=0;}if($("status-"+k))$("status-"+k).textContent="फोटो चुनें और नंबर पर काला मास्क लगाएं।";});
   verificationLocation=null; lastVerificationId=null; existingCustomerVerification=null;
   if($("verificationHistory")){$("verificationHistory").innerHTML="";$("verificationHistory").classList.add("hidden");}
@@ -1037,6 +1038,9 @@ function resetCustomerVerificationForm() {
   if($("openVerificationPdf")) $("openVerificationPdf").disabled=true;
   if($("saveCustomerVerification")) $("saveCustomerVerification").textContent="Verification सेव करें और PDF बनाएं";
   if($("verificationNotes")) $("verificationNotes").value="";
+  if($("verificationSignaturePreview")){$("verificationSignaturePreview").src="";$("verificationSignaturePreview").classList.add("hidden");}
+  if($("verificationSignatureStatus"))$("verificationSignatureStatus").textContent="ग्राहक के हस्ताक्षर की फोटो अपलोड करें (वैकल्पिक)।";
+  if($("verificationSignatureGallery"))$("verificationSignatureGallery").value="";
 }
 async function loadCustomerVerification(customerId) {
   resetCustomerVerificationForm();
@@ -1055,6 +1059,8 @@ async function loadCustomerVerification(customerId) {
     const data=records[0];
     if(!data) { if(msg) msg.textContent="इस ग्राहक का Verification अभी नहीं हुआ है। नया Verification किया जा सकता है।"; return; }
     existingCustomerVerification=data; lastVerificationId=data.id;
+    const signatureUrl=data.customer_signature_path?await (async()=>{const r=await supabase.storage.from("customer-verification").createSignedUrl(data.customer_signature_path,300);if(r.error)throw r.error;return r.data.signedUrl;})():"";
+    if(signatureUrl&&$("verificationSignaturePreview")){$("verificationSignaturePreview").src=signatureUrl;$("verificationSignaturePreview").classList.remove("hidden");if($("verificationSignatureStatus"))$("verificationSignatureStatus").textContent="ग्राहक के हस्ताक्षर पहले से सेव हैं। नया अपलोड करने पर बदलेंगे।";}
     const signed=async path=>{if(!path)return "";const r=await supabase.storage.from("customer-verification").createSignedUrl(path,300);if(r.error)throw r.error;return r.data.signedUrl;};
     const [photo,home1,home2,af,ab,pan]=await Promise.all([signed(data.photo_path),signed(data.home_photo1_path),signed(data.home_photo2_path),signed(data.aadhaar_front_masked_path),signed(data.aadhaar_back_masked_path),signed(data.pan_front_masked_path)]);
     [["verificationPhotoPreview","verificationPhotoStatus",photo,"ग्राहक की पुरानी फोटो सेव है।"],["verificationHome1Preview","verificationHome1Status",home1,"घर की फोटो 1 सेव है।"],["verificationHome2Preview","verificationHome2Status",home2,"घर की फोटो 2 सेव है।"]].forEach(([p,st,url,label])=>{if(url){$(p).src=url;$(p).classList.remove("hidden");$(st).textContent=label;}});
@@ -1094,7 +1100,7 @@ function captureVerificationGps() {
     status.textContent = error.code === 1 ? "Location Permission नहीं मिली। Browser Settings में अनुमति दें।" : "GPS Location नहीं मिल सकी। खुले स्थान पर दोबारा प्रयास करें।";
   }, { enableHighAccuracy:true, timeout:20000, maximumAge:0 });
 }
-function verificationPdfHtml(customer, verification, photoUrl, homePhoto1Url, homePhoto2Url, aadhaarFrontUrl, aadhaarBackUrl) {
+function verificationPdfHtml(customer, verification, photoUrl, homePhoto1Url, homePhoto2Url, aadhaarFrontUrl, aadhaarBackUrl, signatureUrl) {
   const maps = verification.latitude != null && verification.longitude != null
     ? "https://www.google.com/maps?q=" + encodeURIComponent(verification.latitude + "," + verification.longitude) : "";
   const accuracy = verification.accuracy_meters == null ? null : Number(verification.accuracy_meters);
@@ -1110,6 +1116,7 @@ function verificationPdfHtml(customer, verification, photoUrl, homePhoto1Url, ho
   const homePhotos = `<section class="section"><div class="section-head">CUSTOMER HOUSE PHOTOGRAPHS</div><div class="home-photo-grid"><div><img src="${homePhoto1Url}" alt="House front view"><b>घर की फोटो 1 — सामने से</b></div><div><img src="${homePhoto2Url}" alt="House second angle"><b>घर की फोटो 2 — दूसरा एंगल</b></div></div></section>`;
   const identityDocs = `<section class="section identity-section"><div class="section-head">MASKED AADHAAR DOCUMENTS</div><div class="identity-grid"><div><img src="${aadhaarFrontUrl}" alt="Masked Aadhaar Front"><b>Aadhaar Front — Masked</b></div><div><img src="${aadhaarBackUrl}" alt="Masked Aadhaar Back"><b>Aadhaar Back — Masked</b></div></div><p class="privacy-note">Aadhaar numbers are masked in the saved copies. Original unmasked files are not stored.</p></section>`;
   const verificationId = verification.id || verification.verification_id || "—";
+  const signatureBlock = signatureUrl ? '<img src="' + signatureUrl + '" alt="Customer Signature" style="display:block;max-width:100%;height:22mm;object-fit:contain;margin:0 auto 4px">' : '<div style="height:22mm;display:flex;align-items:center;justify-content:center;color:#87958d;font-size:8px">हस्ताक्षर अपलोड नहीं किए गए</div>';
   const verifiedAt = formatDate(verification.verified_at || new Date().toISOString());
   const gpsTone = accuracy == null || accuracy > 100 ? "warning" : "good";
   return `<!doctype html><html lang="hi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base href="${esc(document.baseURI)}"><title>AJSF Customer Verification Report</title><style>
@@ -1194,7 +1201,7 @@ function verificationPdfHtml(customer, verification, photoUrl, homePhoto1Url, ho
     <div class="detail"><small>Customer Consent</small><strong>Recorded</strong></div>
     <div class="detail wide"><small>Field Officer Remarks</small><strong>${esc(verification.notes || "No additional remarks")}</strong></div>
   </div></section>
-  <div class="signatures"><div class="signature">Customer Signature</div><div class="signature">Verified By / AJSF Representative</div></div>
+  <div class="signatures"><div class="signature">${signatureBlock}Customer Signature</div><div class="signature">Verified By / AJSF Representative</div></div>
   <footer class="footer"><span><strong>AJSF CUSTOMER VERIFICATION</strong><br>यह दस्तावेज़ ग्राहक की सहमति से रिकॉर्ड किए गए विवरण पर आधारित है।</span><span>Generated by AJSF Online<br>Keep this record confidential</span></footer>
   <div class="actions"><button onclick="window.print()">Print / Save as PDF</button></div>
   </main></body></html>`;
@@ -1210,8 +1217,8 @@ async function openVerificationPdf(verificationId, existingWindow) {
     const customer=customers.find(c=>c.id===data.customer_id);
     if(!customer) throw new Error("ग्राहक रिकॉर्ड नहीं मिला।");
     const signPhoto=async path=>{if(!path) return "";const signed=await supabase.storage.from("customer-verification").createSignedUrl(path,300);if(signed.error) throw signed.error;return signed.data.signedUrl;};
-    const [photoUrl,homePhoto1Url,homePhoto2Url,aadhaarFrontUrl,aadhaarBackUrl,panFrontUrl]=await Promise.all([signPhoto(data.photo_path),signPhoto(data.home_photo1_path),signPhoto(data.home_photo2_path),signPhoto(data.aadhaar_front_masked_path),signPhoto(data.aadhaar_back_masked_path),signPhoto(data.pan_front_masked_path)]);
-    win.document.open(); win.document.write(verificationPdfHtml(customer,data,photoUrl,homePhoto1Url,homePhoto2Url,aadhaarFrontUrl,aadhaarBackUrl,panFrontUrl)); win.document.close();
+    const [photoUrl,homePhoto1Url,homePhoto2Url,aadhaarFrontUrl,aadhaarBackUrl,panFrontUrl,signatureUrl]=await Promise.all([signPhoto(data.photo_path),signPhoto(data.home_photo1_path),signPhoto(data.home_photo2_path),signPhoto(data.aadhaar_front_masked_path),signPhoto(data.aadhaar_back_masked_path),signPhoto(data.pan_front_masked_path),signPhoto(data.customer_signature_path)]);
+    win.document.open(); win.document.write(verificationPdfHtml(customer,data,photoUrl,homePhoto1Url,homePhoto2Url,aadhaarFrontUrl,aadhaarBackUrl,signatureUrl)); win.document.close();
   } catch(err) { win.close(); showMessage("PDF नहीं खुली: "+(err?.message||String(err)),"error"); }
 }
 async function submitCustomerVerification(event) {
@@ -1230,13 +1237,14 @@ async function submitCustomerVerification(event) {
   const uploadedPaths=[];
   try {
     const uploadPhoto=async(file)=>{if(!file)return null;const ext=file.type==="image/png"?"png":file.type==="image/webp"?"webp":"jpg";const p=customerId+"/"+crypto.randomUUID()+"."+ext;const up=await supabase.storage.from("customer-verification").upload(p,file,{contentType:file.type,cacheControl:"3600",upsert:false});if(up.error)throw up.error;uploadedPaths.push(p);return p;};
-    const [path,home1Path,home2Path,aadhaarFrontPath,aadhaarBackPath,panFrontPath]=await Promise.all([
+    const [path,home1Path,home2Path,aadhaarFrontPath,aadhaarBackPath,panFrontPath,signaturePath]=await Promise.all([
       uploadPhoto(verificationPhotoFile),uploadPhoto(verificationHomePhoto1),uploadPhoto(verificationHomePhoto2),
-      uploadPhoto(maskedIdentityDocs.aadhaarFront),uploadPhoto(maskedIdentityDocs.aadhaarBack),uploadPhoto(maskedIdentityDocs.panFront)
+      uploadPhoto(maskedIdentityDocs.aadhaarFront),uploadPhoto(maskedIdentityDocs.aadhaarBack),uploadPhoto(maskedIdentityDocs.panFront),uploadPhoto(verificationSignatureFile)
     ]);
     const record={
       customer_id:customerId,photo_path:path||old?.photo_path||null,home_photo1_path:home1Path||old?.home_photo1_path||null,home_photo2_path:home2Path||old?.home_photo2_path||null,
       aadhaar_front_masked_path:aadhaarFrontPath||old?.aadhaar_front_masked_path||null,aadhaar_back_masked_path:aadhaarBackPath||old?.aadhaar_back_masked_path||null,pan_front_masked_path:panFrontPath||old?.pan_front_masked_path||null,
+      customer_signature_path:signaturePath||old?.customer_signature_path||null,
       latitude:verificationLocation?.latitude ?? old?.latitude ?? null,longitude:verificationLocation?.longitude ?? old?.longitude ?? null,
       accuracy_meters:verificationLocation?.accuracy_meters ?? old?.accuracy_meters ?? null,location_captured_at:verificationLocation?.captured_at ?? old?.location_captured_at ?? null,
       consent_given:true,consent_text:"Customer was informed about photo and field GPS collection and consented.",
@@ -1249,7 +1257,7 @@ async function submitCustomerVerification(event) {
       saved=await supabase.from("customer_verifications").insert(record).select("id").single();
     }
     if(saved.error) throw saved.error;
-    const replaced=[["photo_path",path],["home_photo1_path",home1Path],["home_photo2_path",home2Path],["aadhaar_front_masked_path",aadhaarFrontPath],["aadhaar_back_masked_path",aadhaarBackPath],["pan_front_masked_path",panFrontPath]].filter(([key,next])=>next&&old?.[key]).map(([key])=>old[key]);
+    const replaced=[["photo_path",path],["home_photo1_path",home1Path],["home_photo2_path",home2Path],["aadhaar_front_masked_path",aadhaarFrontPath],["aadhaar_back_masked_path",aadhaarBackPath],["pan_front_masked_path",panFrontPath],["customer_signature_path",signaturePath]].filter(([key,next])=>next&&old?.[key]).map(([key])=>old[key]);
     if(replaced.length) await supabase.storage.from("customer-verification").remove(replaced);
     lastVerificationId=saved.data.id;
     $("openVerificationPdf").disabled=false;
@@ -2430,6 +2438,7 @@ async function boot() {
       $("captureVerificationLocation")?.addEventListener("click",captureVerificationGps);
       $("customerVerificationForm")?.addEventListener("submit",submitCustomerVerification);
       $("verificationCustomer")?.addEventListener("change",event=>loadCustomerVerification(event.target.value));
+      $("verificationSignatureGallery")?.addEventListener("change",event=>{const file=event.target.files?.[0];if(!file)return;if(!file.type.startsWith("image/"))return showMessage("हस्ताक्षर की image चुनें।","warn");if(file.size>5*1024*1024)return showMessage("हस्ताक्षर की फोटो 5 MB से छोटी होनी चाहिए।","warn");verificationSignatureFile=file;const preview=$("verificationSignaturePreview");preview.src=URL.createObjectURL(file);preview.classList.remove("hidden");$("verificationSignatureStatus").textContent="हस्ताक्षर की फोटो अपलोड के लिए तैयार है।";});
       $("verificationHistory")?.addEventListener("click",event=>{const button=event.target.closest("[data-verification-id]");if(button)openVerificationPdf(button.dataset.verificationId);});
       $("openVerificationPdf")?.addEventListener("click",()=>openVerificationPdf());
       $("newLoanForm")?.addEventListener("submit",submitNewLoan);
