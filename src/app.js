@@ -1262,19 +1262,29 @@ async function submitCustomerVerification(event) {
     };
     let saved;
     if(old) {
-      saved=await supabase.from("customer_verifications").update(record).eq("id",old.id).eq("customer_id",customerId).select("id").single();
+      saved=await supabase.from("customer_verifications").update(record).eq("id",old.id).eq("customer_id",customerId).select("id").maybeSingle();
     } else {
-      saved=await supabase.from("customer_verifications").insert(record).select("id").single();
+      saved=await supabase.from("customer_verifications").insert(record).select("id").maybeSingle();
     }
     if(saved.error) throw saved.error;
+    if(!saved.data?.id) throw new Error(old
+      ? "अपडेट के लिए रिकॉर्ड वापस नहीं मिला। संभव है आपके लॉगिन को इस रिकॉर्ड पर UPDATE अनुमति न हो (RLS policy जाँचें)।"
+      : "रिकॉर्ड सेव हुआ या नहीं, इसकी पुष्टि नहीं मिली। कृपया ग्राहक का Verification History जाँचें; दोबारा सेव करने से पहले रिकॉर्ड मौजूद है या नहीं देखें।");
     const replaced=[["photo_path",path],["home_photo1_path",home1Path],["home_photo2_path",home2Path],["aadhaar_front_masked_path",aadhaarFrontPath],["aadhaar_back_masked_path",aadhaarBackPath],["pan_front_masked_path",panFrontPath],["customer_signature_path",signaturePath]].filter(([key,next])=>next&&old?.[key]).map(([key])=>old[key]);
     if(replaced.length) await supabase.storage.from("customer-verification").remove(replaced);
     lastVerificationId=saved.data.id;
     $("openVerificationPdf").disabled=false;
     $("verificationMessage").textContent=old?"पुराना Customer Verification सफलतापूर्वक अपडेट हो गया।":"Customer Verification सेव हो गया। PDF तैयार है।";
     $("verificationMessage").className="message success";
-    await openVerificationPdf(lastVerificationId,autoPdfWindow);
-    await loadCustomerVerification(customerId);
+    try {
+      await openVerificationPdf(lastVerificationId,autoPdfWindow);
+    } catch(pdfError) {
+      console.warn("Verification saved, but PDF could not be opened:",pdfError);
+      $("verificationMessage").textContent += " रिकॉर्ड सेव है, लेकिन PDF नहीं खुली। PDF बटन से दोबारा खोलें।";
+      if(autoPdfWindow&&!autoPdfWindow.closed) autoPdfWindow.close();
+    }
+    try { await loadCustomerVerification(customerId); }
+    catch(refreshError) { console.warn("Verification saved; form refresh failed:",refreshError); }
   } catch(err) {
     if(uploadedPaths.length) await supabase.storage.from("customer-verification").remove(uploadedPaths);
     if(autoPdfWindow&&!autoPdfWindow.closed) autoPdfWindow.close();
