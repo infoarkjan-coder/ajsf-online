@@ -1,5 +1,5 @@
 name: Publish AJSF APK to website
-# Rebuild trigger: publish the latest Android wrapper build
+# Camera and GPS permissions build publish
 
 on:
   push:
@@ -29,17 +29,17 @@ jobs:
         run: |
           set -euo pipefail
           API="https://api.github.com/repos/infoarkjan-coder/ajsf-online"
-          RUNS="$(curl --fail --silent --show-error \
-            -H "Authorization: Bearer $GH_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
+          RUNS="$(curl --fail --silent --show-error \\
+            -H "Authorization: Bearer $GH_TOKEN" \\
+            -H "Accept: application/vnd.github+json" \\
             "$API/actions/workflows/android-apk.yml/runs?branch=android-apk%2Finitial-wrapper&status=success&per_page=20")"
           ARTIFACT_ID=""
           while IFS= read -r RUN_ID; do
             [ -n "$RUN_ID" ] || continue
-            CANDIDATE="$(curl --fail --silent --show-error \
-              -H "Authorization: Bearer $GH_TOKEN" \
-              -H "Accept: application/vnd.github+json" \
-              "$API/actions/runs/$RUN_ID/artifacts" \
+            CANDIDATE="$(curl --fail --silent --show-error \\
+              -H "Authorization: Bearer $GH_TOKEN" \\
+              -H "Accept: application/vnd.github+json" \\
+              "$API/actions/runs/$RUN_ID/artifacts" \\
               | jq -r '.artifacts[] | select(.name=="AJSF-Online-Android-APK" and .expired==false) | .id' | head -n 1)"
             if [ -n "$CANDIDATE" ]; then
               ARTIFACT_ID="$CANDIDATE"
@@ -57,10 +57,10 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p /tmp/ajs-apk
-          curl --fail --location \
-            -H "Authorization: Bearer $GH_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/infoarkjan-coder/ajsf-online/actions/artifacts/$ARTIFACT_ID/zip" \
+          curl --fail --location \\
+            -H "Authorization: Bearer $GH_TOKEN" \\
+            -H "Accept: application/vnd.github+json" \\
+            "https://api.github.com/repos/infoarkjan-coder/ajsf-online/actions/artifacts/$ARTIFACT_ID/zip" \\
             -o /tmp/ajs-apk/artifact.zip
           unzip -o /tmp/ajs-apk/artifact.zip -d /tmp/ajs-apk/unpacked
           APK_PATH="$(find /tmp/ajs-apk/unpacked -type f -name '*.apk' -print -quit)"
