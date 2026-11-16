@@ -977,10 +977,10 @@ function verificationPdfHtml(customer, verification, photoUrl) {
   <div class="section">VERIFICATION RECORD</div><div class="line"><span class="label">Verification Date</span>${esc(formatDate(verification.verified_at || new Date().toISOString()))}</div><div class="line"><span class="label">Verified By</span>${esc(profile?.full_name || "AJSF Staff")}</div><div class="line"><span class="label">Remarks</span>${esc(verification.notes || "—")}</div><div class="line"><span class="label">Consent</span>Customer consent recorded</div>
   <div class="sign"><div>Customer Signature</div><div>Verified By / AJSF Representative</div></div><p class="small">यह दस्तावेज़ AJSF Customer Verification Record है। फोटो और GPS केवल ग्राहक की सहमति से रिकॉर्ड किए गए हैं।</p><div class="actions"><button onclick="window.print()">Print / Save as PDF</button></div></body></html>`;
 }
-async function openVerificationPdf(verificationId) {
+async function openVerificationPdf(verificationId, existingWindow) {
   const id = verificationId || lastVerificationId;
   if (!id) return showMessage("पहले Customer Verification सेव करें।","warn");
-  const win = window.open("", "_blank");
+  const win = existingWindow || window.open("", "_blank");
   if (!win) return showMessage("Popup blocked है। इस पेज के Popups Allow करके PDF बटन दोबारा दबाएँ।","warn");
   try {
     const {data,error}=await supabase.from("customer_verifications").select("*").eq("id",id).single();
@@ -1004,6 +1004,7 @@ async function submitCustomerVerification(event) {
   if(!customer) return showMessage("ग्राहक चुनें।","warn");
   if(!verificationPhotoFile) return showMessage("Camera या Gallery से ग्राहक का फोटो चुनें।","warn");
   if(!$("verificationConsent").checked) return showMessage("ग्राहक की सहमति आवश्यक है।","warn");
+  const autoPdfWindow=window.open("about:blank","_blank");
   setBusy(btn,true,"Verification सेव हो रहा है…");
   try {
     const ext=verificationPhotoFile.type==="image/png"?"png":verificationPhotoFile.type==="image/webp"?"webp":"jpg";
@@ -1030,7 +1031,7 @@ async function submitCustomerVerification(event) {
     $("openVerificationPdf").disabled=false;
     $("verificationMessage").textContent="Customer Verification सेव हो गया। PDF तैयार है।";
     $("verificationMessage").className="message success";
-    await openVerificationPdf(lastVerificationId);
+    await openVerificationPdf(lastVerificationId,autoPdfWindow);
     verificationPhotoFile=null; verificationLocation=null;
     $("verificationPhotoPreview").classList.add("hidden");
     $("verificationPhotoStatus").textContent="फोटो सेव हो गया। नया Verification करने के लिए फोटो चुनें।";
@@ -1038,6 +1039,7 @@ async function submitCustomerVerification(event) {
     $("verificationCamera").value=""; $("verificationGallery").value="";
     $("verificationConsent").checked=false; $("verificationNotes").value="";
   } catch(err) {
+    if(autoPdfWindow && !autoPdfWindow.closed) autoPdfWindow.close();
     $("verificationMessage").textContent="Verification सेव नहीं हुआ: "+(err?.message||String(err));
     $("verificationMessage").className="message error";
   } finally { setBusy(btn,false); }
