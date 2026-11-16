@@ -1038,7 +1038,7 @@ function resetCustomerVerificationForm() {
   if($("openVerificationPdf")) $("openVerificationPdf").disabled=true;
   if($("saveCustomerVerification")) $("saveCustomerVerification").textContent="Verification सेव करें और PDF बनाएं";
   if($("verificationNotes")) $("verificationNotes").value="";
-  ["familyFatherName","familyMotherName","familyMaritalStatus","familySpouseName","familyMaidenVillage","familyMaidenPost","familyMaidenTehsil","familyMaidenDistrict","familyMaidenState","familyBrothers","familySisters","familyFatherInLaw","familyMotherInLaw","familyBrothersInLaw","familySistersInLaw","familySons","familyDaughters","familyChildrenNames","familyOtherMembers","familyOtherNotes"].forEach(id=>{if($(id))$(id).value="";});
+  ["familyMotherName","familyMaritalStatus","familySpouseName","familyMaidenVillage","familyMaidenPost","familyMaidenTehsil","familyMaidenDistrict","familyMaidenState","familyBrothers","familySisters","familyFatherInLaw","familyMotherInLaw","familyBrothersInLaw","familySistersInLaw","familySons","familyDaughters","familyChildrenNames","familyOtherMembers","familyOtherNotes"].forEach(id=>{if($(id))$(id).value="";});
   if($("verificationSignaturePreview")){$("verificationSignaturePreview").src="";$("verificationSignaturePreview").classList.add("hidden");}
   if($("verificationSignatureStatus"))$("verificationSignatureStatus").textContent="ग्राहक के हस्ताक्षर की फोटो अपलोड करें (वैकल्पिक)।";
   if($("verificationSignatureGallery"))$("verificationSignatureGallery").value="";
@@ -1070,7 +1070,7 @@ async function loadCustomerVerification(customerId) {
     if($("verificationLocationStatus")) $("verificationLocationStatus").textContent=verificationLocation?"पुरानी GPS लोकेशन रिकॉर्ड में उपलब्ध है · "+Number(data.latitude).toFixed(6)+", "+Number(data.longitude).toFixed(6):"पुराने रिकॉर्ड में GPS उपलब्ध नहीं है।";
     if($("verificationNotes")) $("verificationNotes").value=data.notes||"";
     const fd=data.family_details||{};
-    const familyMap={familyFatherName:"father_name",familyMotherName:"mother_name",familyMaritalStatus:"marital_status",familySpouseName:"spouse_name",familyMaidenVillage:"maiden_village",familyMaidenPost:"maiden_post",familyMaidenTehsil:"maiden_tehsil",familyMaidenDistrict:"maiden_district",familyMaidenState:"maiden_state",familyBrothers:"brothers_count",familySisters:"sisters_count",familyFatherInLaw:"father_in_law",familyMotherInLaw:"mother_in_law",familyBrothersInLaw:"brothers_in_law",familySistersInLaw:"sisters_in_law",familySons:"sons_count",familyDaughters:"daughters_count",familyChildrenNames:"children_names",familyOtherMembers:"other_members",familyOtherNotes:"other_notes"};
+    const familyMap={familyMotherName:"mother_name",familyMaritalStatus:"marital_status",familySpouseName:"spouse_name",familyMaidenVillage:"maiden_village",familyMaidenPost:"maiden_post",familyMaidenTehsil:"maiden_tehsil",familyMaidenDistrict:"maiden_district",familyMaidenState:"maiden_state",familyBrothers:"brothers_count",familySisters:"sisters_count",familyFatherInLaw:"father_in_law",familyMotherInLaw:"mother_in_law",familyBrothersInLaw:"brothers_in_law",familySistersInLaw:"sisters_in_law",familySons:"sons_count",familyDaughters:"daughters_count",familyChildrenNames:"children_names",familyOtherMembers:"other_members",familyOtherNotes:"other_notes"};
     Object.entries(familyMap).forEach(([id,key])=>{if($(id)&&fd[key]!=null)$(id).value=fd[key];});
     if($("verificationConsent")) $("verificationConsent").checked=!!data.consent_given;
     if($("openVerificationPdf")) $("openVerificationPdf").disabled=false;
@@ -1119,7 +1119,7 @@ function verificationPdfHtml(customer, verification, photoUrl, homePhoto1Url, ho
     : '<div class="customer-photo photo-placeholder">CUSTOMER PHOTO NOT AVAILABLE</div>';
   const homePhotos = `<section class="section"><div class="section-head">CUSTOMER HOUSE PHOTOGRAPHS</div><div class="home-photo-grid"><div><img src="${homePhoto1Url}" alt="House front view"><b>घर की फोटो 1 — सामने से</b></div><div><img src="${homePhoto2Url}" alt="House second angle"><b>घर की फोटो 2 — दूसरा एंगल</b></div></div></section>`;
   const fd=verification.family_details||{};
-  const familyLabels={father_name:"पिता का नाम",mother_name:"माता का नाम",marital_status:"वैवाहिक स्थिति",spouse_name:"पति / पत्नी",maiden_village:"मूल परिवार का गाँव / शहर",maiden_post:"मूल परिवार का पोस्ट",maiden_tehsil:"मूल परिवार की तहसील",maiden_district:"मूल परिवार का जिला",maiden_state:"मूल परिवार का राज्य",brothers_count:"भाई",sisters_count:"बहनें",father_in_law:"ससुर",mother_in_law:"सास",brothers_in_law:"देवर",sisters_in_law:"ननद",sons_count:"पुत्र",daughters_count:"पुत्रियाँ",children_names:"बच्चों के नाम",other_members:"अन्य परिवार सदस्य",other_notes:"अन्य जानकारी"};
+  const familyLabels={mother_name:"माता का नाम",marital_status:"वैवाहिक स्थिति",spouse_name:"पति / पत्नी",maiden_village:"मूल परिवार का गाँव / शहर",maiden_post:"मूल परिवार का पोस्ट",maiden_tehsil:"मूल परिवार की तहसील",maiden_district:"मूल परिवार का जिला",maiden_state:"मूल परिवार का राज्य",brothers_count:"भाई",sisters_count:"बहनें",father_in_law:"ससुर",mother_in_law:"सास",brothers_in_law:"देवर",sisters_in_law:"ननद",sons_count:"पुत्र",daughters_count:"पुत्रियाँ",children_names:"बच्चों के नाम",other_members:"अन्य परिवार सदस्य",other_notes:"अन्य जानकारी"};
   const familyRows=Object.entries(familyLabels).filter(([key])=>fd[key]!==undefined&&fd[key]!==null&&String(fd[key]).trim()!=="").map(([key,label])=>'<div class="line"><span class="label">'+label+'</span><span class="value">'+esc(fd[key])+'</span></div>').join("");
   const familySection=familyRows?'<section class="section"><div class="section-head">मूल परिवार का विवरण · पारिवारिक जानकारी</div><div class="rows">'+familyRows+'</div></section>':"";
   const identityDocs = `<section class="section identity-section"><div class="section-head">MASKED AADHAAR DOCUMENTS</div><div class="identity-grid"><div><img src="${aadhaarFrontUrl}" alt="Masked Aadhaar Front"><b>Aadhaar Front — Masked</b></div><div><img src="${aadhaarBackUrl}" alt="Masked Aadhaar Back"><b>Aadhaar Back — Masked</b></div></div><p class="privacy-note">Aadhaar numbers are masked in the saved copies. Original unmasked files are not stored.</p></section>`;
@@ -1128,11 +1128,14 @@ function verificationPdfHtml(customer, verification, photoUrl, homePhoto1Url, ho
   const verifiedAt = formatDate(verification.verified_at || new Date().toISOString());
   const gpsTone = accuracy == null || accuracy > 100 ? "warning" : "good";
   return `<!doctype html><html lang="hi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base href="${esc(document.baseURI)}"><title>AJSF Customer Verification Report</title><style>
-  @page{size:A4 portrait;margin:6mm}
+  @page{size:A4 portrait;margin:7mm}
   *{box-sizing:border-box}
   html,body{margin:0;padding:0;background:#fff}
   body{font-family:Arial,"Noto Sans Devanagari",sans-serif;color:#1d3028;font-size:8.5px;line-height:1.22}
-  .sheet{width:100%;max-width:198mm;margin:0 auto}
+  .sheet{width:100%;max-width:196mm;margin:0 auto}
+  .pdf-page{width:100%;min-height:282mm;position:relative}
+  .pdf-page+.pdf-page{break-before:page;page-break-before:always;padding-top:2mm}
+  .page-kicker{font-size:9px;font-weight:800;letter-spacing:.7px;color:#174c3c;background:#edf5f0;border-left:3px solid #23805e;padding:7px 10px;margin:0 0 8px;border-radius:4px}
   .masthead{display:flex;align-items:center;gap:13px;padding:0 0 10px;border-bottom:3px solid #174c3c}
   .logo{width:46px;height:46px;object-fit:contain;flex:0 0 46px}
   .brand-name{font-size:17px;font-weight:800;letter-spacing:.2px;color:#123f35;line-height:1.2}
@@ -1143,10 +1146,10 @@ function verificationPdfHtml(customer, verification, photoUrl, homePhoto1Url, ho
   .eyebrow{font-size:8px;letter-spacing:1.5px;color:#6b8579;font-weight:700}
   h1{font-size:13px;letter-spacing:.5px;color:#123f35;margin:3px 0 0}
   .subtitle{font-size:9px;color:#6a7d73;margin-top:3px}
-  .customer-card{display:grid;grid-template-columns:43mm 1fr;gap:9px;padding:7px;border:1px solid #d8e4dc;border-radius:8px;background:#fbfdfb;align-items:stretch}
-  .photo-frame{border:1px solid #cbd9d0;border-radius:5px;background:#eef4f0;padding:3px;display:flex;align-items:center;justify-content:center;min-height:48mm}
-  .customer-photo{display:block;width:100%;height:46mm;object-fit:contain;object-position:center;border-radius:3px;background:#edf3ef}
-  .home-photo-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}.home-photo-grid img{width:100%;height:48mm;object-fit:contain;border:1px solid #cbd9d0;border-radius:5px}.home-photo-grid b{display:block;text-align:center;font-size:8px;margin-top:4px;color:#52685d}.photo-placeholder{display:flex;align-items:center;justify-content:center;text-align:center;color:#74857c;font-size:10px;font-weight:700;letter-spacing:.5px;padding:10px}
+  .customer-card{display:grid;grid-template-columns:48mm 1fr;gap:10px;padding:9px;border:1px solid #d8e4dc;border-radius:8px;background:#fbfdfb;align-items:stretch}
+  .photo-frame{border:1px solid #cbd9d0;border-radius:5px;background:#eef4f0;padding:3px;display:flex;align-items:center;justify-content:center;min-height:58mm}
+  .customer-photo{display:block;width:100%;height:56mm;object-fit:contain;object-position:center;border-radius:3px;background:#edf3ef}
+  .home-photo-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}.home-photo-grid img{width:100%;height:58mm;object-fit:contain;border:1px solid #cbd9d0;border-radius:5px}.home-photo-grid b{display:block;text-align:center;font-size:8px;margin-top:4px;color:#52685d}.photo-placeholder{display:flex;align-items:center;justify-content:center;text-align:center;color:#74857c;font-size:10px;font-weight:700;letter-spacing:.5px;padding:10px}
   .photo-caption{text-align:center;font-size:8px;color:#62766b;margin-top:5px;font-weight:700}
   .details{min-width:0}
   .section-title{display:flex;align-items:center;gap:7px;color:#174c3c;font-size:10px;font-weight:800;letter-spacing:.5px;margin:0 0 6px}
@@ -1156,10 +1159,10 @@ function verificationPdfHtml(customer, verification, photoUrl, homePhoto1Url, ho
   .detail.wide{grid-column:1/-1}
   .detail small{display:block;color:#718278;font-size:8px;margin-bottom:2px}
   .detail strong{display:block;color:#253a30;font-size:10px;overflow-wrap:anywhere}
-  .section{margin-top:6px}
-  .section-head{font-size:8px;font-weight:800;color:#174c3c;padding:7px 9px;background:#edf5f0;border:1px solid #d9e7dd;border-left:3px solid #23805e;border-radius:4px;margin-bottom:5px;letter-spacing:.35px}
+  .section{margin-top:9px}
+  .section-head{font-size:8.5px;font-weight:800;color:#174c3c;padding:8px 10px;background:#edf5f0;border:1px solid #d9e7dd;border-left:3px solid #23805e;border-radius:4px;margin-bottom:5px;letter-spacing:.35px}
   .rows{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
-  .line{display:grid;grid-template-columns:90px 1fr;gap:6px;padding:3px 2px;border-bottom:1px solid #e7ede9;min-width:0}
+  .line{display:grid;grid-template-columns:90px 1fr;gap:7px;padding:4px 3px;border-bottom:1px solid #e7ede9;min-width:0}
   .label{color:#64766c;font-weight:700}
   .value{color:#263a30;overflow-wrap:anywhere}
   .gps-panel{padding:5px 7px;border:1px solid ${gpsTone==="warning"?"#e8c58b":"#b9d9c7"};background:${gpsTone==="warning"?"#fff8eb":"#f0f8f3"};border-radius:5px;margin-top:7px}
@@ -1176,14 +1179,16 @@ function verificationPdfHtml(customer, verification, photoUrl, homePhoto1Url, ho
   .actions button{border:0;border-radius:5px;background:#174c3c;color:#fff;padding:9px 18px;font-weight:700;cursor:pointer}
   .identity-grid{display:grid!important;grid-template-columns:1fr 1fr!important;gap:6px!important;align-items:start}
   .identity-grid>div{min-width:0;break-inside:avoid;page-break-inside:avoid}
-  .identity-grid img{display:block!important;width:100%!important;height:40mm!important;max-height:40mm!important;object-fit:contain!important;object-position:center!important;border:1px solid #cbd9d0;border-radius:4px;background:#fff}
+  .identity-grid img{display:block!important;width:100%!important;height:52mm!important;max-height:52mm!important;object-fit:contain!important;object-position:center!important;border:1px solid #cbd9d0;border-radius:4px;background:#fff}
   .identity-grid b{display:block;text-align:center;font-size:7px;margin-top:2px;color:#52685d}
   .privacy-note{font-size:7px;color:#52685d;margin:3px 0 0}
   .identity-section{break-inside:avoid;page-break-inside:avoid}
-  @media print{.actions{display:none}body{padding:0!important;print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{max-width:none!important;padding:0!important;box-shadow:none!important;border-radius:0!important}.identity-section,.identity-grid,.customer-card,.masthead,.title-wrap{break-inside:avoid!important;page-break-inside:avoid!important}}
+  .page-two-title{font-size:12px;color:#123f35;margin:0 0 8px;font-weight:800}
+  .page-two-subtitle{font-size:8.5px;color:#6a7d73;margin:-4px 0 10px}
+  @media print{.actions{display:none}.pdf-page{min-height:282mm!important;break-inside:avoid!important;page-break-inside:avoid!important}.pdf-page+.pdf-page{break-before:page!important;page-break-before:always!important}body{padding:0!important;print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{max-width:none!important;padding:0!important;box-shadow:none!important;border-radius:0!important}.identity-section,.identity-grid,.customer-card,.masthead,.title-wrap{break-inside:avoid!important;page-break-inside:avoid!important}}
   @media screen{body{padding:8px;background:#eef3f0}.sheet{background:#fff;padding:6mm;box-shadow:0 4px 24px #102b1d18;border-radius:8px}}
   </style></head><body><main class="sheet">
-  <header class="masthead"><img class="logo" src="./assets/ajsf-logo.png" alt="AJSF Logo"><div><div class="brand-name">ARK JAN SAMRIDDHI FOUNDATION</div><div class="brand-tag">SAPNE AAPKE SATH HAMARA HAI</div></div><div class="doc-meta"><strong>OFFICIAL FIELD RECORD</strong>Customer Verification<br>Confidential Document</div></header>
+  <section class="pdf-page pdf-page-one"><header class="masthead"><img class="logo" src="./assets/ajsf-logo.png" alt="AJSF Logo"><div><div class="brand-name">ARK JAN SAMRIDDHI FOUNDATION</div><div class="brand-tag">SAPNE AAPKE SATH HAMARA HAI</div></div><div class="doc-meta"><strong>OFFICIAL FIELD RECORD</strong>Customer Verification<br>Confidential Document</div></header>
   <div class="title-wrap"><div class="eyebrow">CUSTOMER DUE DILIGENCE & FIELD CHECK</div><h1>CUSTOMER VERIFICATION REPORT</h1><div class="subtitle">ग्राहक पहचान एवं फील्ड सत्यापन रिपोर्ट</div></div>
   <section class="customer-card"><div><div class="photo-frame">${img}</div><div class="photo-caption">CUSTOMER PHOTOGRAPH</div></div><div class="details"><div class="section-title">CUSTOMER PROFILE</div><div class="detail-grid">
     <div class="detail"><small>Customer ID</small><strong>${esc(formatCustomerId(customer.customer_code))}</strong></div>
@@ -1196,6 +1201,7 @@ function verificationPdfHtml(customer, verification, photoUrl, homePhoto1Url, ho
   </div></div></section>
   ${homePhotos}
   ${familySection}
+  </section><section class="pdf-page pdf-page-two"><div class="page-kicker">AJSF CUSTOMER VERIFICATION · FIELD RECORD</div><div class="page-two-title">FIELD DOCUMENTS & VERIFICATION</div><div class="page-two-subtitle">पहचान दस्तावेज़, GPS लोकेशन और सत्यापन रिकॉर्ड</div>
   ${identityDocs}
   <section class="section"><div class="section-head">FIELD GPS & LOCATION VERIFICATION</div><div class="rows">
     <div class="line"><span class="label">Latitude</span><span class="value">${verification.latitude ?? "Not captured"}</span></div>
@@ -1213,7 +1219,7 @@ function verificationPdfHtml(customer, verification, photoUrl, homePhoto1Url, ho
   <div class="signatures"><div class="signature">${signatureBlock}Customer Signature</div><div class="signature">Verified By / AJSF Representative</div></div>
   <footer class="footer"><span><strong>AJSF CUSTOMER VERIFICATION</strong><br>यह दस्तावेज़ ग्राहक की सहमति से रिकॉर्ड किए गए विवरण पर आधारित है।</span><span>Generated by AJSF Online<br>Keep this record confidential</span></footer>
   <div class="actions"><button onclick="window.print()">Print / Save as PDF</button></div>
-  </main></body></html>`;
+  </section></main></body></html>`;
 }
 async function openVerificationPdf(verificationId, existingWindow) {
   const id = verificationId || lastVerificationId;
@@ -1257,7 +1263,7 @@ async function submitCustomerVerification(event) {
       latitude:verificationLocation?.latitude ?? old?.latitude ?? null,longitude:verificationLocation?.longitude ?? old?.longitude ?? null,
       accuracy_meters:verificationLocation?.accuracy_meters ?? old?.accuracy_meters ?? null,location_captured_at:verificationLocation?.captured_at ?? old?.location_captured_at ?? null,
       consent_given:true,consent_text:"Customer was informed about photo and field GPS collection and consented.",
-      family_details:(()=>{const map={familyFatherName:"father_name",familyMotherName:"mother_name",familyMaritalStatus:"marital_status",familySpouseName:"spouse_name",familyMaidenVillage:"maiden_village",familyMaidenPost:"maiden_post",familyMaidenTehsil:"maiden_tehsil",familyMaidenDistrict:"maiden_district",familyMaidenState:"maiden_state",familyBrothers:"brothers_count",familySisters:"sisters_count",familyFatherInLaw:"father_in_law",familyMotherInLaw:"mother_in_law",familyBrothersInLaw:"brothers_in_law",familySistersInLaw:"sisters_in_law",familySons:"sons_count",familyDaughters:"daughters_count",familyChildrenNames:"children_names",familyOtherMembers:"other_members",familyOtherNotes:"other_notes"};const out={};Object.entries(map).forEach(([id,key])=>{const v=$(id)?.value?.trim();if(v)out[key]=v;});return out;})(),
+      family_details:(()=>{const map={familyMotherName:"mother_name",familyMaritalStatus:"marital_status",familySpouseName:"spouse_name",familyMaidenVillage:"maiden_village",familyMaidenPost:"maiden_post",familyMaidenTehsil:"maiden_tehsil",familyMaidenDistrict:"maiden_district",familyMaidenState:"maiden_state",familyBrothers:"brothers_count",familySisters:"sisters_count",familyFatherInLaw:"father_in_law",familyMotherInLaw:"mother_in_law",familyBrothersInLaw:"brothers_in_law",familySistersInLaw:"sisters_in_law",familySons:"sons_count",familyDaughters:"daughters_count",familyChildrenNames:"children_names",familyOtherMembers:"other_members",familyOtherNotes:"other_notes"};const out={};Object.entries(map).forEach(([id,key])=>{const v=$(id)?.value?.trim();if(v)out[key]=v;});return out;})(),
       verified_by:currentUser.id,verified_by_name:profile?.full_name||null,notes:$("verificationNotes").value.trim()||null
     };
     let saved;
