@@ -453,7 +453,6 @@ function renderData() {
     const l = loans.find(x => x.id === p.loan_id);
     return `<tr class="${p.is_reversal ? "muted" : ""}"><td>${esc((p.id || "").slice(0,8).toUpperCase())}</td><td>${esc(formatDate(p.paid_at))}</td><td>${esc(c?.full_name || p.customer_id)}</td><td>${esc(l?.loan_reference || "—")}</td><td>${money(p.amount)}</td><td>${esc(p.payment_mode || "—")}</td><td>${p.is_reversal ? (p.reverses_payment_id ? "Reversal Entry" : "रद्द") : `<button type="button" class="secondary receipt-cancel-request-btn" data-payment-id="${esc(p.id)}" ${p.offline_pending ? "disabled" : ""}>गलत रसीद की Request</button>`}</td></tr>`;
   }).join("") || `<tr><td colspan="7" class="empty">अभी भुगतान उपलब्ध नहीं हैं।</td></tr>`;
-  renderCustomerMIS();
   renderCollectorDemand();
   renderAdvanceBalanceInfo();
   renderReceiptCancellationRequests();
@@ -503,15 +502,6 @@ function openReminder(channel) {
     : `sms:+${digits}?body=${encodeURIComponent(message)}`;
   window.open(url, "_blank", "noopener,noreferrer");
 }
-function renderCustomerMIS() {
-  const body = $("customerMisRows");
-  if (!body) return;
-  const statusFilter = $("misStatusFilter")?.value || "";
-  const term = ($("misSearch")?.value || "").trim().toLowerCase();
-  const rows = customers.filter(c => (!statusFilter || (c.customer_status || "ACTIVE") === statusFilter) &&
-    (!term || [c.customer_code,c.full_name,c.center_name,c.contact_number].some(v => String(v || "").toLowerCase().includes(term))));
-  body.innerHTML = rows.map(c => `<tr data-mis-customer="${esc(c.id)}"><td>${esc(formatCustomerId(c.customer_code))}</td><td>${esc(c.full_name || "—")}</td><td>${esc(c.center_name || "—")}</td><td>${esc(phone(c.contact_number) || "—")}</td><td><select class="mis-status" ${canAdmin() ? "" : "disabled"}><option value="ACTIVE" ${(c.customer_status || "ACTIVE")==="ACTIVE"?"selected":""}>ACTIVE</option><option value="ABSCONDED" ${c.customer_status==="ABSCONDED"?"selected":""}>ABSCONDED</option><option value="DECEASED" ${c.customer_status==="DECEASED"?"selected":""}>DECEASED</option></select>${c.is_active === false ? '<small class="inactive-flag">INACTIVE</small>' : ""}</td><td><input class="mis-date" type="date" value="${esc(c.status_changed_at || "")}" ${canAdmin()?"":"disabled"}></td><td><input class="mis-reason" value="${esc(c.status_reason || "")}" placeholder="जैसे: संपर्क नहीं / मृत्यु" ${canAdmin()?"":"disabled"}></td><td><input class="mis-notes" value="${esc(c.status_notes || "")}" placeholder="विवरण" ${canAdmin()?"":"disabled"}></td><td><div class="mis-actions"><button type="button" class="mis-save" ${canAdmin()?"":"disabled"}>सेव</button>${canAdmin() ? `<button type="button" class="customer-remove secondary" data-customer-id="${esc(c.id)}">हटाएँ</button>` : ""}</div></td></tr>`).join("") || `<tr><td colspan="9" class="empty">कोई रिकॉर्ड नहीं मिला।</td></tr>`;
-}
 async function createCustomerPortalAccount(customerId, button) {
   if (!canAdmin()) return showMessage("Customer Login बनाने का अधिकार केवल Admin को है।", "warn");
   if (!navigator.onLine) return showMessage("Customer Login बनाने के लिए इंटरनेट आवश्यक है।", "warn");
@@ -554,27 +544,6 @@ async function removeCustomerRecord(customerId, button) {
   else showMessage("प्रक्रिया पूरी हुई, लेकिन परिणाम स्पष्ट नहीं मिला। कृपया रिकॉर्ड Refresh करके जाँचें।", "warn");
 }
 
-async function saveCustomerMISRow(row) {
-  if (!canAdmin()) return showMessage("यह बदलाव केवल Admin कर सकता है।", "warn");
-  const id = row?.dataset.misCustomer;
-  const customer = customers.find(c => c.id === id);
-  if (!customer) return;
-  const status = row.querySelector(".mis-status").value;
-  const date = row.querySelector(".mis-date").value || null;
-  const reason = row.querySelector(".mis-reason").value.trim() || null;
-  const notes = row.querySelector(".mis-notes").value.trim() || null;
-  if (status !== "ACTIVE" && !date) return showMessage("Absconded / Deceased status के लिए तारीख भरें।", "warn");
-  if (status !== "ACTIVE" && !reason) return showMessage("Status का कारण / विवरण भरें।", "warn");
-  const payload = {customer_status:status, status_changed_at:status==="ACTIVE"?null:date, status_reason:status==="ACTIVE"?null:reason, status_notes:status==="ACTIVE"?null:notes};
-  const btn = row.querySelector(".mis-save");
-  setBusy(btn, true, "सेव…");
-  const {error} = await supabase.from("customers").update(payload).eq("id", id);
-  setBusy(btn, false);
-  if (error) return showMessage("Status सेव नहीं हुआ: " + error.message, "error");
-  Object.assign(customer, payload);
-  renderData();
-  showMessage("Customer MIS status सफलतापूर्वक अपडेट हुआ।", "success");
-}
 async function loadCustomerLedger() {
   const customerId = $("ledgerCustomer").value;
   const summary = $("ledgerSummary"), rows = $("ledgerRows");
@@ -2590,9 +2559,6 @@ async function boot() {
   $("sendWhatsAppReminder").addEventListener("click", () => openReminder("whatsapp"));
   $("sendSmsReminder").addEventListener("click", () => openReminder("sms"));
   $("loanCustomerFilter").addEventListener("change", renderData);
-  $("misStatusFilter")?.addEventListener("change", renderCustomerMIS);
-  $("misSearch")?.addEventListener("input", renderCustomerMIS);
-  $("customerMisRows")?.addEventListener("click", event => { const removeBtn = event.target.closest(".customer-remove"); if (removeBtn) return removeCustomerRecord(removeBtn.dataset.customerId, removeBtn); const btn = event.target.closest(".mis-save"); if (btn) saveCustomerMISRow(btn.closest("tr")); });
   // Customer Register actions are bound directly after each table render above.
   $("ledgerCustomer").addEventListener("change", loadCustomerLedger);
   $("ledgerSearch").addEventListener("input", filterLedgerCustomers);
