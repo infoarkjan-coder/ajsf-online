@@ -965,21 +965,63 @@ function captureVerificationCameraPhoto() {
 
 function setupIdentityDocEditor(key) {
   const input=$("doc-"+key), canvas=$("canvas-"+key), status=$("status-"+key), confirm=$("confirm-"+key);
+  const rotateBtn=document.querySelector('[data-rotate-doc="'+key+'"]');
   if(!input||!canvas||!status||!confirm) return;
-  const ctx=canvas.getContext("2d"); let image=null, start=null, rect=null, masked=false;
-  const redraw=()=>{if(!image)return;ctx.clearRect(0,0,canvas.width,canvas.height);ctx.drawImage(image,0,0);if(rect){ctx.fillStyle="#000";ctx.fillRect(rect.x,rect.y,rect.w,rect.h);} };
+  const ctx=canvas.getContext("2d");
+  let image=null, start=null, rect=null, masked=false, rotation=0;
+  const redraw=()=>{
+    if(!image)return;
+    const swap=rotation%180!==0;
+    canvas.width=swap?image.naturalHeight:image.naturalWidth;
+    canvas.height=swap?image.naturalWidth:image.naturalHeight;
+    ctx.save();
+    if(rotation===90){ctx.translate(canvas.width,0);ctx.rotate(Math.PI/2);}
+    else if(rotation===180){ctx.translate(canvas.width,canvas.height);ctx.rotate(Math.PI);}
+    else if(rotation===270){ctx.translate(0,canvas.height);ctx.rotate(-Math.PI/2);}
+    ctx.drawImage(image,0,0);
+    ctx.restore();
+    if(rect){ctx.fillStyle="#000";ctx.fillRect(rect.x,rect.y,rect.w,rect.h);}
+  };
+  const resetMask=()=>{
+    rect=null;masked=false;maskedIdentityDocs[key]=null;
+    confirm.checked=false;confirm.disabled=true;
+  };
   input.addEventListener("change",()=>{
-    const file=input.files?.[0]; if(!file)return;
-    if(!file.type.startsWith("image/")||file.size>8*1024*1024){status.textContent="कृपया 8 MB से छोटी image चुनें।";return;}
-    const url=URL.createObjectURL(file); image=new Image();
-    image.onload=()=>{canvas.width=image.naturalWidth;canvas.height=image.naturalHeight;rect=null;masked=false;confirm.checked=false;confirm.disabled=true;maskedIdentityDocs[key]=null;redraw();status.textContent="अब Aadhaar/PAN नंबर वाले हिस्से पर ड्रैग करके काला बॉक्स बनाएं।";URL.revokeObjectURL(url);};
-    image.onerror=()=>{status.textContent="यह image पढ़ी नहीं जा सकी।";URL.revokeObjectURL(url);}; image.src=url;
+    const file=input.files?.[0];if(!file)return;
+    if(!file.type.startsWith("image/")||file.size>8*1024*1024){status.textContent="कृपया 8 MB से छोटी image चुनें।";input.value="";return;}
+    const url=URL.createObjectURL(file);image=new Image();
+    image.onload=()=>{rotation=0;resetMask();redraw();status.textContent="फोटो सही दिशा में करें। फिर नंबर वाले हिस्से पर ड्रैग करके काला बॉक्स बनाएं।";URL.revokeObjectURL(url);};
+    image.onerror=()=>{status.textContent="यह image पढ़ी नहीं जा सकी।";URL.revokeObjectURL(url);};image.src=url;
   });
-  const point=e=>{const r=canvas.getBoundingClientRect();return {x:Math.max(0,Math.min(canvas.width,(e.clientX-r.left)*canvas.width/r.width)),y:Math.max(0,Math.min(canvas.height,(e.clientY-r.top)*canvas.height/r.height))};};
-  canvas.addEventListener("pointerdown",e=>{if(!image)return;canvas.setPointerCapture(e.pointerId);start=point(e);rect={x:start.x,y:start.y,w:0,h:0};redraw();});
-  canvas.addEventListener("pointermove",e=>{if(!start)return;const p=point(e);rect={x:Math.min(start.x,p.x),y:Math.min(start.y,p.y),w:Math.abs(p.x-start.x),h:Math.abs(p.y-start.y)};redraw();});
-  canvas.addEventListener("pointerup",async()=>{if(!start)return;start=null;if(!rect||rect.w<canvas.width*.04||rect.h<canvas.height*.012){rect=null;redraw();status.textContent="मास्क बहुत छोटा है। नंबर के पूरे हिस्से को ढकें।";return;}redraw();masked=true;confirm.disabled=false;confirm.checked=false;status.textContent="काला मास्क लगाया गया। जरूरत हो तो दोबारा ड्रैग करके क्षेत्र बदलें; फिर पुष्टि करें।";});
-  confirm.addEventListener("change",()=>{if(!confirm.checked||!masked)return;canvas.toBlob(blob=>{if(!blob){confirm.checked=false;status.textContent="Masked image तैयार नहीं हुई।";return;}maskedIdentityDocs[key]=new File([blob],"AJSF-"+key+"-masked.png",{type:"image/png"});status.textContent="Masked copy तैयार और पुष्टि की गई। केवल यही सेव होगी।";},"image/png");});
+  rotateBtn?.addEventListener("click",()=>{
+    if(!image){status.textContent="पहले पहचान-पत्र की फोटो चुनें।";return;}
+    rotation=(rotation+90)%360;resetMask();redraw();
+    status.textContent="फोटो 90° घुमा दी गई। अब नंबर वाले हिस्से पर नया मास्क लगाएं।";
+  });
+  const point=e=>{const r=canvas.getBoundingClientRect();return{x:Math.max(0,Math.min(canvas.width,(e.clientX-r.left)*canvas.width/r.width)),y:Math.max(0,Math.min(canvas.height,(e.clientY-r.top)*canvas.height/r.height))};};
+  canvas.addEventListener("pointerdown",e=>{
+    if(!image)return;
+    e.preventDefault();canvas.setPointerCapture(e.pointerId);start=point(e);rect={x:start.x,y:start.y,w:0,h:0};redraw();
+  });
+  canvas.addEventListener("pointermove",e=>{
+    if(!start)return;const p=point(e);rect={x:Math.min(start.x,p.x),y:Math.min(start.y,p.y),w:Math.abs(p.x-start.x),h:Math.abs(p.y-start.y)};redraw();
+  });
+  const finish=()=>{
+    if(!start)return;start=null;
+    if(!rect||rect.w<canvas.width*.015||rect.h<canvas.height*.008){rect=null;redraw();status.textContent="मास्क थोड़ा बड़ा बनाएं और पूरा नंबर ढकें।";return;}
+    redraw();masked=true;confirm.disabled=false;confirm.checked=false;
+    status.textContent="काला मास्क दिख रहा है। अब नीचे पुष्टि वाले बॉक्स पर टिक करें।";
+  };
+  canvas.addEventListener("pointerup",finish);
+  canvas.addEventListener("pointercancel",finish);
+  confirm.addEventListener("change",()=>{
+    if(!confirm.checked||!masked)return;
+    canvas.toBlob(blob=>{
+      if(!blob){confirm.checked=false;status.textContent="Masked image तैयार नहीं हुई।";return;}
+      maskedIdentityDocs[key]=new File([blob],"AJSF-"+key+"-masked.png",{type:"image/png"});
+      status.textContent="Masked copy तैयार और पुष्टि की गई। केवल यही सेव होगी।";
+    },"image/png");
+  });
 }
 
 function openCustomerVerification(customerId) {
