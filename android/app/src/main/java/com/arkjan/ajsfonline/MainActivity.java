@@ -1,6 +1,11 @@
 package com.arkjan.ajsfonline;
 
 import android.app.Activity;
+import android.Manifest;
+import android.content.pm.PackageManager;
+import android.webkit.PermissionRequest;
+import android.webkit.GeolocationPermissions;
+import android.os.Build;
 import android.app.DownloadManager;
 import android.print.PrintAttributes;
 import android.print.PrintManager;
@@ -34,6 +39,9 @@ public class MainActivity extends Activity {
     private WebView webView;
     private WebView printWebView;
     private ValueCallback<Uri[]> filePathCallback;
+    private PermissionRequest pendingWebPermissionRequest;
+    private GeolocationPermissions.Callback pendingGeoCallback;
+    private String pendingGeoOrigin;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -124,6 +132,53 @@ public class MainActivity extends Activity {
 
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
+            public void onPermissionRequest(PermissionRequest request) {
+                runOnUiThread(() -> {
+                    String[] resources = request.getResources();
+                    java.util.ArrayList<String> androidPermissions = new java.util.ArrayList<>();
+                    for (String resource : resources) {
+                        if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(resource)) {
+                            androidPermissions.add(Manifest.permission.CAMERA);
+                        } else if (PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(resource)) {
+                            androidPermissions.add(Manifest.permission.RECORD_AUDIO);
+                        }
+                    }
+                    if (androidPermissions.isEmpty()) {
+                        request.deny();
+                        return;
+                    }
+                    boolean granted = true;
+                    for (String permission : androidPermissions) {
+                        if (checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED) granted = false;
+                    }
+                    if (granted) {
+                        request.grant(resources);
+                    } else {
+                        pendingWebPermissionRequest = request;
+                        requestPermissions(androidPermissions.toArray(new String[0]), 5201);
+                    }
+                });
+            }
+
+            @Override
+            public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback callback) {
+                runOnUiThread(() -> {
+                    boolean fine = checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+                    boolean coarse = checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+                    if (fine || coarse) {
+                        callback.invoke(origin, true, false);
+                    } else {
+                        pendingGeoOrigin = origin;
+                        pendingGeoCallback = callback;
+                        requestPermissions(new String[] {
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_COARSE_LOCATION
+                        }, 5202);
+                    }
+                });
+            }
+
+            @Override
             public boolean onCreateWindow(WebView view, boolean isDialog, boolean isUserGesture, Message resultMsg) {
                 if (printWebView != null) {
                     printWebView.stopLoading();
@@ -197,6 +252,29 @@ public class MainActivity extends Activity {
         webView.clearCache(true);
         webView.clearHistory();
         webView.loadUrl(APP_URL + "?app_refresh=20261117-apk-final");
+    }
+
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == 5201 && pendingWebPermissionRequest != null) {
+            PermissionRequest request = pendingWebPermissionRequest;
+            pendingWebPermissionRequest = null;
+            boolean granted = true;
+            for (int result : grantResults) if (result != PackageManager.PERMISSION_GRANTED) granted = false;
+            if (granted) request.grant(request.getResources()); else request.deny();
+        } else if (requestCode == 5202 && pendingGeoCallback != null) {
+            boolean granted = false;
+            for (int i = 0; i < permissions.length; i++) {
+                if ((Manifest.permission.ACCESS_FINE_LOCATION.equals(permissions[i]) ||
+                     Manifest.permission.ACCESS_COARSE_LOCATION.equals(permissions[i])) &&
+                     grantResults[i] == PackageManager.PERMISSION_GRANTED) granted = true;
+            }
+            pendingGeoCallback.invoke(pendingGeoOrigin, granted, false);
+            pendingGeoCallback = null;
+            pendingGeoOrigin = null;
+        }
     }
 
     // Never let WebView try to load app-specific schemes such as whatsapp://.
