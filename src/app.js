@@ -915,6 +915,8 @@ async function submitLoanClosure(event) {
 }
 
 let verificationPhotoFile = null;
+const maskedIdentityDocs = {aadhaarFront:null,aadhaarBack:null,panFront:null};
+const identityDocEditors = {};
 let verificationHomePhoto1 = null, verificationHomePhoto2 = null;
 let verificationCameraStream = null, verificationCameraTarget = null;
 let verificationLocation = null;
@@ -960,11 +962,32 @@ function captureVerificationCameraPhoto() {
     setVerificationPhotoFor(verificationCameraTarget,file); stopVerificationCamera();
   },"image/jpeg",0.88);
 }
+
+function setupIdentityDocEditor(key) {
+  const input=$("doc-"+key), canvas=$("canvas-"+key), status=$("status-"+key), confirm=$("confirm-"+key);
+  if(!input||!canvas||!status||!confirm) return;
+  const ctx=canvas.getContext("2d"); let image=null, start=null, rect=null, masked=false;
+  const redraw=()=>{if(!image)return;ctx.clearRect(0,0,canvas.width,canvas.height);ctx.drawImage(image,0,0);if(rect){ctx.fillStyle="#000";ctx.fillRect(rect.x,rect.y,rect.w,rect.h);} };
+  input.addEventListener("change",()=>{
+    const file=input.files?.[0]; if(!file)return;
+    if(!file.type.startsWith("image/")||file.size>8*1024*1024){status.textContent="कृपया 8 MB से छोटी image चुनें।";return;}
+    const url=URL.createObjectURL(file); image=new Image();
+    image.onload=()=>{canvas.width=image.naturalWidth;canvas.height=image.naturalHeight;rect=null;masked=false;confirm.checked=false;confirm.disabled=true;maskedIdentityDocs[key]=null;redraw();status.textContent="अब Aadhaar/PAN नंबर वाले हिस्से पर ड्रैग करके काला बॉक्स बनाएं।";URL.revokeObjectURL(url);};
+    image.onerror=()=>{status.textContent="यह image पढ़ी नहीं जा सकी।";URL.revokeObjectURL(url);}; image.src=url;
+  });
+  const point=e=>{const r=canvas.getBoundingClientRect();return {x:Math.max(0,Math.min(canvas.width,(e.clientX-r.left)*canvas.width/r.width)),y:Math.max(0,Math.min(canvas.height,(e.clientY-r.top)*canvas.height/r.height))};};
+  canvas.addEventListener("pointerdown",e=>{if(!image)return;canvas.setPointerCapture(e.pointerId);start=point(e);rect={x:start.x,y:start.y,w:0,h:0};redraw();});
+  canvas.addEventListener("pointermove",e=>{if(!start)return;const p=point(e);rect={x:Math.min(start.x,p.x),y:Math.min(start.y,p.y),w:Math.abs(p.x-start.x),h:Math.abs(p.y-start.y)};redraw();});
+  canvas.addEventListener("pointerup",async()=>{if(!start)return;start=null;if(!rect||rect.w<canvas.width*.04||rect.h<canvas.height*.012){rect=null;redraw();status.textContent="मास्क बहुत छोटा है। नंबर के पूरे हिस्से को ढकें।";return;}redraw();masked=true;confirm.disabled=false;confirm.checked=false;status.textContent="काला मास्क लगाया गया। जरूरत हो तो दोबारा ड्रैग करके क्षेत्र बदलें; फिर पुष्टि करें।";});
+  confirm.addEventListener("change",()=>{if(!confirm.checked||!masked)return;canvas.toBlob(blob=>{if(!blob){confirm.checked=false;status.textContent="Masked image तैयार नहीं हुई।";return;}maskedIdentityDocs[key]=new File([blob],"AJSF-"+key+"-masked.png",{type:"image/png"});status.textContent="Masked copy तैयार और पुष्टि की गई। केवल यही सेव होगी।";},"image/png");});
+}
+
 function openCustomerVerification(customerId) {
   if (!currentUser) return;
   stopVerificationCamera(); activateTab("customer-verification");
   const select=$("verificationCustomer"); if(select) select.value=customerId||"";
   verificationPhotoFile=null; verificationHomePhoto1=null; verificationHomePhoto2=null;
+  Object.keys(maskedIdentityDocs).forEach(k=>{maskedIdentityDocs[k]=null;if($("doc-"+k))$("doc-"+k).value="";if($("confirm-"+k))$("confirm-"+k).checked=false;if($("canvas-"+k)){const c=$("canvas-"+k);c.getContext("2d").clearRect(0,0,c.width,c.height);c.width=0;c.height=0;}if($("status-"+k))$("status-"+k).textContent="फोटो चुनें और नंबर पर काला मास्क लगाएं।";});
   verificationLocation=null; lastVerificationId=null;
   ["verificationGallery","verificationHome1Gallery","verificationHome2Gallery"].forEach(id=>{if($(id)) $(id).value="";});
   [["verificationPhotoPreview","verificationPhotoStatus","ग्राहक की स्पष्ट फोटो अनिवार्य है।"],["verificationHome1Preview","verificationHome1Status","घर का सामने वाला हिस्सा"],["verificationHome2Preview","verificationHome2Status","घर का दूसरा स्पष्ट एंगल"]].forEach(([p,s,msg])=>{if($(p)){$(p).src="";$(p).classList.add("hidden");}if($(s))$(s).textContent=msg;});
@@ -992,7 +1015,7 @@ function captureVerificationGps() {
     status.textContent = error.code === 1 ? "Location Permission नहीं मिली। Browser Settings में अनुमति दें।" : "GPS Location नहीं मिल सकी। खुले स्थान पर दोबारा प्रयास करें।";
   }, { enableHighAccuracy:true, timeout:20000, maximumAge:0 });
 }
-function verificationPdfHtml(customer, verification, photoUrl, homePhoto1Url, homePhoto2Url) {
+function verificationPdfHtml(customer, verification, photoUrl, homePhoto1Url, homePhoto2Url, aadhaarFrontUrl, aadhaarBackUrl, panFrontUrl) {
   const maps = verification.latitude != null && verification.longitude != null
     ? "https://www.google.com/maps?q=" + encodeURIComponent(verification.latitude + "," + verification.longitude) : "";
   const accuracy = verification.accuracy_meters == null ? null : Number(verification.accuracy_meters);
@@ -1006,6 +1029,7 @@ function verificationPdfHtml(customer, verification, photoUrl, homePhoto1Url, ho
     ? '<img class="customer-photo" src="' + photoUrl + '" alt="Customer verification photo">'
     : '<div class="customer-photo photo-placeholder">CUSTOMER PHOTO NOT AVAILABLE</div>';
   const homePhotos = `<section class="section"><div class="section-head">CUSTOMER HOUSE PHOTOGRAPHS</div><div class="home-photo-grid"><div><img src="${homePhoto1Url}" alt="House front view"><b>घर की फोटो 1 — सामने से</b></div><div><img src="${homePhoto2Url}" alt="House second angle"><b>घर की फोटो 2 — दूसरा एंगल</b></div></div></section>`;
+  const identityDocs = `<section class="section"><div class="section-head">MASKED IDENTITY DOCUMENTS</div><div class="home-photo-grid"><div><img src="${aadhaarFrontUrl}" alt="Masked Aadhaar Front"><b>Aadhaar Front — Masked</b></div><div><img src="${aadhaarBackUrl}" alt="Masked Aadhaar Back"><b>Aadhaar Back — Masked</b></div><div><img src="${panFrontUrl}" alt="Masked PAN Front"><b>PAN Front — Masked</b></div></div><p style="font-size:8px;color:#52685d">Document numbers are masked in the saved copies. Original unmasked files are not stored.</p></section>`;
   const verificationId = verification.id || verification.verification_id || "—";
   const verifiedAt = formatDate(verification.verified_at || new Date().toISOString());
   const gpsTone = accuracy == null || accuracy > 100 ? "warning" : "good";
@@ -1071,6 +1095,7 @@ function verificationPdfHtml(customer, verification, photoUrl, homePhoto1Url, ho
     <div class="detail wide"><small>Residential Address</small><strong>${esc(customer.address || "—")}</strong></div>
   </div></div></section>
   ${homePhotos}
+  ${identityDocs}
   <section class="section"><div class="section-head">FIELD GPS & LOCATION VERIFICATION</div><div class="rows">
     <div class="line"><span class="label">Latitude</span><span class="value">${verification.latitude ?? "Not captured"}</span></div>
     <div class="line"><span class="label">Longitude</span><span class="value">${verification.longitude ?? "Not captured"}</span></div>
@@ -1100,8 +1125,8 @@ async function openVerificationPdf(verificationId, existingWindow) {
     const customer=customers.find(c=>c.id===data.customer_id);
     if(!customer) throw new Error("ग्राहक रिकॉर्ड नहीं मिला।");
     const signPhoto=async path=>{if(!path) return "";const signed=await supabase.storage.from("customer-verification").createSignedUrl(path,300);if(signed.error) throw signed.error;return signed.data.signedUrl;};
-    const [photoUrl,homePhoto1Url,homePhoto2Url]=await Promise.all([signPhoto(data.photo_path),signPhoto(data.home_photo1_path),signPhoto(data.home_photo2_path)]);
-    win.document.open(); win.document.write(verificationPdfHtml(customer,data,photoUrl,homePhoto1Url,homePhoto2Url)); win.document.close();
+    const [photoUrl,homePhoto1Url,homePhoto2Url,aadhaarFrontUrl,aadhaarBackUrl,panFrontUrl]=await Promise.all([signPhoto(data.photo_path),signPhoto(data.home_photo1_path),signPhoto(data.home_photo2_path),signPhoto(data.aadhaar_front_masked_path),signPhoto(data.aadhaar_back_masked_path),signPhoto(data.pan_front_masked_path)]);
+    win.document.open(); win.document.write(verificationPdfHtml(customer,data,photoUrl,homePhoto1Url,homePhoto2Url,aadhaarFrontUrl,aadhaarBackUrl,panFrontUrl)); win.document.close();
   } catch(err) { win.close(); showMessage("PDF नहीं खुली: "+(err?.message||String(err)),"error"); }
 }
 async function submitCustomerVerification(event) {
@@ -1112,6 +1137,7 @@ async function submitCustomerVerification(event) {
   if(!customer) return showMessage("ग्राहक चुनें।","warn");
   if(!verificationPhotoFile) return showMessage("ग्राहक की फोटो Camera या Gallery से चुनें।","warn");
   if(!verificationHomePhoto1 || !verificationHomePhoto2) return showMessage("घर की दोनों फोटो अनिवार्य हैं — सामने से और दूसरे एंगल से।","warn");
+  if(Object.values(maskedIdentityDocs).some(file=>!file)) return showMessage("Aadhaar Front, Aadhaar Back और PAN Front — तीनों की masked copy बनाकर पुष्टि करें।","warn");
   if(!$("verificationConsent").checked) return showMessage("ग्राहक की सहमति आवश्यक है।","warn");
   const autoPdfWindow=window.open("about:blank","_blank");
   setBusy(btn,true,"Verification सेव हो रहा है…");
@@ -1123,8 +1149,12 @@ async function submitCustomerVerification(event) {
     const path=await uploadPhoto(verificationPhotoFile); uploadedPaths.push(path);
     const home1Path=await uploadPhoto(verificationHomePhoto1); uploadedPaths.push(home1Path);
     const home2Path=await uploadPhoto(verificationHomePhoto2); uploadedPaths.push(home2Path);
+    const aadhaarFrontPath=await uploadPhoto(maskedIdentityDocs.aadhaarFront); uploadedPaths.push(aadhaarFrontPath);
+    const aadhaarBackPath=await uploadPhoto(maskedIdentityDocs.aadhaarBack); uploadedPaths.push(aadhaarBackPath);
+    const panFrontPath=await uploadPhoto(maskedIdentityDocs.panFront); uploadedPaths.push(panFrontPath);
     const record={
       customer_id:customerId,photo_path:path,home_photo1_path:home1Path,home_photo2_path:home2Path,
+      aadhaar_front_masked_path:aadhaarFrontPath,aadhaar_back_masked_path:aadhaarBackPath,pan_front_masked_path:panFrontPath,
       latitude:verificationLocation?.latitude ?? null,
       longitude:verificationLocation?.longitude ?? null,
       accuracy_meters:verificationLocation?.accuracy_meters ?? null,
@@ -1153,6 +1183,7 @@ async function submitCustomerVerification(event) {
     $("verificationLocationStatus").textContent="GPS record सेव हो गया।";
     $("verificationGallery").value=""; $("verificationHome1Gallery").value=""; $("verificationHome2Gallery").value="";
     $("verificationConsent").checked=false; $("verificationNotes").value="";
+    Object.keys(maskedIdentityDocs).forEach(k=>{maskedIdentityDocs[k]=null;if($("doc-"+k))$("doc-"+k).value="";if($("confirm-"+k))$("confirm-"+k).checked=false;if($("canvas-"+k)){const c=$("canvas-"+k);c.getContext("2d").clearRect(0,0,c.width,c.height);c.width=0;c.height=0;}if($("status-"+k))$("status-"+k).textContent="Masked copy सेव हो गई।";});
   } catch(err) {
     if(autoPdfWindow && !autoPdfWindow.closed) autoPdfWindow.close();
     $("verificationMessage").textContent="Verification सेव नहीं हुआ: "+(err?.message||String(err));
@@ -2318,6 +2349,7 @@ async function boot() {
       $("verificationGallery")?.addEventListener("change",e=>setVerificationPhotoFor("customer",e.target.files?.[0]));
       $("verificationHome1Gallery")?.addEventListener("change",e=>setVerificationPhotoFor("home1",e.target.files?.[0]));
       $("verificationHome2Gallery")?.addEventListener("change",e=>setVerificationPhotoFor("home2",e.target.files?.[0]));
+      ["aadhaarFront","aadhaarBack","panFront"].forEach(setupIdentityDocEditor);
       document.querySelectorAll("[data-open-camera]").forEach(btn=>btn.addEventListener("click",()=>openVerificationCamera(btn.dataset.openCamera)));
       $("takeVerificationPhoto")?.addEventListener("click",captureVerificationCameraPhoto);
       $("closeVerificationCamera")?.addEventListener("click",stopVerificationCamera);
