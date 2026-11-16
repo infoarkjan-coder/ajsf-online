@@ -1147,9 +1147,9 @@ function verificationPdfHtml(customer, verification, photoUrl, homePhoto1Url, ho
   h1{font-size:13px;letter-spacing:.5px;color:#123f35;margin:3px 0 0}
   .subtitle{font-size:9px;color:#6a7d73;margin-top:3px}
   .customer-card{display:grid;grid-template-columns:48mm 1fr;gap:10px;padding:9px;border:1px solid #d8e4dc;border-radius:8px;background:#fbfdfb;align-items:stretch}
-  .photo-frame{border:1px solid #cbd9d0;border-radius:5px;background:#eef4f0;padding:3px;display:flex;align-items:center;justify-content:center;min-height:58mm}
-  .customer-photo{display:block;width:100%;height:56mm;object-fit:contain;object-position:center;border-radius:3px;background:#edf3ef}
-  .home-photo-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}.home-photo-grid img{width:100%;height:58mm;object-fit:contain;border:1px solid #cbd9d0;border-radius:5px}.home-photo-grid b{display:block;text-align:center;font-size:8px;margin-top:4px;color:#52685d}.photo-placeholder{display:flex;align-items:center;justify-content:center;text-align:center;color:#74857c;font-size:10px;font-weight:700;letter-spacing:.5px;padding:10px}
+  .photo-frame{border:1px solid #cbd9d0;border-radius:5px;background:#eef4f0;padding:3px;display:flex;align-items:center;justify-content:center;min-height:66mm}
+  .customer-photo{display:block;width:100%;height:64mm;object-fit:contain;object-position:center;border-radius:3px;background:#edf3ef}
+  .home-photo-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}.home-photo-grid img{width:100%;height:66mm;object-fit:contain;border:1px solid #cbd9d0;border-radius:5px}.home-photo-grid b{display:block;text-align:center;font-size:8px;margin-top:4px;color:#52685d}.photo-placeholder{display:flex;align-items:center;justify-content:center;text-align:center;color:#74857c;font-size:10px;font-weight:700;letter-spacing:.5px;padding:10px}
   .photo-caption{text-align:center;font-size:8px;color:#62766b;margin-top:5px;font-weight:700}
   .details{min-width:0}
   .section-title{display:flex;align-items:center;gap:7px;color:#174c3c;font-size:10px;font-weight:800;letter-spacing:.5px;margin:0 0 6px}
@@ -1159,19 +1159,19 @@ function verificationPdfHtml(customer, verification, photoUrl, homePhoto1Url, ho
   .detail.wide{grid-column:1/-1}
   .detail small{display:block;color:#718278;font-size:8px;margin-bottom:2px}
   .detail strong{display:block;color:#253a30;font-size:10px;overflow-wrap:anywhere}
-  .section{margin-top:9px}
+  .section{margin-top:12px}
   .section-head{font-size:8.5px;font-weight:800;color:#174c3c;padding:8px 10px;background:#edf5f0;border:1px solid #d9e7dd;border-left:3px solid #23805e;border-radius:4px;margin-bottom:5px;letter-spacing:.35px}
   .rows{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
-  .line{display:grid;grid-template-columns:90px 1fr;gap:7px;padding:4px 3px;border-bottom:1px solid #e7ede9;min-width:0}
+  .line{display:grid;grid-template-columns:90px 1fr;gap:7px;padding:6px 4px;border-bottom:1px solid #e7ede9;min-width:0}
   .label{color:#64766c;font-weight:700}
   .value{color:#263a30;overflow-wrap:anywhere}
-  .gps-panel{padding:5px 7px;border:1px solid ${gpsTone==="warning"?"#e8c58b":"#b9d9c7"};background:${gpsTone==="warning"?"#fff8eb":"#f0f8f3"};border-radius:5px;margin-top:7px}
+  .gps-panel{padding:9px 11px;border:1px solid ${gpsTone==="warning"?"#e8c58b":"#b9d9c7"};background:${gpsTone==="warning"?"#fff8eb":"#f0f8f3"};border-radius:5px;margin-top:7px}
   .gps-panel strong{display:block;color:${gpsTone==="warning"?"#89520c":"#176b4b"};font-size:10px}
   .gps-panel p{margin:3px 0 0;color:#665b49;font-size:8.5px}
   .map-link{display:inline-block;color:#176b4b;font-weight:700;text-decoration:underline}
   .verification-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-  .verification-grid .detail{padding:7px 9px}
-  .signatures{display:grid;grid-template-columns:1fr 1fr;gap:25px;margin:12px 4px 0}
+  .verification-grid .detail{padding:10px 12px}
+  .signatures{display:grid;grid-template-columns:1fr 1fr;gap:25px;margin:22px 4px 0}
   .signature{border-top:1px solid #65766d;text-align:center;padding-top:6px;color:#4c6257;font-size:9px;min-height:25px}
   .footer{margin-top:7px;padding-top:5px;border-top:1px solid #dce6df;display:flex;justify-content:space-between;gap:12px;color:#738279;font-size:8px}
   .footer strong{color:#174c3c}
@@ -1179,12 +1179,12 @@ function verificationPdfHtml(customer, verification, photoUrl, homePhoto1Url, ho
   .actions button{border:0;border-radius:5px;background:#174c3c;color:#fff;padding:9px 18px;font-weight:700;cursor:pointer}
   .identity-grid{display:grid!important;grid-template-columns:1fr 1fr!important;gap:6px!important;align-items:start}
   .identity-grid>div{min-width:0;break-inside:avoid;page-break-inside:avoid}
-  .identity-grid img{display:block!important;width:100%!important;height:52mm!important;max-height:52mm!important;object-fit:contain!important;object-position:center!important;border:1px solid #cbd9d0;border-radius:4px;background:#fff}
+  .identity-grid img{display:block!important;width:100%!important;height:66mm!important;max-height:66mm!important;object-fit:contain!important;object-position:center!important;border:1px solid #cbd9d0;border-radius:4px;background:#fff}
   .identity-grid b{display:block;text-align:center;font-size:7px;margin-top:2px;color:#52685d}
   .privacy-note{font-size:7px;color:#52685d;margin:3px 0 0}
   .identity-section{break-inside:avoid;page-break-inside:avoid}
   .page-two-title{font-size:12px;color:#123f35;margin:0 0 8px;font-weight:800}
-  .page-two-subtitle{font-size:8.5px;color:#6a7d73;margin:-4px 0 10px}
+  .page-two-subtitle{font-size:8.5px;color:#6a7d73;margin:-4px 0 14px}\n  .page-two-title{font-size:14px;margin-bottom:10px}\n  .page-two-title~.page-two-subtitle{line-height:1.5}\n  .verification-grid{gap:11px}\n  .verification-grid .detail{padding:10px 12px}\n  .signature img{max-width:68mm!important;max-height:38mm!important;object-fit:contain!important}\n  .privacy-note{font-size:7.5px;margin:5px 0 0}
   @media print{.actions{display:none}.pdf-page{min-height:282mm!important;break-inside:avoid!important;page-break-inside:avoid!important}.pdf-page+.pdf-page{break-before:page!important;page-break-before:always!important}body{padding:0!important;print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{max-width:none!important;padding:0!important;box-shadow:none!important;border-radius:0!important}.identity-section,.identity-grid,.customer-card,.masthead,.title-wrap{break-inside:avoid!important;page-break-inside:avoid!important}}
   @media screen{body{padding:8px;background:#eef3f0}.sheet{background:#fff;padding:6mm;box-shadow:0 4px 24px #102b1d18;border-radius:8px}}
   </style></head><body><main class="sheet">
