@@ -1,4 +1,5 @@
 name: Publish AJSF APK to website
+# Rebuild trigger: publish the latest Android wrapper build
 
 on:
   push:
