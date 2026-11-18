@@ -386,7 +386,7 @@ function renderData() {
     String(a.center_name || "").localeCompare(String(b.center_name || "")) ||
     String(a.full_name || "").localeCompare(String(b.full_name || ""))
   );
-  $("customerRows").innerHTML = customerRegisterRows.map((c,i) => "<tr data-center=\"" + esc(c.center_name || "") + "\" data-day=\"" + esc(c.collection_day || "") + "\"><td>" + (i+1) + "</td><td>" + esc(c.center_name || "—") + "</td><td>" + esc(c.full_name || "—") + "</td><td>" + esc(phone(c.contact_number) || "—") + "</td><td>" + esc(formatCustomerId(c.customer_code)) + "</td><td>" + esc(c.area || "—") + "</td><td>" + esc(c.address || "—") + "</td><td>" + esc(c.collection_day || "—") + "</td><td>" + esc(c.customer_status || "—") + "</td><td>" + "<button type=\"button\" class=\"customer-verify secondary\" data-customer-id=\"" + esc(c.id) + "\">Field Verify</button> " + (canAdmin() ? "<button type=\"button\" class=\"customer-remove secondary\" data-customer-id=\"" + esc(c.id) + "\">हटाएँ</button>" : "") + "</td></tr>").join("") || "<tr><td colspan=\"10\" class=\"empty\">कोई ग्राहक नहीं मिला।</td></tr>";
+  $("customerRows").innerHTML = customerRegisterRows.map((c,i) => "<tr data-center=\"" + esc(c.center_name || "") + "\" data-day=\"" + esc(c.collection_day || "") + "\"><td>" + (i+1) + "</td><td>" + esc(c.center_name || "—") + "</td><td>" + esc(c.full_name || "—") + "</td><td>" + esc(phone(c.contact_number) || "—") + "</td><td>" + esc(formatCustomerId(c.customer_code)) + "</td><td>" + esc(c.area || "—") + "</td><td>" + esc(c.address || "—") + "</td><td>" + esc(c.collection_day || "—") + "</td><td>" + esc(c.customer_status || "—") + "</td><td>" + "<button type=\"button\" class=\"customer-verify secondary\" data-customer-id=\"" + esc(c.id) + "\">Field Verify</button> " + (canAdmin() ? "<button type=\"button\" class=\"customer-edit secondary\" data-customer-id=\"" + esc(c.id) + "\">Edit</button> <button type=\"button\" class=\"customer-remove secondary\" data-customer-id=\"" + esc(c.id) + "\">हटाएँ</button>" : "") + "</td></tr>").join("") || "<tr><td colspan=\"10\" class=\"empty\">कोई ग्राहक नहीं मिला।</td></tr>";
   // Bind actions directly on each freshly-rendered button; avoid delegated capture handlers.
   $("customerRows").querySelectorAll(".customer-account-create").forEach(button => {
     button.onclick = event => {
@@ -401,6 +401,7 @@ function renderData() {
       openCustomerVerification(button.dataset.customerId);
     };
   });
+  $("customerRows").querySelectorAll(".customer-edit").forEach(button => { button.onclick = event => { event.preventDefault(); event.stopPropagation(); openCustomerEdit(button.dataset.customerId); }; });
   $("customerRows").querySelectorAll(".customer-remove").forEach(button => {
     button.onclick = event => {
       event.preventDefault();
@@ -529,21 +530,25 @@ async function createCustomerPortalAccount(customerId, button) {
 async function removeCustomerRecord(customerId, button) {
   if (!canAdmin()) return showMessage("ग्राहक हटाने का अधिकार केवल Admin को है।", "warn");
   if (!navigator.onLine) return showMessage("ग्राहक हटाने के लिए इंटरनेट कनेक्शन आवश्यक है।", "warn");
-  const customer = customers.find(c => c.id === customerId);
-  if (!customer) return showMessage("ग्राहक रिकॉर्ड नहीं मिला। Refresh करके दोबारा प्रयास करें।", "error");
-  const confirmed = window.confirm(`क्या आप ग्राहक ${customer.full_name} (${formatCustomerId(customer.customer_code)}) को हटाना चाहते हैं?\n\nयदि Loan या Payment रिकॉर्ड मौजूद है, तो ग्राहक केवल INACTIVE होगा और पुराना हिसाब सुरक्षित रहेगा। बिना Loan/Payment रिकॉर्ड के ही Permanent Delete होगा।\n\nक्या आगे बढ़ें?`);
-  if (!confirmed) return;
+  const customer = customers.find(c => c.id === customerId); if (!customer) return showMessage("ग्राहक रिकॉर्ड नहीं मिला। Refresh करके दोबारा प्रयास करें।", "error");
+  if (!window.confirm("क्या आप ग्राहक " + customer.full_name + " (" + formatCustomerId(customer.customer_code) + ") को हटाना चाहते हैं?\n\nLoan / Payment या अन्य linked records होने पर ग्राहक केवल INACTIVE होगा। केवल बिना हिसाब वाले Trial ग्राहक का Registration और Verification हटेगा।")) return;
   setBusy(button, true, "प्रक्रिया जारी…");
-  const { data, error } = await supabase.rpc("admin_remove_customer", { p_customer_id: customerId });
-  setBusy(button, false);
-  if (error) return showMessage("ग्राहक हटाने की प्रक्रिया पूरी नहीं हुई: " + error.message, "error");
-  const outcome = Array.isArray(data) ? data[0] : data;
-  await loadAll();
-  if (outcome?.result === "deleted") showMessage(`ग्राहक ${outcome.customer_code || customer.customer_code} Permanent Delete हो गया। Audit Log सुरक्षित है।`, "success");
-  else if (outcome?.result === "deactivated") showMessage("इस ग्राहक का Loan/Payment इतिहास मौजूद है। इसलिए इसे INACTIVE किया गया है; पुराना Loan और Payment रिकॉर्ड सुरक्षित है। Audit Log सुरक्षित है।", "success");
-  else showMessage("प्रक्रिया पूरी हुई, लेकिन परिणाम स्पष्ट नहीं मिला। कृपया रिकॉर्ड Refresh करके जाँचें।", "warn");
+  try {
+    const {data,error}=await supabase.rpc("admin_remove_customer",{p_customer_id:customerId}); if(error) throw error; const outcome=Array.isArray(data)?data[0]:data;
+    if(outcome?.result==="deleted"){const paths=(outcome.verification_file_paths||[]).flatMap(row=>Object.values(row||{}).filter(Boolean));if(paths.length){const cleanup=await supabase.storage.from("customer-verification").remove(paths);if(cleanup.error)console.warn("Storage cleanup needed:",cleanup.error);}}
+    await loadAll();
+    if(outcome?.result==="deleted") showMessage("ग्राहक "+(outcome.customer_code||customer.customer_code)+" और उसका Verification हट गया। Audit Log सुरक्षित है।","success");
+    else if(outcome?.result==="deactivated") showMessage("इस ग्राहक के Loan / Payment या अन्य linked records मौजूद हैं। इसलिए इसे INACTIVE किया गया है; पुराना हिसाब सुरक्षित है।","success");
+    else showMessage("परिणाम स्पष्ट नहीं मिला। Refresh करके जाँचें।","warn");
+  } catch(error){showMessage("ग्राहक हटाने की प्रक्रिया पूरी नहीं हुई: "+(error?.message||String(error)),"error");} finally{setBusy(button,false);}
 }
 
+function openCustomerEdit(customerId){
+  if(!canAdmin()) return showMessage("ग्राहक Update करने का अधिकार केवल Admin को है।","warn"); const customer=customers.find(c=>c.id===customerId); if(!customer) return showMessage("ग्राहक रिकॉर्ड नहीं मिला।","error");
+  const form=$("customerForm"); form.dataset.editCustomerId=customerId; ["customer_code","full_name","center_name","contact_number","area","address","collection_day","assigned_collector"].forEach(key=>{const field=form.elements.namedItem(key);if(field)field.value=customer[key]||"";});
+  $("customerFormTitle").textContent="ग्राहक विवरण Update करें"; $("customerFormSubmit").textContent="ग्राहक Update करें"; $("cancelCustomerEdit").classList.remove("hidden"); form.classList.remove("hidden"); form.scrollIntoView({behavior:"smooth",block:"start"});
+}
+function resetCustomerEditForm(){const form=$("customerForm");delete form.dataset.editCustomerId;form.reset();$("customerFormTitle").textContent="नया ग्राहक जोड़ें";$("customerFormSubmit").textContent="ग्राहक सेव करें";$("cancelCustomerEdit").classList.add("hidden");}
 async function loadCustomerLedger() {
   const customerId = $("ledgerCustomer").value;
   const summary = $("ledgerSummary"), rows = $("ledgerRows");
@@ -1269,25 +1274,12 @@ async function submitCustomerVerification(event) {
   } finally { setBusy(btn,false); }
 }
 
-async function submitCustomer(event) {
-  event.preventDefault();
-  if (!canAdmin()) return showMessage("नया ग्राहक जोड़ने का अधिकार केवल Admin को है।", "warn");
-  const form = event.currentTarget, btn = form.querySelector('[type="submit"]');
-  const d = Object.fromEntries(new FormData(form));
-  const row = {
-    customer_code: d.customer_code.trim(), full_name: d.full_name.trim(),
-    center_name: d.center_name || null, contact_number: phone(d.contact_number) || null,
-    area: d.area || null, address: d.address || null, collection_day: d.collection_day,
-    assigned_collector: d.assigned_collector || currentUser.id,
-    created_by: currentUser.id, customer_status: "ACTIVE", recovery_status: "NOT_REQUIRED", is_active: true
-  };
-  setBusy(btn, true);
-  const { error } = await supabase.from("customers").insert(row);
-  setBusy(btn, false);
-  if (error) return showMessage("ग्राहक सेव नहीं हुआ: " + error.message, "error");
-  form.reset(); await loadAll(); showMessage("ग्राहक सफलतापूर्वक सेव हुआ।", "success");
+async function submitCustomer(event){
+  event.preventDefault(); if(!canAdmin()) return showMessage("ग्राहक जोड़ने / Update करने का अधिकार केवल Admin को है।","warn");
+  const form=event.currentTarget,btn=form.querySelector('[type="submit"]');const d=Object.fromEntries(new FormData(form));
+  const row={customer_code:d.customer_code.trim(),full_name:d.full_name.trim(),center_name:d.center_name||null,contact_number:phone(d.contact_number)||null,area:d.area||null,address:d.address||null,collection_day:d.collection_day,assigned_collector:d.assigned_collector||currentUser.id};
+  setBusy(btn,true);try{if(form.dataset.editCustomerId){const {error}=await supabase.rpc("admin_update_customer",{p_customer_id:form.dataset.editCustomerId,p_customer:row});if(error)throw error;resetCustomerEditForm();await loadAll();showMessage("ग्राहक विवरण सफलतापूर्वक Update हुआ।","success");}else{const {error}=await supabase.from("customers").insert({...row,created_by:currentUser.id,customer_status:"ACTIVE",recovery_status:"NOT_REQUIRED",is_active:true});if(error)throw error;resetCustomerEditForm();form.classList.add("hidden");await loadAll();showMessage("ग्राहक सफलतापूर्वक सेव हुआ।","success");}}catch(error){showMessage("ग्राहक सेव / Update नहीं हुआ: "+(error?.message||String(error)),"error");}finally{setBusy(btn,false);}
 }
-
 function formatCustomerId(value) { const raw=String(value ?? "").trim(); if(!raw) return "—"; return /^AJSF/i.test(raw) ? raw : "AJSF" + raw; }
 
 function formatDate(value) {
@@ -2424,6 +2416,7 @@ async function boot() {
       await loadProfile(currentUser);
       renderShell();
       $("customerForm").addEventListener("submit",submitCustomer);
+      $("cancelCustomerEdit")?.addEventListener("click",()=>{resetCustomerEditForm();$("customerForm").classList.add("hidden");});
       $("cancelCustomerEdit")?.addEventListener("click",()=>{resetCustomerEditForm();$("customerForm").classList.add("hidden");});
       $("verificationGallery")?.addEventListener("change",e=>setVerificationPhotoFor("customer",e.target.files?.[0]));
       $("verificationHome1Gallery")?.addEventListener("change",e=>setVerificationPhotoFor("home1",e.target.files?.[0]));
