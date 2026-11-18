@@ -1022,10 +1022,7 @@ async function loadCustomerVerification(customerId) {
     if(error) throw error;
     const records=history||[];
     const historyBox=$("verificationHistory");
-    if(historyBox) {
-      historyBox.innerHTML=records.length?'<div class="small muted">पुराने Verification / PDF रिकॉर्ड:</div>'+records.map((r,i)=>'<button type="button" class="secondary verification-history-item" data-verification-id="'+esc(r.id)+'">PDF '+(i+1)+' · '+esc(formatDate(r.verified_at||r.created_at))+'</button>').join(" "):"";
-      historyBox.classList.toggle("hidden",!records.length);
-    }
+    if(historyBox) { historyBox.innerHTML=records.length ? '<span class="small muted">केवल नवीनतम Verification दिखाया जा रहा है। नया Verification सेव करने पर पुराना रिकॉर्ड Replace होगा।</span>' : ""; historyBox.classList.toggle("hidden",!records.length); }
     const data=records[0];
     if(!data) { if(msg) msg.textContent="इस ग्राहक का Verification अभी नहीं हुआ है। नया Verification किया जा सकता है।"; return; }
     existingCustomerVerification=data; lastVerificationId=data.id;
@@ -1247,6 +1244,10 @@ async function submitCustomerVerification(event) {
       : "रिकॉर्ड सेव हुआ या नहीं, इसकी पुष्टि नहीं मिली। कृपया ग्राहक का Verification History जाँचें; दोबारा सेव करने से पहले रिकॉर्ड मौजूद है या नहीं देखें।");
     const replaced=[["photo_path",path],["home_photo1_path",home1Path],["home_photo2_path",home2Path],["aadhaar_front_masked_path",aadhaarFrontPath],["aadhaar_back_masked_path",aadhaarBackPath],["pan_front_masked_path",panFrontPath],["customer_signature_path",signaturePath]].filter(([key,next])=>next&&old?.[key]).map(([key])=>old[key]);
     if(replaced.length) await supabase.storage.from("customer-verification").remove(replaced);
+    const {data:oldFiles,error:historyReplaceError}=await supabase.rpc("replace_customer_verification_history",{p_customer_id:customerId,p_keep_id:saved.data.id});
+    if(historyReplaceError) throw historyReplaceError;
+    const obsoletePaths=(oldFiles||[]).flatMap(row=>Object.values(row||{}).filter(Boolean));
+    if(obsoletePaths.length) { const cleanup=await supabase.storage.from("customer-verification").remove(obsoletePaths); if(cleanup.error) console.warn("Old verification storage cleanup needed:",cleanup.error); }
     lastVerificationId=saved.data.id;
     $("openVerificationPdf").disabled=false;
     $("verificationMessage").textContent=old?"पुराना Customer Verification सफलतापूर्वक अपडेट हो गया।":"Customer Verification सेव हो गया। PDF तैयार है।";
@@ -2423,6 +2424,7 @@ async function boot() {
       await loadProfile(currentUser);
       renderShell();
       $("customerForm").addEventListener("submit",submitCustomer);
+      $("cancelCustomerEdit")?.addEventListener("click",()=>{resetCustomerEditForm();$("customerForm").classList.add("hidden");});
       $("verificationGallery")?.addEventListener("change",e=>setVerificationPhotoFor("customer",e.target.files?.[0]));
       $("verificationHome1Gallery")?.addEventListener("change",e=>setVerificationPhotoFor("home1",e.target.files?.[0]));
       $("verificationHome2Gallery")?.addEventListener("change",e=>setVerificationPhotoFor("home2",e.target.files?.[0]));
