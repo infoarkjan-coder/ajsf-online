@@ -705,7 +705,7 @@ function buildBulkWeeklySchedule() {
     }
   }
   summary.sort((a,b)=>String(a["First EMI Date"]).localeCompare(String(b["First EMI Date"])) || String(a["Customer Name"]).localeCompare(String(b["Customer Name"])));
-  installments.sort((a,b)=>String(a["Due Date"]).localeCompare(String(b["Due Date"])) || String(a["Customer Name"]).localeCompare(String(b["Customer Name"])) || Number(a["Week No."])-Number(b["Week No."]));
+  installments.sort((a,b)=>String(a["Due Date"]).localeCompare(String(b["Due Date"])) || String(a["Customer Name"]).localeCompare(String(b["Customer Name"])) || Number(a["EMI No."])-Number(b["EMI No."]));
   return {summary,installments,skipped,totalActive:eligibleLoans.length};
 }
 function buildCollectorTrackerRows() {
@@ -717,8 +717,8 @@ function buildCollectorTrackerRows() {
   const statusByLoanWeek = new Map(weeklyStatuses.map(row => [row.loan_id+":"+Number(row.week_no),row]));
   const rows = [];
   for (const item of generated.installments) {
-    const customer = customers.find(c => c.customer_code === item["Customer ID"]);
-    const loan = loans.find(l => l.loan_reference === item["Loan Reference"] && l.customer_id === customer?.id);
+    const customer = customers.find(c => c.id === item["_Customer UUID"]);
+    const loan = loans.find(l => l.id === item["_Loan UUID"]);
     if (!customer || !loan) continue;
     if (selectedCollector && customer.assigned_collector !== selectedCollector) continue;
     if (selectedDay && item["Due Day"] !== selectedDay && customer.collection_day !== selectedDay) continue;
@@ -732,7 +732,7 @@ function buildCollectorTrackerRows() {
       return paid >= dueDate && paid < nextDate ? sum + Number(p.amount || 0) : sum;
     },0);
     const advanceInWindow = advanceLedger.filter(x => x.loan_id === loan.id && x.entry_type === "advance_adjusted" && String(x.due_date || "").slice(0,10) === dueDate).reduce((sum,x)=>sum+Number(x.amount||0),0);
-    const paidAmount = Math.min(Number(item["EMI Amount"] || 0),paidInWindow+advanceInWindow);
+    const paidAmount = isMarkedPaid ? Number(item["EMI Amount"] || 0) : Math.min(Number(item["EMI Amount"] || 0),paidInWindow+advanceInWindow);
     const today = localDateValue();
     let status = isMarkedPaid || paidAmount >= Number(item["EMI Amount"] || 0) ? "PAID" : paidAmount > 0 ? "PARTIAL" : dueDate < today ? "OVERDUE" : dueDate === today ? "DUE TODAY" : "UPCOMING";
     if (selectedStatus && selectedStatus !== status) continue;
