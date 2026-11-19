@@ -674,7 +674,7 @@ function buildBulkWeeklySchedule() {
       "Disbursement Date":disbursement,
       "Collection Day":weekday,
       "Loan Amount":Number(loan.loan_amount || 0),
-      "Weekly EMI":emi,
+      "EMI Amount":emi,
       "Total Installments":terms,
       "First EMI Date":first,
       "Last EMI Date":last,
@@ -792,7 +792,7 @@ function generateBulkSchedule() {
   $("bulkInstallmentCount").textContent = bulkScheduleData.installments.length;
   $("bulkSkippedCount").textContent = bulkScheduleData.skipped.length;
   $("bulkScheduleRows").innerHTML = bulkScheduleData.summary.map(row =>
-    `<tr><td>${esc(row["Customer ID"])}</td><td>${esc(row["Customer Name"])}</td><td>${esc(row["Loan Reference"])}</td><td>${esc(row["Disbursement Date"])}</td><td>${esc(row["Collection Day"])}</td><td>${esc(row["First EMI Date"])}</td><td>${money(row["Weekly EMI"])}</td><td>${row["Total Installments"]}</td><td>${esc(row["Last EMI Date"])}</td></tr>`
+    `<tr><td>${esc(row["Customer ID"])}</td><td>${esc(row["Customer Name"])}</td><td>${esc(row["Loan Reference"])}</td><td>${esc(row["Disbursement Date"])}</td><td>${esc(row["Collection Day"])}</td><td>${esc(row["First EMI Date"])}</td><td>${money(row["EMI Amount"])}</td><td>${row["Total Installments"]}</td><td>${esc(row["Last EMI Date"])}</td></tr>`
   ).join("") || '<tr><td colspan="9" class="empty">कोई eligible Active Loan नहीं मिला।</td></tr>';
   $("exportBulkScheduleBtn").disabled = !bulkScheduleData.summary.length;
   const message = `तैयार: ${bulkScheduleData.summary.length} Loans · ${bulkScheduleData.installments.length} Installments · ${bulkScheduleData.skipped.length} Loans छोड़े गए।`;
