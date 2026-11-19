@@ -85,11 +85,11 @@
 <div id="scheduleOutput" class="schedule-paper muted">ग्राहक और लोन चुनने पर 24 सप्ताह का Repayment Schedule दिखाई देगा।</div>
 </section>
 <section class="card panel hidden" data-panel="bulk-schedule" id="bulkSchedulePanel">
-<div class="panel-head"><div><h2>Bulk Weekly Repayment Schedule</h2><p class="muted">सभी Active Loans की EMI तारीखें एक साथ तैयार करें। पहली EMI Disbursement Date के बाद आने वाले अगले Collection Day पर होगी।</p></div><div class="actions no-print"><button id="generateBulkScheduleBtn" type="button">Schedule तैयार करें</button><button id="exportBulkScheduleBtn" type="button" class="secondary" disabled>Excel डाउनलोड करें</button></div></div>
+<div class="panel-head"><div><h2>Bulk EMI Repayment Schedule</h2><p class="muted">सभी Active Loans की EMI तारीखें एक साथ तैयार करें। Weekly में पहली EMI अगली Collection Date पर और Monthly में अगले महीने होगी।</p></div><div class="actions no-print"><button id="generateBulkScheduleBtn" type="button">Schedule तैयार करें</button><button id="exportBulkScheduleBtn" type="button" class="secondary" disabled>Excel डाउनलोड करें</button></div></div>
 <div class="grid demand-metrics"><div class="card"><div class="label">Eligible Loans</div><div class="metric" id="bulkEligibleCount">0</div></div><div class="card"><div class="label">Total Installments</div><div class="metric" id="bulkInstallmentCount">0</div></div><div class="card"><div class="label">Skipped Loans</div><div class="metric" id="bulkSkippedCount">0</div></div></div>
 <p id="bulkScheduleMessage" class="message" role="status">Schedule तैयार करने के लिए बटन दबाएँ। कोई Loan या Payment रिकॉर्ड बदला नहीं जाएगा।</p>
 <div class="tablewrap"><table><thead><tr><th>Customer ID</th><th>Customer Name</th><th>Loan Ref</th><th>Disbursement</th><th>Collection Day</th><th>First EMI</th><th>EMI</th><th>Installments</th><th>Last EMI</th></tr></thead><tbody id="bulkScheduleRows"><tr><td colspan="9" class="empty">अभी Schedule तैयार नहीं है।</td></tr></tbody></table></div>
-<p class="small muted">Excel में दो शीट होंगी: Loan Summary और Date-wise Installments। केवल Active Loans जिनकी Disbursement Date, Collection Day और EMI जानकारी सही है, शामिल होंगे।</p>
+<p class="small muted">Excel में Loan Summary और Date-wise Installments शीट होंगी। Weekly और Monthly दोनों EMI schedules शामिल होंगे।</p>
 </section>
 <section class="card panel hidden" data-panel="statement">
 <div class="panel-head"><h2>Customer Loan Statement</h2><div class="actions no-print"><button id="printStatementBtn" type="button">Statement Print / Save PDF</button></div></div>
