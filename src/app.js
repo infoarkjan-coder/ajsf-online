@@ -185,6 +185,7 @@ function renderShell() {
     : "आपको केवल आपके assigned ग्राहक दिखेंगे।";
   const bulkScheduleTab = $("bulkScheduleTab");
   if (bulkScheduleTab) bulkScheduleTab.classList.toggle("hidden", !canAdmin());
+  document.querySelectorAll(".admin-tracker-filter").forEach(el=>el.classList.toggle("hidden",!canAdmin()));
   const adminOnly = $("adminOnly");
   const collectorOnly = $("collectorOnly");
   if (adminOnly) adminOnly.classList.toggle("hidden", !canAdmin());
@@ -659,7 +660,7 @@ function buildBulkWeeklySchedule() {
       if (delta === 0) delta = 7;
       first = addDaysISO(disbursement,delta);
     }
-    const last = isMonthly ? addMonthsISO(first,terms-1) : addDaysISO(first,(terms-1)*7);
+    const last = isMonthly ? addMonthsISO(disbursement,terms) : addDaysISO(first,(terms-1)*7);
     summary.push({
       "Customer ID":customer.customer_code || "",
       "Customer Name":customer.full_name || "",
@@ -679,7 +680,7 @@ function buildBulkWeeklySchedule() {
       "_Loan UUID":loan.id
     });
     for(let n=1;n<=terms;n++){
-      const dueDate = isMonthly ? addMonthsISO(first,n-1) : addDaysISO(first,(n-1)*7);
+      const dueDate = isMonthly ? addMonthsISO(disbursement,n) : addDaysISO(first,(n-1)*7);
       const dueDay = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][new Date(dueDate+"T00:00:00").getDay()];
       installments.push({
         "Due Date":dueDate,
@@ -722,14 +723,15 @@ function buildCollectorTrackerRows() {
     const weekly = statusByLoanWeek.get(loan.id+":"+Number(item["EMI No."]));
     const isMarkedPaid = weekly?.is_paid === true;
     const dueDate = item["Due Date"];
-    const nextDate = customer.collection_day === "MONTHLY" ? addMonthsISO(dueDate,1) : addDaysISO(dueDate,7);
+    const nextDate = customer.collection_day === "MONTHLY" ? addMonthsISO(item["Disbursement Date"],Number(item["EMI No."])+1) : addDaysISO(dueDate,7);
     const paidInWindow = payments.filter(p => p.loan_id === loan.id && !p.is_reversal).reduce((sum,p) => {
       const paid = String(p.paid_at || p.created_at || "").slice(0,10);
       return paid >= dueDate && paid < nextDate ? sum + Number(p.amount || 0) : sum;
     },0);
     const advanceInWindow = advanceLedger.filter(x => x.loan_id === loan.id && x.entry_type === "advance_adjusted" && String(x.due_date || "").slice(0,10) === dueDate).reduce((sum,x)=>sum+Number(x.amount||0),0);
     const paidAmount = Math.min(Number(item["EMI Amount"] || 0),paidInWindow+advanceInWindow);
-    let status = isMarkedPaid || paidAmount >= Number(item["EMI Amount"] || 0) ? "PAID" : paidAmount > 0 ? "PARTIAL" : dueDate < selectedDate ? "OVERDUE" : dueDate === selectedDate ? "DUE TODAY" : "UPCOMING";
+    const today = localDateValue();
+    let status = isMarkedPaid || paidAmount >= Number(item["EMI Amount"] || 0) ? "PAID" : paidAmount > 0 ? "PARTIAL" : dueDate < today ? "OVERDUE" : dueDate === today ? "DUE TODAY" : "UPCOMING";
     if (selectedStatus && selectedStatus !== status) continue;
     rows.push({...item,customer,loan,status,paidAmount,receivable:Math.max(0,Number(item["EMI Amount"]||0)-paidAmount)});
   }
