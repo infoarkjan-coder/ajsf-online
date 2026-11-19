@@ -893,6 +893,37 @@ let verificationSignatureFile = null;
 const maskedIdentityDocs = {aadhaarFront:null,aadhaarBack:null,panFront:null};
 const identityDocEditors = {};
 let verificationHomePhoto1 = null, verificationHomePhoto2 = null;
+async function compressVerificationImage(file) {
+  if (!file) return null;
+  if (!file.type.startsWith("image/")) throw new Error("कृपया JPG, PNG या WebP इमेज चुनें।");
+  if (file.size <= 4 * 1024 * 1024) return file;
+  let bitmap;
+  try { bitmap = await createImageBitmap(file); }
+  catch (_) { throw new Error("यह फोटो पढ़ी नहीं जा सकी। कृपया इसे JPG में बदलकर दोबारा चुनें।"); }
+  try {
+    const maxSide = 2000;
+    let scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    let blob = null;
+    for (let pass = 0; pass < 5; pass++) {
+      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+      const ctx = canvas.getContext("2d", { alpha: false });
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      const quality = [0.84, 0.78, 0.70, 0.64, 0.58][pass];
+      blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", quality));
+      if (blob && blob.size <= 4 * 1024 * 1024) break;
+      scale *= 0.82;
+    }
+    if (!blob || blob.size > 4 * 1024 * 1024) throw new Error("फोटो 4 MB से कम नहीं हो पाई। कृपया छोटी फोटो चुनें।");
+    return new File([blob], (file.name || "verification-photo").replace(/\.[^.]+$/, "") + ".jpg", {
+      type: "image/jpeg", lastModified: Date.now()
+    });
+  } finally { bitmap.close?.(); }
+}
+
 let verificationCameraStream = null, verificationCameraTarget = null;
 let verificationLocation = null;
 let lastVerificationId = null;
@@ -1222,7 +1253,7 @@ async function submitCustomerVerification(event) {
   setBusy(btn,true,old?"Verification अपडेट हो रहा है…":"Verification सेव हो रहा है…");
   const uploadedPaths=[];
   try {
-    const uploadPhoto=async(file)=>{if(!file)return null;const ext=file.type==="image/png"?"png":file.type==="image/webp"?"webp":"jpg";const p=customerId+"/"+crypto.randomUUID()+"."+ext;const up=await supabase.storage.from("customer-verification").upload(p,file,{contentType:file.type,cacheControl:"3600",upsert:false});if(up.error)throw up.error;uploadedPaths.push(p);return p;};
+    const uploadPhoto=async(file)=>{if(!file)return null;const safeFile=await compressVerificationImage(file);const p=customerId+"/"+crypto.randomUUID()+".jpg";const up=await supabase.storage.from("customer-verification").upload(p,safeFile,{contentType:"image/jpeg",cacheControl:"3600",upsert:false});if(up.error)throw up.error;uploadedPaths.push(p);return p;};
     const [path,home1Path,home2Path,aadhaarFrontPath,aadhaarBackPath,panFrontPath,signaturePath]=await Promise.all([
       uploadPhoto(verificationPhotoFile),uploadPhoto(verificationHomePhoto1),uploadPhoto(verificationHomePhoto2),
       uploadPhoto(maskedIdentityDocs.aadhaarFront),uploadPhoto(maskedIdentityDocs.aadhaarBack),uploadPhoto(maskedIdentityDocs.panFront),uploadPhoto(verificationSignatureFile)
