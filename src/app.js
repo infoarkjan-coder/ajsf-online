@@ -186,6 +186,8 @@ function renderShell() {
   const bulkScheduleTab = $("bulkScheduleTab");
   if (bulkScheduleTab) bulkScheduleTab.classList.toggle("hidden", !canAdmin());
   document.querySelectorAll(".admin-tracker-filter").forEach(el=>el.classList.toggle("hidden",!canAdmin()));
+  const assignmentCard=$("collectorAssignmentCard");
+  if(assignmentCard) assignmentCard.classList.toggle("hidden",!canAdmin());
   const adminOnly = $("adminOnly");
   const collectorOnly = $("collectorOnly");
   if (adminOnly) adminOnly.classList.toggle("hidden", !canAdmin());
@@ -820,7 +822,7 @@ function exportBulkScheduleExcel() {
     ws["!autofilter"] = {ref:ws["!ref"]};
   }
   const stamp = localISODate(new Date()).replaceAll("-","");
-  XLSX.writeFile(wb,"AJSF_Bulk_Weekly_Repayment_Schedule_"+stamp+".xlsx");
+  XLSX.writeFile(wb,"AJSF_Bulk_EMI_Repayment_Schedule_"+stamp+".xlsx");
   $("bulkScheduleMessage").textContent = "Excel डाउनलोड शुरू हो गया। कुल "+bulkScheduleData.summary.length+" Loans और "+bulkScheduleData.installments.length+" EMI Dates शामिल हैं।";
 }
 function printRepaymentSchedule() {
@@ -981,7 +983,7 @@ async function submitCustomer(event) {
     customer_code: d.customer_code.trim(), full_name: d.full_name.trim(),
     center_name: d.center_name || null, contact_number: phone(d.contact_number) || null,
     area: d.area || null, address: d.address || null, collection_day: d.collection_day,
-    assigned_collector: d.assigned_collector || currentUser.id,
+    assigned_collector: d.assigned_collector || null,
     created_by: currentUser.id, customer_status: "ACTIVE", recovery_status: "NOT_REQUIRED", is_active: true
   };
   setBusy(btn, true);
