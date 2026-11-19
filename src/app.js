@@ -224,7 +224,7 @@ async function loadAll() {
   let adv;
   try { [c, l, w, adv, pr] = await Promise.all([
     customerQuery,
-    supabase.from("loans").select("id, loan_reference, customer_id, loan_type, disbursement_date, loan_amount, emi_amount, total_emis_required, status, source_total_collected, source_osp, source_emis_paid, source_emis_pending").order("created_at", {ascending:false}),
+    supabase.from("loans").select("id, loan_reference, customer_id, loan_type, disbursement_date, loan_amount, emi_amount, total_emis_required, status, source_total_collected, source_osp, source_emis_paid, source_emis_pending, is_archived").order("created_at", {ascending:false}),
     weeklyQuery,
     supabase.from("advance_ledger").select("*"),
     canAdmin() ? supabase.from("profiles").select("id, full_name, staff_code, role, is_active").eq("role","collector").eq("is_active",true).order("full_name") : Promise.resolve({data:[],error:null})
@@ -639,7 +639,7 @@ function buildBulkWeeklySchedule() {
   const summary = [];
   const installments = [];
   const skipped = [];
-  const eligibleLoans = loans.filter(loan => String(loan.status || "").toLowerCase() === "active");
+  const eligibleLoans = loans.filter(loan => String(loan.status || "").toLowerCase() === "active" && loan.is_archived !== true);
   for (const loan of eligibleLoans) {
     const customer = customers.find(c => c.id === loan.customer_id);
     const weekday = customer?.collection_day;
