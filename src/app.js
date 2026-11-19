@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import * as XLSX from "https://esm.sh/xlsx@0.18.5";
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./config.js";
 
 const $ = (id) => document.getElementById(id);
@@ -182,6 +183,8 @@ function renderShell() {
   $("roleNote").textContent = canAdmin()
     ? "आप सभी ग्राहक, लोन और भुगतान देख सकते हैं।"
     : "आपको केवल आपके assigned ग्राहक दिखेंगे।";
+  const bulkScheduleTab = $("bulkScheduleTab");
+  if (bulkScheduleTab) bulkScheduleTab.classList.toggle("hidden", !canAdmin());
   const adminOnly = $("adminOnly");
   const collectorOnly = $("collectorOnly");
   if (adminOnly) adminOnly.classList.toggle("hidden", !canAdmin());
@@ -611,6 +614,118 @@ function renderRepaymentSchedule() {
       <p class="schedule-generated">Generated: ${new Date().toLocaleDateString("en-IN")}</p>
     </aside>
   </div>`;
+}
+let bulkScheduleData = null;
+function addDaysISO(iso, days) {
+  const [y,m,d] = String(iso).slice(0,10).split("-").map(Number);
+  const date = new Date(y,m-1,d);
+  date.setDate(date.getDate()+days);
+  return localISODate(date);
+}
+function buildBulkWeeklySchedule() {
+  const summary = [];
+  const installments = [];
+  const skipped = [];
+  const eligibleLoans = loans.filter(loan => String(loan.status || "").toLowerCase() === "active");
+  for (const loan of eligibleLoans) {
+    const customer = customers.find(c => c.id === loan.customer_id);
+    const weekday = customer?.collection_day;
+    const targetDay = WEEKDAY_INDEX[weekday];
+    const disbursement = String(loan.disbursement_date || "").slice(0,10);
+    const emi = Number(loan.emi_amount);
+    const terms = Number(loan.total_emis_required);
+    if (!customer || !/^\\d{4}-\\d{2}-\\d{2}$/.test(disbursement) ||
+        targetDay === undefined || !Number.isFinite(emi) || emi <= 0 ||
+        !Number.isInteger(terms) || terms < 1 || terms > 60) {
+      skipped.push({loan, customer, reason:"Disbursement / Collection Day / EMI / Tenure missing or invalid"});
+      continue;
+    }
+    const [y,m,d] = disbursement.split("-").map(Number);
+    const disbDate = new Date(y,m-1,d);
+    let delta = (targetDay - disbDate.getDay() + 7) % 7;
+    if (delta === 0) delta = 7;
+    const first = addDaysISO(disbursement,delta);
+    const last = addDaysISO(first,(terms-1)*7);
+    summary.push({
+      "Customer ID":customer.customer_code || "",
+      "Customer Name":customer.full_name || "",
+      "Center":customer.center_name || "",
+      "Mobile":customer.contact_number || "",
+      "Loan Reference":loan.loan_reference || "",
+      "Loan Type":loan.loan_type || "",
+      "Disbursement Date":disbursement,
+      "Collection Day":weekday,
+      "Loan Amount":Number(loan.loan_amount || 0),
+      "Weekly EMI":emi,
+      "Total Installments":terms,
+      "First EMI Date":first,
+      "Last EMI Date":last,
+      "Total Scheduled Amount":emi*terms,
+      "_Customer UUID":customer.id,
+      "_Loan UUID":loan.id
+    });
+    for(let n=1;n<=terms;n++){
+      installments.push({
+        "Due Date":addDaysISO(first,(n-1)*7),
+        "Week No.":n,
+        "Customer ID":customer.customer_code || "",
+        "Customer Name":customer.full_name || "",
+        "Center":customer.center_name || "",
+        "Mobile":customer.contact_number || "",
+        "Loan Reference":loan.loan_reference || "",
+        "Collection Day":weekday,
+        "Disbursement Date":disbursement,
+        "EMI Amount":emi,
+        "Loan Amount":Number(loan.loan_amount || 0),
+        "Total Installments":terms,
+        "_Customer UUID":customer.id,
+        "_Loan UUID":loan.id
+      });
+    }
+  }
+  summary.sort((a,b)=>String(a["First EMI Date"]).localeCompare(String(b["First EMI Date"])) || String(a["Customer Name"]).localeCompare(String(b["Customer Name"])));
+  installments.sort((a,b)=>String(a["Due Date"]).localeCompare(String(b["Due Date"])) || String(a["Customer Name"]).localeCompare(String(b["Customer Name"])) || Number(a["Week No."])-Number(b["Week No."]));
+  return {summary,installments,skipped,totalActive:eligibleLoans.length};
+}
+function generateBulkSchedule() {
+  if (!canAdmin()) return showMessage("Bulk Schedule केवल Admin बना सकता है।","warn");
+  bulkScheduleData = buildBulkWeeklySchedule();
+  $("bulkEligibleCount").textContent = bulkScheduleData.summary.length;
+  $("bulkInstallmentCount").textContent = bulkScheduleData.installments.length;
+  $("bulkSkippedCount").textContent = bulkScheduleData.skipped.length;
+  $("bulkScheduleRows").innerHTML = bulkScheduleData.summary.map(row =>
+    `<tr><td>${esc(row["Customer ID"])}</td><td>${esc(row["Customer Name"])}</td><td>${esc(row["Loan Reference"])}</td><td>${esc(row["Disbursement Date"])}</td><td>${esc(row["Collection Day"])}</td><td>${esc(row["First EMI Date"])}</td><td>${money(row["Weekly EMI"])}</td><td>${row["Total Installments"]}</td><td>${esc(row["Last EMI Date"])}</td></tr>`
+  ).join("") || '<tr><td colspan="9" class="empty">कोई eligible Active Loan नहीं मिला।</td></tr>';
+  $("exportBulkScheduleBtn").disabled = !bulkScheduleData.summary.length;
+  const message = `तैयार: ${bulkScheduleData.summary.length} Loans · ${bulkScheduleData.installments.length} Installments · ${bulkScheduleData.skipped.length} Loans छोड़े गए।`;
+  $("bulkScheduleMessage").textContent = message + (bulkScheduleData.skipped.length ? " Skipped Loans की सूची Console में नहीं, Excel में अलग से शामिल है।" : " सभी eligible Loans शामिल हैं।");
+  if (bulkScheduleData.skipped.length) {
+    const skippedRows = bulkScheduleData.skipped.map(x=>({
+      "Loan Reference":x.loan?.loan_reference || "",
+      "Customer ID":x.customer?.customer_code || "",
+      "Customer Name":x.customer?.full_name || "",
+      "Reason":x.reason
+    }));
+    bulkScheduleData.skippedRows = skippedRows;
+  }
+}
+function exportBulkScheduleExcel() {
+  if (!bulkScheduleData?.summary?.length) return showMessage("पहले Bulk Schedule तैयार करें।","warn");
+  const wb = XLSX.utils.book_new();
+  const summarySheet = XLSX.utils.json_to_sheet(bulkScheduleData.summary);
+  const installmentSheet = XLSX.utils.json_to_sheet(bulkScheduleData.installments);
+  XLSX.utils.book_append_sheet(wb,summarySheet,"Loan Summary");
+  XLSX.utils.book_append_sheet(wb,installmentSheet,"Date-wise Installments");
+  if (bulkScheduleData.skippedRows?.length) {
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(bulkScheduleData.skippedRows),"Skipped Loans");
+  }
+  for (const ws of [summarySheet,installmentSheet]) {
+    ws["!cols"] = Object.keys(ws).filter(k=>/^\\w+1$/.test(k)).map(k=>({wch:Math.min(26,Math.max(12,String(ws[k]?.v || "").length+2))}));
+    ws["!autofilter"] = {ref:ws["!ref"]};
+  }
+  const stamp = localISODate(new Date()).replaceAll("-","");
+  XLSX.writeFile(wb,"AJSF_Bulk_Weekly_Repayment_Schedule_"+stamp+".xlsx");
+  $("bulkScheduleMessage").textContent = "Excel डाउनलोड शुरू हो गया। कुल "+bulkScheduleData.summary.length+" Loans और "+bulkScheduleData.installments.length+" EMI Dates शामिल हैं।";
 }
 function printRepaymentSchedule() {
   if (!$("scheduleLoan").value) return showMessage("पहले ग्राहक और लोन चुनें।","warn");
@@ -1182,6 +1297,8 @@ async function boot() {
   $("ledgerCustomer").addEventListener("change", loadCustomerLedger);
   $("ledgerSearch").addEventListener("input", filterLedgerCustomers);
   $("printLedgerBtn").addEventListener("click", printCustomerLedger);
+  $("generateBulkScheduleBtn")?.addEventListener("click", generateBulkSchedule);
+  $("exportBulkScheduleBtn")?.addEventListener("click", exportBulkScheduleExcel);
   $("scheduleSearch").addEventListener("input", filterScheduleCustomers);
   $("scheduleCustomer").addEventListener("change", populateScheduleLoans);
   $("scheduleLoan").addEventListener("change", renderRepaymentSchedule);
