@@ -25,8 +25,25 @@
 <p id="dashboardMessage" class="message" role="status"></p><div id="connectionStatus" class="connection-status" role="status">जाँच हो रही है…</div>
 <div class="grid"><div class="card"><div class="label">कुल ग्राहक</div><div class="metric" id="customersCount">0</div></div><div class="card"><div class="label">कुल लोन</div><div class="metric" id="loansCount">0</div></div><div class="card"><div class="label">कुल जमा राशि</div><div class="metric" id="collectedTotal">₹0</div></div><div class="card"><div class="label">कुल बकाया (OSP)</div><div class="metric" id="outstandingTotal">₹0</div></div><div class="card"><div class="label">आज की वसूली</div><div class="metric" id="todayTotal">₹0</div></div><div class="card"><div class="label">भुगतान रिकॉर्ड</div><div class="metric" id="paymentsCount">0</div></div></div>
 <div class="dashboard-layout">
-<aside class="sidebar"><div class="sidebar-title">AJSF MENU</div><nav class="tabs"><button data-tab="customers" class="active">ग्राहक</button><button data-tab="customer-mis">Customer MIS</button><button data-tab="loans">लोन</button><button data-tab="payment">Payment Entry</button><button data-tab="payments">Payment History</button><button data-tab="ledger">Customer Ledger</button><button data-tab="statement">Loan Statement</button><button data-tab="schedule">Repayment Schedule</button><button data-tab="reminder">WhatsApp / SMS Reminder</button></nav></aside>
+<aside class="sidebar"><div class="sidebar-title">AJSF MENU</div><nav class="tabs"><button data-tab="collector-tracker">EMI Collector Tracker</button><button data-tab="customers" class="active">ग्राहक</button><button data-tab="customer-mis">Customer MIS</button><button data-tab="loans">लोन</button><button data-tab="payment">Payment Entry</button><button data-tab="payments">Payment History</button><button data-tab="ledger">Customer Ledger</button><button data-tab="statement">Loan Statement</button><button data-tab="schedule">Repayment Schedule</button><button data-tab="bulk-schedule" id="bulkScheduleTab">Bulk EMI Schedule</button><button data-tab="reminder">WhatsApp / SMS Reminder</button></nav></aside>
 <div class="dashboard-content">
+<section class="card panel hidden" data-panel="collector-tracker" id="emiCollectorTrackerPanel">
+<div class="panel-head"><div><h2>EMI Collector Tracker</h2><p class="muted">Disbursement Date के बाद पहली EMI अगली निर्धारित Collection Date पर। कलेक्टर को केवल assigned ग्राहकों की EMI दिखाई देगी।</p></div></div>
+<div class="formgrid tracker-filters">
+<div class="field"><label for="trackerDate">EMI Due Date</label><input id="trackerDate" type="date"></div>
+<div class="field"><label for="trackerDay">Collection Day</label><select id="trackerDay"><option value="">सभी दिन</option><option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option><option>MONTHLY</option></select></div>
+<div class="field"><label for="trackerStatus">EMI Status</label><select id="trackerStatus"><option value="">सभी Status</option><option>PAID</option><option>PARTIAL</option><option>DUE TODAY</option><option>OVERDUE</option><option>UPCOMING</option></select></div>
+<div class="field admin-tracker-filter"><label for="trackerCollector">Collector</label><select id="trackerCollector"><option value="">सभी कलेक्टर</option></select></div>
+</div>
+<div class="grid demand-metrics tracker-metrics">
+<div class="card"><div class="label">Due EMI Amount</div><div class="metric" id="trackerDueTotal">₹0</div></div>
+<div class="card"><div class="label">Pending Amount</div><div class="metric" id="trackerPendingTotal">₹0</div></div>
+<div class="card"><div class="label">Customers</div><div class="metric" id="trackerCustomerCount">0</div></div>
+<div class="card"><div class="label">Installments</div><div class="metric" id="trackerInstallmentCount">0</div></div>
+</div>
+<div class="tablewrap"><table><thead><tr><th>Due Date</th><th>Day</th><th>EMI No.</th><th>Customer</th><th>Center</th><th>Loan Ref</th><th>EMI</th><th>Paid</th><th>Status</th><th>Action</th></tr></thead><tbody id="trackerRows"><tr><td colspan="10" class="empty">डेटा लोड हो रहा है…</td></tr></tbody></table></div>
+<p class="small muted" id="trackerMessage">यह Tracker read-only schedule है। Payment Entry मौजूदा सुरक्षित payments रिकॉर्ड का उपयोग करेगी; पुराने Loan / Payment records delete नहीं होंगे।</p>
+</section>
 <section class="card panel" data-panel="collector-demand">
 <div class="panel-head"><div><h2>मेरी साप्ताहिक वसूली मांग</h2><p class="muted">दिन चुनें और अपने assigned ग्राहकों की EMI मांग देखें।</p></div><div class="field demand-day-field"><label for="collectorDemandDay">Collection Day चुनें</label><select id="collectorDemandDay"><option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option><option>MONTHLY</option></select></div></div>
 <div class="grid demand-metrics">
@@ -38,7 +55,16 @@
 <p class="small muted">मांग में केवल Active ग्राहक और Active Loan शामिल हैं। इस सप्ताह/महीने में दर्ज भुगतान घटाकर शेष राशि दिखाई जाती है।</p>
 </section>
 <section class="card panel" data-panel="customers"><div class="panel-head"><h2>Customer Register</h2><button id="adminOnly" type="button" onclick="document.getElementById('customerForm').classList.toggle('hidden')">+ नया ग्राहक</button></div>
-<form id="customerForm" class="hidden"><div class="formgrid"><div class="field"><label>Customer ID *</label><input name="customer_code" required></div><div class="field"><label>ग्राहक का नाम *</label><input name="full_name" required></div><div class="field"><label>Center Name</label><input name="center_name"></div><div class="field"><label>मोबाइल</label><input name="contact_number"></div><div class="field"><label>Area</label><input name="area"></div><div class="field"><label>Address</label><input name="address"></div><div class="field"><label>Collection Day</label><select name="collection_day"><option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option><option>Sunday</option><option>MONTHLY</option></select></div><div class="field"><label>Collector Auth UUID</label><input name="assigned_collector" placeholder="खाली = स्वयं"></div></div><button type="submit">ग्राहक सेव करें</button></form>
+<form id="customerForm" class="hidden"><div class="formgrid"><div class="field"><label>Customer ID *</label><input name="customer_code" required></div><div class="field"><label>ग्राहक का नाम *</label><input name="full_name" required></div><div class="field"><label>Center Name</label><input name="center_name"></div><div class="field"><label>मोबाइल</label><input name="contact_number"></div><div class="field"><label>Area</label><input name="area"></div><div class="field"><label>Address</label><input name="address"></div><div class="field"><label>Collection Day</label><select name="collection_day"><option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option><option>Sunday</option><option>MONTHLY</option></select></div><div class="field"><label>Assigned Collector</label><select name="assigned_collector" id="newCustomerCollector"><option value="">Unassigned</option></select></div></div><button type="submit">ग्राहक सेव करें</button></form>
+<section class="card admin-assignment-card hidden" id="collectorAssignmentCard">
+<h3>Collector Assignment (Admin)</h3>
+<p class="small muted">किसी ग्राहक को कलेक्टर assign या re-assign करें। यह बदलाव केवल customer assignment पर होगा; पुराने Loan / Payment records सुरक्षित रहेंगे।</p>
+<form id="collectorAssignmentForm" class="formgrid">
+<div class="field"><label for="assignmentCustomer">ग्राहक</label><select id="assignmentCustomer" required><option value="">ग्राहक चुनें</option></select></div>
+<div class="field"><label for="assignmentCollector">कलेक्टर</label><select id="assignmentCollector"><option value="">Unassigned</option></select></div>
+<div class="field assignment-submit"><label>&nbsp;</label><button type="submit">Assignment सेव करें</button></div>
+</form>
+</section>
 <div class="formgrid customer-search-filters">
 <div class="field"><label for="customerFilter">ग्राहक खोजें — नाम, Customer ID, Mobile, Area, Address</label><input id="customerFilter" type="search" placeholder="नाम / ID / मोबाइल नंबर लिखें…"></div>
 <div class="field"><label for="customerCenterFilter">Center / House / Group Name</label><select id="customerCenterFilter"><option value="">सभी Center / House</option></select></div>
@@ -57,6 +83,13 @@
  <div class="field"><label>लोन चुनें</label><select id="scheduleLoan"><option value="">लोन चुनें</option></select></div>
 </div>
 <div id="scheduleOutput" class="schedule-paper muted">ग्राहक और लोन चुनने पर 24 सप्ताह का Repayment Schedule दिखाई देगा।</div>
+</section>
+<section class="card panel hidden" data-panel="bulk-schedule" id="bulkSchedulePanel">
+<div class="panel-head"><div><h2>Bulk EMI Repayment Schedule</h2><p class="muted">सभी Active Loans की EMI तारीखें एक साथ तैयार करें। Weekly में पहली EMI अगली Collection Date पर और Monthly में अगले महीने होगी।</p></div><div class="actions no-print"><button id="generateBulkScheduleBtn" type="button">Schedule तैयार करें</button><button id="exportBulkScheduleBtn" type="button" class="secondary" disabled>Excel डाउनलोड करें</button></div></div>
+<div class="grid demand-metrics"><div class="card"><div class="label">Eligible Loans</div><div class="metric" id="bulkEligibleCount">0</div></div><div class="card"><div class="label">Total Installments</div><div class="metric" id="bulkInstallmentCount">0</div></div><div class="card"><div class="label">Skipped Loans</div><div class="metric" id="bulkSkippedCount">0</div></div></div>
+<p id="bulkScheduleMessage" class="message" role="status">Schedule तैयार करने के लिए बटन दबाएँ। कोई Loan या Payment रिकॉर्ड बदला नहीं जाएगा।</p>
+<div class="tablewrap"><table><thead><tr><th>Customer ID</th><th>Customer Name</th><th>Loan Ref</th><th>Disbursement</th><th>Collection Day</th><th>First EMI</th><th>EMI</th><th>Installments</th><th>Last EMI</th></tr></thead><tbody id="bulkScheduleRows"><tr><td colspan="9" class="empty">अभी Schedule तैयार नहीं है।</td></tr></tbody></table></div>
+<p class="small muted">Excel में Loan Summary और Date-wise Installments शीट होंगी। Weekly और Monthly दोनों EMI schedules शामिल होंगे।</p>
 </section>
 <section class="card panel hidden" data-panel="statement">
 <div class="panel-head"><h2>Customer Loan Statement</h2><div class="actions no-print"><button id="printStatementBtn" type="button">Statement Print / Save PDF</button></div></div>
