@@ -47,7 +47,7 @@ function amountInWords(value, hindi=false) {
 
 const phone = (v) => { const s = String(v ?? "").trim(); return /^\d+\.0+$/.test(s) ? s.replace(/\.0+$/, "") : s; };
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-let supabase, currentUser, profile, customers = [], loans = [], payments = [], weeklyStatuses = [], advanceLedger = [], lastReceipt = null;
+let supabase, currentUser, profile, customers = [], loans = [], payments = [], weeklyStatuses = [], advanceLedger = [], lastReceipt = null, collectorProfiles = [];
 let offlineDbPromise;
 function offlineDb() {
   if (!("indexedDB" in window)) return Promise.reject(new Error("इस browser में offline storage उपलब्ध नहीं है।"));
@@ -196,7 +196,7 @@ function renderShell() {
   const summaryGrid = dashboard.querySelector(":scope > .grid");
   if (summaryGrid) summaryGrid.style.setProperty("display", canAdmin() ? "" : "none", "important");
   // Keep Collector on the demand screen; Admin navigation remains unchanged.
-  activateTab(canAdmin() ? "customers" : "collector-demand");
+  activateTab(canAdmin() ? "customers" : "collector-tracker");
   const customerActionHeader = $("customerActionHeader");
   if (customerActionHeader) customerActionHeader.classList.toggle("hidden", !canAdmin());
 }
@@ -216,15 +216,16 @@ async function loadAll() {
     .select("id, customer_code, full_name, center_name, contact_number, area, address, collection_day, assigned_collector, customer_status, recovery_status, status_reason, status_changed_at, status_notes, is_active")
     .order("full_name");
   if (!canAdmin()) customerQuery = customerQuery.eq("assigned_collector", currentUser.id);
-  let c, l, w;
+  let c, l, w, pr;
   const weeklyQuery = supabase.from("loan_weekly_status").select("loan_id, week_no, is_paid, source_marker");
   let adv;
-  try { [c, l, w, adv] = await Promise.all([
+  try { [c, l, w, adv, pr] = await Promise.all([
     customerQuery,
     supabase.from("loans").select("id, loan_reference, customer_id, loan_type, disbursement_date, loan_amount, emi_amount, total_emis_required, status, source_total_collected, source_osp, source_emis_paid, source_emis_pending").order("created_at", {ascending:false}),
     weeklyQuery,
-    supabase.from("advance_ledger").select("*")
-  ]); } catch (networkError) { c = {error:networkError}; l = {error:networkError}; w = {error:networkError}; adv = {error:networkError}; }
+    supabase.from("advance_ledger").select("*"),
+    canAdmin() ? supabase.from("profiles").select("id, full_name, staff_code, role, is_active").eq("role","collector").eq("is_active",true).order("full_name") : Promise.resolve({data:[],error:null})
+  ]); } catch (networkError) { c = {error:networkError}; l = {error:networkError}; w = {error:networkError}; adv = {error:networkError}; pr = {error:networkError}; }
   if (c.error || l.error) {
     const cached = await readSnapshot(`user:${currentUser.id}`);
     if (!cached?.value) throw new Error("डेटा ऑनलाइन लोड नहीं हुआ और इस डिवाइस पर Offline Backup भी नहीं मिला।");
@@ -244,6 +245,7 @@ async function loadAll() {
   customers = c.data || []; loans = l.data || [];
   weeklyStatuses = w && !w.error ? (w.data || []) : [];
   advanceLedger = adv && !adv.error ? (adv.data || []) : [];
+  collectorProfiles = pr && !pr.error ? (pr.data || []) : [];
   payments = [];
   for (let start = 0; ; start += 1000) {
     const { data, error } = await supabase.from("payments").select("*").order("created_at", {ascending:false}).range(start, start + 999);
@@ -386,6 +388,7 @@ function renderData() {
   }).join("") || `<tr><td colspan="6" class="empty">अभी भुगतान उपलब्ध नहीं हैं।</td></tr>`;
   renderCustomerMIS();
   renderCollectorDemand();
+  renderEmiCollectorTracker();
   renderAdvanceBalanceInfo();
 }
 
@@ -622,6 +625,12 @@ function addDaysISO(iso, days) {
   date.setDate(date.getDate()+days);
   return localISODate(date);
 }
+function addMonthsISO(iso, months) {
+  const [y,m,d] = String(iso).slice(0,10).split("-").map(Number);
+  const first = new Date(y,m-1+months,1);
+  const lastDay = new Date(first.getFullYear(),first.getMonth()+1,0).getDate();
+  return localISODate(new Date(first.getFullYear(),first.getMonth(),Math.min(d,lastDay)));
+}
 function buildBulkWeeklySchedule() {
   const summary = [];
   const installments = [];
@@ -631,21 +640,26 @@ function buildBulkWeeklySchedule() {
     const customer = customers.find(c => c.id === loan.customer_id);
     const weekday = customer?.collection_day;
     const targetDay = WEEKDAY_INDEX[weekday];
+    const isMonthly = weekday === "MONTHLY";
     const disbursement = String(loan.disbursement_date || "").slice(0,10);
     const emi = Number(loan.emi_amount);
     const terms = Number(loan.total_emis_required);
     if (!customer || !/^\d{4}-\d{2}-\d{2}$/.test(disbursement) ||
-        targetDay === undefined || !Number.isFinite(emi) || emi <= 0 ||
+        (!isMonthly && targetDay === undefined) || !Number.isFinite(emi) || emi <= 0 ||
         !Number.isInteger(terms) || terms < 1 || terms > 60) {
       skipped.push({loan, customer, reason:"Disbursement / Collection Day / EMI / Tenure missing or invalid"});
       continue;
     }
-    const [y,m,d] = disbursement.split("-").map(Number);
-    const disbDate = new Date(y,m-1,d);
-    let delta = (targetDay - disbDate.getDay() + 7) % 7;
-    if (delta === 0) delta = 7;
-    const first = addDaysISO(disbursement,delta);
-    const last = addDaysISO(first,(terms-1)*7);
+    let first;
+    if (isMonthly) first = addMonthsISO(disbursement,1);
+    else {
+      const [y,m,d] = disbursement.split("-").map(Number);
+      const disbDate = new Date(y,m-1,d);
+      let delta = (targetDay - disbDate.getDay() + 7) % 7;
+      if (delta === 0) delta = 7;
+      first = addDaysISO(disbursement,delta);
+    }
+    const last = isMonthly ? addMonthsISO(first,terms-1) : addDaysISO(first,(terms-1)*7);
     summary.push({
       "Customer ID":customer.customer_code || "",
       "Customer Name":customer.full_name || "",
@@ -665,9 +679,12 @@ function buildBulkWeeklySchedule() {
       "_Loan UUID":loan.id
     });
     for(let n=1;n<=terms;n++){
+      const dueDate = isMonthly ? addMonthsISO(first,n-1) : addDaysISO(first,(n-1)*7);
+      const dueDay = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][new Date(dueDate+"T00:00:00").getDay()];
       installments.push({
-        "Due Date":addDaysISO(first,(n-1)*7),
-        "Week No.":n,
+        "Due Date":dueDate,
+        "Due Day":dueDay,
+        "EMI No.":n,
         "Customer ID":customer.customer_code || "",
         "Customer Name":customer.full_name || "",
         "Center":customer.center_name || "",
@@ -686,6 +703,57 @@ function buildBulkWeeklySchedule() {
   summary.sort((a,b)=>String(a["First EMI Date"]).localeCompare(String(b["First EMI Date"])) || String(a["Customer Name"]).localeCompare(String(b["Customer Name"])));
   installments.sort((a,b)=>String(a["Due Date"]).localeCompare(String(b["Due Date"])) || String(a["Customer Name"]).localeCompare(String(b["Customer Name"])) || Number(a["Week No."])-Number(b["Week No."]));
   return {summary,installments,skipped,totalActive:eligibleLoans.length};
+}
+function buildCollectorTrackerRows() {
+  const generated = buildBulkWeeklySchedule();
+  const selectedDate = $("trackerDate")?.value || localDateValue();
+  const selectedDay = $("trackerDay")?.value || "";
+  const selectedStatus = $("trackerStatus")?.value || "";
+  const selectedCollector = $("trackerCollector")?.value || "";
+  const statusByLoanWeek = new Map(weeklyStatuses.map(row => [row.loan_id+":"+Number(row.week_no),row]));
+  const rows = [];
+  for (const item of generated.installments) {
+    const customer = customers.find(c => c.customer_code === item["Customer ID"]);
+    const loan = loans.find(l => l.loan_reference === item["Loan Reference"] && l.customer_id === customer?.id);
+    if (!customer || !loan) continue;
+    if (selectedCollector && customer.assigned_collector !== selectedCollector) continue;
+    if (selectedDay && item["Due Day"] !== selectedDay && customer.collection_day !== selectedDay) continue;
+    if (item["Due Date"] !== selectedDate) continue;
+    const weekly = statusByLoanWeek.get(loan.id+":"+Number(item["EMI No."]));
+    const isMarkedPaid = weekly?.is_paid === true;
+    const dueDate = item["Due Date"];
+    const nextDate = customer.collection_day === "MONTHLY" ? addMonthsISO(dueDate,1) : addDaysISO(dueDate,7);
+    const paidInWindow = payments.filter(p => p.loan_id === loan.id && !p.is_reversal).reduce((sum,p) => {
+      const paid = String(p.paid_at || p.created_at || "").slice(0,10);
+      return paid >= dueDate && paid < nextDate ? sum + Number(p.amount || 0) : sum;
+    },0);
+    const advanceInWindow = advanceLedger.filter(x => x.loan_id === loan.id && x.entry_type === "advance_adjusted" && String(x.due_date || "").slice(0,10) === dueDate).reduce((sum,x)=>sum+Number(x.amount||0),0);
+    const paidAmount = Math.min(Number(item["EMI Amount"] || 0),paidInWindow+advanceInWindow);
+    let status = isMarkedPaid || paidAmount >= Number(item["EMI Amount"] || 0) ? "PAID" : paidAmount > 0 ? "PARTIAL" : dueDate < selectedDate ? "OVERDUE" : dueDate === selectedDate ? "DUE TODAY" : "UPCOMING";
+    if (selectedStatus && selectedStatus !== status) continue;
+    rows.push({...item,customer,loan,status,paidAmount,receivable:Math.max(0,Number(item["EMI Amount"]||0)-paidAmount)});
+  }
+  rows.sort((a,b)=>String(a["Due Date"]).localeCompare(String(b["Due Date"])) || String(a["Center"]).localeCompare(String(b["Center"])) || String(a["Customer Name"]).localeCompare(String(b["Customer Name"])));
+  return {rows,skipped:generated.skipped,selectedDate};
+}
+function renderEmiCollectorTracker() {
+  const body = $("trackerRows");
+  if (!body) return;
+  const collectorSelect = $("trackerCollector");
+  if (collectorSelect && canAdmin()) {
+    const current = collectorSelect.value;
+    collectorSelect.innerHTML = '<option value="">सभी कलेक्टर</option>' + collectorProfiles.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.full_name||p.staff_code||"Collector")+'</option>').join("");
+    if (collectorProfiles.some(p=>p.id===current)) collectorSelect.value=current;
+  }
+  const result = buildCollectorTrackerRows();
+  const rows = result.rows;
+  $("trackerCustomerCount").textContent = new Set(rows.map(x=>x["Customer ID"])).size.toLocaleString("en-IN");
+  $("trackerInstallmentCount").textContent = rows.length.toLocaleString("en-IN");
+  $("trackerDueTotal").textContent = money(rows.reduce((sum,x)=>sum+Number(x["EMI Amount"]||0),0));
+  $("trackerPendingTotal").textContent = money(rows.reduce((sum,x)=>sum+Number(x.receivable||0),0));
+  body.innerHTML = rows.map(row=>'<tr><td>'+esc(displayDueDate(new Date(row["Due Date"]+"T00:00:00")) )+'</td><td>'+esc(row["Due Day"])+'</td><td>'+esc(row["EMI No."])+'</td><td><strong>'+esc(row["Customer Name"])+'</strong><small class="demand-subline">'+esc(row["Customer ID"])+' · '+esc(phone(row["Mobile"]))+'</small></td><td>'+esc(row["Center"]||"—")+'</td><td>'+esc(row["Loan Reference"])+'</td><td>'+money(row["EMI Amount"])+'</td><td>'+money(row.paidAmount)+'</td><td><strong class="tracker-status tracker-'+row.status.toLowerCase().replaceAll(" ","-")+'">'+esc(row.status)+'</strong></td><td><button type="button" class="tracker-collect-btn" data-customer-id="'+esc(row._Customer UUID)+'" data-loan-id="'+esc(row._Loan UUID)+'" data-amount="'+row.receivable+'" '+(row.receivable<=0?'disabled':'')+'>Payment Entry</button></td></tr>').join("") || '<tr><td colspan="10" class="empty">इस तारीख़ के लिए कोई EMI नहीं मिली। Date / Collector / Day Filter बदलकर देखें।</td></tr>';
+  const note=$("trackerMessage");
+  if(note) note.textContent = "तारीख़: "+result.selectedDate+" · "+rows.length+" EMI · Skipped schedule records: "+result.skipped.length+". Paid status existing weekly status, payment date-window और advance adjustment से निकाला गया है।";
 }
 function generateBulkSchedule() {
   if (!canAdmin()) return showMessage("Bulk Schedule केवल Admin बना सकता है।","warn");
@@ -1264,6 +1332,18 @@ async function boot() {
   document.addEventListener("change", event => {
     if (event.target && event.target.id === "collectorDemandDay") renderCollectorDemand();
   });
+  ["trackerDate","trackerDay","trackerStatus","trackerCollector"].forEach(id => $(id)?.addEventListener("change", renderEmiCollectorTracker));
+  $("trackerRows")?.addEventListener("click", event => {
+    const button = event.target.closest(".tracker-collect-btn");
+    if (!button) return;
+    const customer = customers.find(c=>c.id===button.dataset.customerId);
+    const loan = loans.find(l=>l.id===button.dataset.loanId && l.customer_id===customer?.id && l.status==="active");
+    if (!customer || !loan) return showMessage("ग्राहक या Active Loan नहीं मिला। डेटा Refresh करें।","warn");
+    $("payCustomer").value=customer.id; refreshLoanOptions(); $("payLoan").value=loan.id;
+    $("paymentForm").elements.amount.value=button.dataset.amount;
+    $("paymentDate").value=localDateValue(); activateTab("payment");
+    $("paymentForm").scrollIntoView({behavior:"smooth",block:"start"});
+  });
   $("collectorDemandRows")?.addEventListener("click", event => {
     const button = event.target.closest(".demand-collect-btn");
     if (!button) return;
@@ -1313,4 +1393,5 @@ async function boot() {
   $("closeReceiptBtn").addEventListener("click", () => $("receiptPanel").classList.add("hidden"));
 }
 if ($("paymentDate")) $("paymentDate").value = localDateValue();
+if ($("trackerDate")) $("trackerDate").value = localDateValue();
 boot();
