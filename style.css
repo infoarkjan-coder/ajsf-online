@@ -477,3 +477,5 @@ input,select,button{min-height:42px}
 .tracker-upcoming{background:#edf0ee;color:#52645a}
 #trackerRows td{vertical-align:middle}
 @media(max-width:700px){.tracker-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.tracker-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.admin-tracker-filter.hidden{display:none!important}
