@@ -592,10 +592,10 @@ async function loadCustomerLedger() {
     <div class="ledger-print-customer"><span><small>Customer ID</small><b>${esc(formatCustomerId(customer?.customer_code))}</b></span><span><small>Customer Name</small><b>${esc(customer?.full_name || "—")}</b></span><span><small>Center</small><b>${esc(customer?.center_name || "—")}</b></span><span><small>Mobile</small><b>${esc(phone(customer?.contact_number) || "—")}</b></span></div>
     <div class="ledger-print-totals"><span><small>Total Loan Amount</small><b>${money(totalLoanAmount)}</b></span><span><small>All-time Collection</small><b>${money(totalCollected)}</b></span><span><small>Outstanding Balance / कुल बकाया</small><b>${money(totalOutstanding)}</b></span><span><small>Recorded Transactions</small><b>${paymentRows.length.toLocaleString("en-IN")}</b></span></div>
     <h3>Loan-wise Outstanding Balance / लोन अनुसार बाकी राशि</h3>
-    <table id="ledgerLoanBalanceTable"><thead><tr><th>Loan Ref</th><th>Loan Amount</th><th>Total Collected</th><th>Remaining Balance</th></tr></thead><tbody>${loanBalanceRows}</tbody></table>
+    <div class="tablewrap ledger-tablewrap"><table id="ledgerLoanBalanceTable"><thead><tr><th>Loan Ref</th><th>Loan Amount</th><th>Total Collected</th><th>Remaining Balance</th></tr></thead><tbody>${loanBalanceRows}</tbody></table>
     <h3>Payment Transaction Register</h3>
     <p class="small muted">Outstanding Balance में सभी चालू और पुराने Loan का शेष बकाया शामिल है। नीचे सिस्टम में दर्ज वास्तविक भुगतान की तारीख, रसीद, Loan Ref, Mode और राशि दी गई है।</p>
-    <table id="ledgerPaymentTable"><thead><tr><th>Date</th><th>Receipt / Transaction</th><th>Loan Ref</th><th>Mode</th><th>Amount</th></tr></thead><tbody>${transactionRows}</tbody></table>
+    <div class="tablewrap ledger-tablewrap"><table id="ledgerPaymentTable"><thead><tr><th>Date</th><th>Receipt / Transaction</th><th>Loan Ref</th><th>Mode</th><th>Amount</th></tr></thead><tbody>${transactionRows}</tbody></table>
     <p class="ledger-generated">Statement Generated: ${new Date().toLocaleString("en-IN")}</p>
   </div>`;
   rows.innerHTML = transactionRows;
