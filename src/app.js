@@ -387,6 +387,7 @@ function renderData() {
     const l = loans.find(x => x.id === p.loan_id);
     return `<tr><td>${esc(p.id)}</td><td>${esc(formatDate(p.paid_at))}</td><td>${esc(c?.full_name || p.customer_id)}</td><td>${esc(l?.loan_reference || "—")}</td><td>${money(p.amount)}</td><td>${esc(p.payment_mode || "—")}</td></tr>`;
   }).join("") || `<tr><td colspan="6" class="empty">अभी भुगतान उपलब्ध नहीं हैं।</td></tr>`;
+  populateCollectorAssignmentOptions();
   renderCustomerMIS();
   renderCollectorDemand();
   renderEmiCollectorTracker();
@@ -737,6 +738,31 @@ function buildCollectorTrackerRows() {
   }
   rows.sort((a,b)=>String(a["Due Date"]).localeCompare(String(b["Due Date"])) || String(a["Center"]).localeCompare(String(b["Center"])) || String(a["Customer Name"]).localeCompare(String(b["Customer Name"])));
   return {rows,skipped:generated.skipped,selectedDate};
+}
+function populateCollectorAssignmentOptions() {
+  const collectorOptions = '<option value="">Unassigned / कलेक्टर चुनें</option>' + collectorProfiles.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.full_name||p.staff_code||"Collector")+' · '+esc(p.staff_code||"")+'</option>').join("");
+  const customerOptions = '<option value="">ग्राहक चुनें</option>' + customers.filter(c=>c.is_active!==false).map(c=>'<option value="'+esc(c.id)+'">'+esc(c.customer_code||"")+' · '+esc(c.full_name||"")+'</option>').join("");
+  const collectorSelect = $("newCustomerCollector");
+  if (collectorSelect) { const current=collectorSelect.value; collectorSelect.innerHTML=collectorOptions; if(collectorProfiles.some(p=>p.id===current)) collectorSelect.value=current; }
+  const assignmentCustomer = $("assignmentCustomer");
+  if (assignmentCustomer) { const current=assignmentCustomer.value; assignmentCustomer.innerHTML=customerOptions; if(customers.some(c=>c.id===current)) assignmentCustomer.value=current; }
+  const assignmentCollector = $("assignmentCollector");
+  if (assignmentCollector) { const current=assignmentCollector.value; assignmentCollector.innerHTML=collectorOptions; if(collectorProfiles.some(p=>p.id===current)) assignmentCollector.value=current; }
+}
+async function saveCollectorAssignment(event) {
+  event.preventDefault();
+  if (!canAdmin()) return showMessage("Collector Assignment केवल Admin कर सकता है।","warn");
+  const customerId=$("assignmentCustomer")?.value;
+  const collectorId=$("assignmentCollector")?.value || null;
+  if(!customerId) return showMessage("पहले ग्राहक चुनें।","warn");
+  const button=event.currentTarget.querySelector('[type="submit"]');
+  setBusy(button,true,"Assignment सेव हो रहा है…");
+  const {data,error}=await supabase.from("customers").update({assigned_collector:collectorId}).eq("id",customerId).select("id, assigned_collector").single();
+  setBusy(button,false);
+  if(error) return showMessage("Collector Assignment सेव नहीं हुआ: "+error.message,"error");
+  customers=customers.map(c=>c.id===customerId?{...c,assigned_collector:data.assigned_collector}:c);
+  renderData();
+  showMessage("Collector Assignment सफलतापूर्वक अपडेट हुआ। पुराने Loan और Payment रिकॉर्ड सुरक्षित हैं।","success");
 }
 function renderEmiCollectorTracker() {
   const body = $("trackerRows");
@@ -1315,6 +1341,7 @@ async function boot() {
       await loadProfile(currentUser);
       renderShell();
       $("customerForm").addEventListener("submit", submitCustomer);
+      $("collectorAssignmentForm")?.addEventListener("submit", saveCollectorAssignment);
       $("paymentForm").addEventListener("submit", submitPayment);
       try {
         await loadAll();
