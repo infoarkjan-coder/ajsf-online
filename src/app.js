@@ -634,7 +634,7 @@ function buildBulkWeeklySchedule() {
     const disbursement = String(loan.disbursement_date || "").slice(0,10);
     const emi = Number(loan.emi_amount);
     const terms = Number(loan.total_emis_required);
-    if (!customer || !/^\\d{4}-\\d{2}-\\d{2}$/.test(disbursement) ||
+    if (!customer || !/^\d{4}-\d{2}-\d{2}$/.test(disbursement) ||
         targetDay === undefined || !Number.isFinite(emi) || emi <= 0 ||
         !Number.isInteger(terms) || terms < 1 || terms > 60) {
       skipped.push({loan, customer, reason:"Disbursement / Collection Day / EMI / Tenure missing or invalid"});
@@ -720,7 +720,7 @@ function exportBulkScheduleExcel() {
     XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(bulkScheduleData.skippedRows),"Skipped Loans");
   }
   for (const ws of [summarySheet,installmentSheet]) {
-    ws["!cols"] = Object.keys(ws).filter(k=>/^\\w+1$/.test(k)).map(k=>({wch:Math.min(26,Math.max(12,String(ws[k]?.v || "").length+2))}));
+    ws["!cols"] = Object.keys(ws).filter(k=>/^\w+1$/.test(k)).map(k=>({wch:Math.min(26,Math.max(12,String(ws[k]?.v || "").length+2))}));
     ws["!autofilter"] = {ref:ws["!ref"]};
   }
   const stamp = localISODate(new Date()).replaceAll("-","");
