@@ -32,8 +32,8 @@ import android.webkit.JavascriptInterface;
 import android.widget.Toast;
 
 public class MainActivity extends Activity {
-    private static final String APP_URL = "https://ajsf-online.vercel.app/?app_refresh=20261118-customer-management";
-    private static final String APK_CACHE_BUST = "ajsf-customer-management-20261118";
+    private static final String APP_URL = "https://ajsf-online.vercel.app/?app_refresh=20261119-verification-compress";
+    private static final String APK_CACHE_BUST = "ajsf-verification-compress-20261119";
     private static final String APP_HOST = "ajsf-online.vercel.app";
     private static final int FILE_CHOOSER_REQUEST = 4102;
 
@@ -106,7 +106,7 @@ public class MainActivity extends Activity {
                 super.onPageFinished(view, url);
                 // Remove stale website Service Worker/cache from older APK sessions, then reload once.
                 view.evaluateJavascript("(function() {" +
-                        "var marker='ajsf-apk-cachefix-20261117';" +
+                        "var marker='ajsf-apk-cachefix-20261119';" +
                         "if (new URLSearchParams(location.search).get('apk_cache_bust') === marker) return;" +
                         "var jobs=[];" +
                         "if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) jobs.push(navigator.serviceWorker.getRegistrations().then(function(rs){return Promise.all(rs.map(function(r){return r.unregister();}));}));" +
@@ -262,7 +262,7 @@ public class MainActivity extends Activity {
         // clearCache() does not erase localStorage/IndexedDB, so queued app data is preserved.
         webView.clearCache(true);
         webView.clearHistory();
-        webView.loadUrl(APP_URL + "&app_refresh=20261118-customer-management");
+        webView.loadUrl(APP_URL + "&app_refresh=20261119-verification-compress");
     }
 
 
