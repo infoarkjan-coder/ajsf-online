@@ -25,8 +25,25 @@
 <p id="dashboardMessage" class="message" role="status"></p><div id="connectionStatus" class="connection-status" role="status">जाँच हो रही है…</div>
 <div class="grid"><div class="card"><div class="label">कुल ग्राहक</div><div class="metric" id="customersCount">0</div></div><div class="card"><div class="label">कुल लोन</div><div class="metric" id="loansCount">0</div></div><div class="card"><div class="label">कुल जमा राशि</div><div class="metric" id="collectedTotal">₹0</div></div><div class="card"><div class="label">कुल बकाया (OSP)</div><div class="metric" id="outstandingTotal">₹0</div></div><div class="card"><div class="label">आज की वसूली</div><div class="metric" id="todayTotal">₹0</div></div><div class="card"><div class="label">भुगतान रिकॉर्ड</div><div class="metric" id="paymentsCount">0</div></div></div>
 <div class="dashboard-layout">
-<aside class="sidebar"><div class="sidebar-title">AJSF MENU</div><nav class="tabs"><button data-tab="customers" class="active">ग्राहक</button><button data-tab="customer-mis">Customer MIS</button><button data-tab="loans">लोन</button><button data-tab="payment">Payment Entry</button><button data-tab="payments">Payment History</button><button data-tab="ledger">Customer Ledger</button><button data-tab="statement">Loan Statement</button><button data-tab="schedule">Repayment Schedule</button><button data-tab="bulk-schedule" id="bulkScheduleTab">Bulk EMI Schedule</button><button data-tab="reminder">WhatsApp / SMS Reminder</button></nav></aside>
+<aside class="sidebar"><div class="sidebar-title">AJSF MENU</div><nav class="tabs"><button data-tab="collector-tracker">EMI Collector Tracker</button><button data-tab="customers" class="active">ग्राहक</button><button data-tab="customer-mis">Customer MIS</button><button data-tab="loans">लोन</button><button data-tab="payment">Payment Entry</button><button data-tab="payments">Payment History</button><button data-tab="ledger">Customer Ledger</button><button data-tab="statement">Loan Statement</button><button data-tab="schedule">Repayment Schedule</button><button data-tab="bulk-schedule" id="bulkScheduleTab">Bulk EMI Schedule</button><button data-tab="reminder">WhatsApp / SMS Reminder</button></nav></aside>
 <div class="dashboard-content">
+<section class="card panel hidden" data-panel="collector-tracker" id="emiCollectorTrackerPanel">
+<div class="panel-head"><div><h2>EMI Collector Tracker</h2><p class="muted">Disbursement Date के बाद पहली EMI अगली निर्धारित Collection Date पर। कलेक्टर को केवल assigned ग्राहकों की EMI दिखाई देगी।</p></div></div>
+<div class="formgrid tracker-filters">
+<div class="field"><label for="trackerDate">EMI Due Date</label><input id="trackerDate" type="date"></div>
+<div class="field"><label for="trackerDay">Collection Day</label><select id="trackerDay"><option value="">सभी दिन</option><option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option><option>MONTHLY</option></select></div>
+<div class="field"><label for="trackerStatus">EMI Status</label><select id="trackerStatus"><option value="">सभी Status</option><option>PAID</option><option>PARTIAL</option><option>DUE TODAY</option><option>OVERDUE</option><option>UPCOMING</option></select></div>
+<div class="field admin-tracker-filter"><label for="trackerCollector">Collector</label><select id="trackerCollector"><option value="">सभी कलेक्टर</option></select></div>
+</div>
+<div class="grid demand-metrics tracker-metrics">
+<div class="card"><div class="label">Due EMI Amount</div><div class="metric" id="trackerDueTotal">₹0</div></div>
+<div class="card"><div class="label">Pending Amount</div><div class="metric" id="trackerPendingTotal">₹0</div></div>
+<div class="card"><div class="label">Customers</div><div class="metric" id="trackerCustomerCount">0</div></div>
+<div class="card"><div class="label">Installments</div><div class="metric" id="trackerInstallmentCount">0</div></div>
+</div>
+<div class="tablewrap"><table><thead><tr><th>Due Date</th><th>Day</th><th>EMI No.</th><th>Customer</th><th>Center</th><th>Loan Ref</th><th>EMI</th><th>Paid</th><th>Status</th><th>Action</th></tr></thead><tbody id="trackerRows"><tr><td colspan="10" class="empty">डेटा लोड हो रहा है…</td></tr></tbody></table></div>
+<p class="small muted" id="trackerMessage">यह Tracker read-only schedule है। Payment Entry मौजूदा सुरक्षित payments रिकॉर्ड का उपयोग करेगी; पुराने Loan / Payment records delete नहीं होंगे।</p>
+</section>
 <section class="card panel" data-panel="collector-demand">
 <div class="panel-head"><div><h2>मेरी साप्ताहिक वसूली मांग</h2><p class="muted">दिन चुनें और अपने assigned ग्राहकों की EMI मांग देखें।</p></div><div class="field demand-day-field"><label for="collectorDemandDay">Collection Day चुनें</label><select id="collectorDemandDay"><option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option><option>MONTHLY</option></select></div></div>
 <div class="grid demand-metrics">
