@@ -479,3 +479,8 @@ input,select,button{min-height:42px}
 @media(max-width:700px){.tracker-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.tracker-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 .admin-tracker-filter.hidden{display:none!important}
+
+.admin-assignment-card{margin:14px 0;padding:14px;border:1px solid #d5e0d9;border-radius:12px;background:#f8fbf9}
+.admin-assignment-card h3{margin:0 0 6px;color:#123f35}
+.admin-assignment-card .formgrid{align-items:end}
+.admin-assignment-card .assignment-submit button{width:100%}
