@@ -225,9 +225,8 @@ public class MainActivity extends Activity {
             public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params) {
                 if (filePathCallback != null) filePathCallback.onReceiveValue(null);
                 filePathCallback = callback;
-                Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-                intent.addCategory(Intent.CATEGORY_OPENABLE);
-                intent.setType("*/*");
+                Intent intent = params.createIntent();
+                if (intent.getType() == null) intent.setType("image/*");
                 try {
                     startActivityForResult(Intent.createChooser(intent, "फाइल चुनें"), FILE_CHOOSER_REQUEST);
                     return true;
