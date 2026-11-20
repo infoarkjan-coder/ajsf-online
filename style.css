@@ -778,3 +778,16 @@ body{background:radial-gradient(ellipse at 50% 0%,#e4f1e9 0%,#f4f8f5 42%,#eef4f0
 .customer-picker-option strong{font-size:14px;overflow-wrap:anywhere}
 .customer-picker-option small{font-size:12px;color:#62756b;overflow-wrap:anywhere}
 .customer-picker-empty{padding:10px;color:#687a72;font-size:13px}
+
+
+/* Repair narrow-screen customer register cards: override wide table sizing */
+@media(max-width:760px){
+  .tablewrap:has(> table > tbody#customerRows){overflow:visible!important}
+  .tablewrap:has(> table > tbody#customerRows) table{width:100%!important;min-width:0!important;max-width:100%!important;table-layout:fixed!important}
+  #customerRows{width:100%!important}
+  #customerRows tr{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;width:100%!important;min-width:0!important;gap:0 10px!important}
+  #customerRows td{box-sizing:border-box!important;width:auto!important;min-width:0!important;max-width:100%!important;white-space:normal!important;overflow-wrap:anywhere!important;word-break:normal!important;writing-mode:horizontal-tb!important}
+  #customerRows td:before{max-width:100%;white-space:normal;overflow-wrap:anywhere}
+  #customerRows td.customer-name-cell{grid-column:1/-1!important}
+  #customerRows td.customer-actions-cell{grid-column:1/-1!important}
+}
