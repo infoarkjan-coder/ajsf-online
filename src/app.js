@@ -405,20 +405,7 @@ function renderData() {
     String(a.full_name || "").localeCompare(String(b.full_name || ""))
   );
   $("customerRows").innerHTML = customerRegisterRows.map((c,i) =>
-    "<tr data-center=\"" + esc(c.center_name || "") + "\" data-day=\"" + esc(c.collection_day || "") + "\">" +
-    "<td data-label=\"SR. NO\">" + (i+1) + "</td>" +
-    "<td data-label=\"CENTER NAME\">" + esc(c.center_name || "—") + "</td>" +
-    "<td data-label=\"CUSTOMER NAME\" class=\"customer-name-cell\">" + esc(c.full_name || "—") + "</td>" +
-    "<td data-label=\"CONTACT NUMBER\">" + esc(phone(c.contact_number) || "—") + "</td>" +
-    "<td data-label=\"CUSTOMER ID\">" + esc(formatCustomerId(c.customer_code)) + "</td>" +
-    "<td data-label=\"AREA\">" + esc(c.area || "—") + "</td>" +
-    "<td data-label=\"ADDRESS\">" + esc(c.address || "—") + "</td>" +
-    "<td data-label=\"COLLECTION DAY\">" + esc(c.collection_day || "—") + "</td>" +
-    "<td data-label=\"STATUS\">" + esc(c.customer_status || "—") + "</td>" +
-    "<td data-label=\"ACTION\" class=\"customer-actions-cell\">" +
-    "<button type=\"button\" class=\"customer-verify secondary\" data-customer-id=\"" + esc(c.id) + "\">Field Verify</button> " +
-    (canAdmin() ? "<button type=\"button\" class=\"customer-edit secondary\" data-customer-id=\"" + esc(c.id) + "\">Edit</button> <button type=\"button\" class=\"customer-remove secondary\" data-customer-id=\"" + esc(c.id) + "\">हटाएँ</button>" : "") +
-    "</td></tr>"
+    "<tr data-center=\"" + esc(c.center_name || "") + "\" data-day=\"" + esc(c.collection_day || "") + "\"><td>" + (i+1) + "</td><td>" + esc(c.center_name || "—") + "</td><td>" + esc(c.full_name || "—") + "</td><td>" + esc(phone(c.contact_number) || "—") + "</td><td>" + esc(formatCustomerId(c.customer_code)) + "</td><td>" + esc(c.area || "—") + "</td><td>" + esc(c.address || "—") + "</td><td>" + esc(c.collection_day || "—") + "</td><td>" + esc(c.customer_status || "—") + "</td><td>" + "<button type=\"button\" class=\"customer-verify secondary\" data-customer-id=\"" + esc(c.id) + "\">Field Verify</button> " + (canAdmin() ? "<button type=\"button\" class=\"customer-edit secondary\" data-customer-id=\"" + esc(c.id) + "\">Edit</button> <button type=\"button\" class=\"customer-remove secondary\" data-customer-id=\"" + esc(c.id) + "\">हटाएँ</button>" : "") + "</td></tr>"
   ).join("") || "<tr><td colspan=\"10\" class=\"empty\">कोई ग्राहक नहीं मिला।</td></tr>"
   // Bind actions directly on each freshly-rendered button; avoid delegated capture handlers.
   $("customerRows").querySelectorAll(".customer-account-create").forEach(button => {
