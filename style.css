@@ -769,3 +769,12 @@ body{background:radial-gradient(ellipse at 50% 0%,#e4f1e9 0%,#f4f8f5 42%,#eef4f0
   #customerRows tr td:nth-child(8){grid-column:1}
   #customerRows tr td:nth-child(9){grid-column:2}
 }
+
+
+/* Searchable customer picker for Ledger, Repayment Schedule and Loan Statement */
+#ledgerCustomer,#scheduleCustomer,#statementCustomer{display:none!important}
+.customer-picker-results{display:flex;flex-direction:column;gap:6px;max-height:280px;overflow-y:auto;margin-top:8px}
+.customer-picker-option{display:flex;flex-direction:column;align-items:flex-start;gap:3px;width:100%;padding:11px 13px;background:#f1f7f3;color:#173f34;border:1px solid #d8e7de;border-radius:10px;text-align:left;white-space:normal;line-height:1.35}
+.customer-picker-option strong{font-size:14px;overflow-wrap:anywhere}
+.customer-picker-option small{font-size:12px;color:#62756b;overflow-wrap:anywhere}
+.customer-picker-empty{padding:10px;color:#687a72;font-size:13px}
