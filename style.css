@@ -475,3 +475,6 @@ input,select,button{min-height:42px}
 .customer-picker-field input:focus,.customer-picker-field select:focus,.customer-picker-select:focus{outline:2px solid #8fb9a8;outline-offset:1px;border-color:#477d6b}
 .customer-picker-field label{font-weight:700;color:#294b40;margin-bottom:8px}
 @media(max-width:600px){.customer-picker-grid{grid-template-columns:minmax(0,1fr);gap:10px}.customer-picker-field input,.customer-picker-field select,.customer-picker-select{min-height:54px;font-size:16px}}
+
+/* Customer MIS is redundant with the separate Customer menu; keep it out of the dashboard menu */
+.tabs [data-tab="customer-mis"]{display:none!important}
