@@ -386,7 +386,22 @@ function renderData() {
     String(a.center_name || "").localeCompare(String(b.center_name || "")) ||
     String(a.full_name || "").localeCompare(String(b.full_name || ""))
   );
-  $("customerRows").innerHTML = customerRegisterRows.map((c,i) => "<tr data-center=\"" + esc(c.center_name || "") + "\" data-day=\"" + esc(c.collection_day || "") + "\"><td>" + (i+1) + "</td><td>" + esc(c.center_name || "—") + "</td><td>" + esc(c.full_name || "—") + "</td><td>" + esc(phone(c.contact_number) || "—") + "</td><td>" + esc(formatCustomerId(c.customer_code)) + "</td><td>" + esc(c.area || "—") + "</td><td>" + esc(c.address || "—") + "</td><td>" + esc(c.collection_day || "—") + "</td><td>" + esc(c.customer_status || "—") + "</td><td>" + "<button type=\"button\" class=\"customer-verify secondary\" data-customer-id=\"" + esc(c.id) + "\">Field Verify</button> " + (canAdmin() ? "<button type=\"button\" class=\"customer-edit secondary\" data-customer-id=\"" + esc(c.id) + "\">Edit</button> <button type=\"button\" class=\"customer-remove secondary\" data-customer-id=\"" + esc(c.id) + "\">हटाएँ</button>" : "") + "</td></tr>").join("") || "<tr><td colspan=\"10\" class=\"empty\">कोई ग्राहक नहीं मिला।</td></tr>";
+  $("customerRows").innerHTML = customerRegisterRows.map((c,i) =>
+    "<tr data-center=\"" + esc(c.center_name || "") + "\" data-day=\"" + esc(c.collection_day || "") + "\">" +
+    "<td data-label=\"SR. NO\">" + (i+1) + "</td>" +
+    "<td data-label=\"CENTER NAME\">" + esc(c.center_name || "—") + "</td>" +
+    "<td data-label=\"CUSTOMER NAME\" class=\"customer-name-cell\">" + esc(c.full_name || "—") + "</td>" +
+    "<td data-label=\"CONTACT NUMBER\">" + esc(phone(c.contact_number) || "—") + "</td>" +
+    "<td data-label=\"CUSTOMER ID\">" + esc(formatCustomerId(c.customer_code)) + "</td>" +
+    "<td data-label=\"AREA\">" + esc(c.area || "—") + "</td>" +
+    "<td data-label=\"ADDRESS\">" + esc(c.address || "—") + "</td>" +
+    "<td data-label=\"COLLECTION DAY\">" + esc(c.collection_day || "—") + "</td>" +
+    "<td data-label=\"STATUS\">" + esc(c.customer_status || "—") + "</td>" +
+    "<td data-label=\"ACTION\" class=\"customer-actions-cell\">" +
+    "<button type=\"button\" class=\"customer-verify secondary\" data-customer-id=\"" + esc(c.id) + "\">Field Verify</button> " +
+    (canAdmin() ? "<button type=\"button\" class=\"customer-edit secondary\" data-customer-id=\"" + esc(c.id) + "\">Edit</button> <button type=\"button\" class=\"customer-remove secondary\" data-customer-id=\"" + esc(c.id) + "\">हटाएँ</button>" : "") +
+    "</td></tr>"
+  ).join("") || "<tr><td colspan=\"10\" class=\"empty\">कोई ग्राहक नहीं मिला।</td></tr>"
   // Bind actions directly on each freshly-rendered button; avoid delegated capture handlers.
   $("customerRows").querySelectorAll(".customer-account-create").forEach(button => {
     button.onclick = event => {
@@ -592,10 +607,10 @@ async function loadCustomerLedger() {
     <div class="ledger-print-customer"><span><small>Customer ID</small><b>${esc(formatCustomerId(customer?.customer_code))}</b></span><span><small>Customer Name</small><b>${esc(customer?.full_name || "—")}</b></span><span><small>Center</small><b>${esc(customer?.center_name || "—")}</b></span><span><small>Mobile</small><b>${esc(phone(customer?.contact_number) || "—")}</b></span></div>
     <div class="ledger-print-totals"><span><small>Total Loan Amount</small><b>${money(totalLoanAmount)}</b></span><span><small>All-time Collection</small><b>${money(totalCollected)}</b></span><span><small>Outstanding Balance / कुल बकाया</small><b>${money(totalOutstanding)}</b></span><span><small>Recorded Transactions</small><b>${paymentRows.length.toLocaleString("en-IN")}</b></span></div>
     <h3>Loan-wise Outstanding Balance / लोन अनुसार बाकी राशि</h3>
-    <div class="tablewrap ledger-tablewrap"><table id="ledgerLoanBalanceTable"><thead><tr><th>Loan Ref</th><th>Loan Amount</th><th>Total Collected</th><th>Remaining Balance</th></tr></thead><tbody>${loanBalanceRows}</tbody></table>
+    <div class="tablewrap ledger-tablewrap"><table id="ledgerLoanBalanceTable"><thead><tr><th>Loan Ref</th><th>Loan Amount</th><th>Total Collected</th><th>Remaining Balance</th></tr></thead><tbody>${loanBalanceRows}</tbody></table></div>
     <h3>Payment Transaction Register</h3>
     <p class="small muted">Outstanding Balance में सभी चालू और पुराने Loan का शेष बकाया शामिल है। नीचे सिस्टम में दर्ज वास्तविक भुगतान की तारीख, रसीद, Loan Ref, Mode और राशि दी गई है।</p>
-    <div class="tablewrap ledger-tablewrap"><table id="ledgerPaymentTable"><thead><tr><th>Date</th><th>Receipt / Transaction</th><th>Loan Ref</th><th>Mode</th><th>Amount</th></tr></thead><tbody>${transactionRows}</tbody></table>
+    <div class="tablewrap ledger-tablewrap"><table id="ledgerPaymentTable"><thead><tr><th>Date</th><th>Receipt / Transaction</th><th>Loan Ref</th><th>Mode</th><th>Amount</th></tr></thead><tbody>${transactionRows}</tbody></table></div>
     <p class="ledger-generated">Statement Generated: ${new Date().toLocaleString("en-IN")}</p>
   </div>`;
   rows.innerHTML = transactionRows;
