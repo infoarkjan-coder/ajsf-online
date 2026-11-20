@@ -540,7 +540,7 @@ function filterScheduleCustomers() {
   if (!select) return;
   const current = select.value;
   select.innerHTML = `<option value="">ग्राहक चुनें</option>` + customers
-    .filter(c => !q || [c.customer_code,c.full_name,c.contact_number,c.center_name].some(v => String(v || "").toLocaleLowerCase().includes(q)))
+    .filter(c => c.is_active !== false && (c.customer_status || "ACTIVE") === "ACTIVE" && (!q || [c.customer_code,c.full_name,c.contact_number,c.center_name].some(v => String(v || "").toLocaleLowerCase().includes(q)))
     .map(c => `<option value="${esc(c.id)}">${esc(c.customer_code || "")} · ${esc(c.full_name || "")} · ${esc(phone(c.contact_number))}</option>`).join("");
   if (Array.from(select.options).some(o => o.value === current)) select.value = current;
 }
@@ -660,7 +660,7 @@ function filterLedgerCustomers() {
   if (!select) return;
   const current = select.value;
   select.innerHTML = `<option value="">ग्राहक चुनें</option>` + customers
-    .filter(c => !q || [c.customer_code,c.full_name,c.contact_number,c.center_name].some(v => String(v || "").toLocaleLowerCase().includes(q)))
+    .filter(c => c.is_active !== false && (c.customer_status || "ACTIVE") === "ACTIVE" && (!q || [c.customer_code,c.full_name,c.contact_number,c.center_name].some(v => String(v || "").toLocaleLowerCase().includes(q)))
     .map(c => `<option value="${esc(c.id)}">${esc(c.customer_code || "")} · ${esc(c.full_name || "")} · ${esc(phone(c.contact_number))}</option>`).join("");
   if (Array.from(select.options).some(o => o.value === current)) select.value = current;
 }
@@ -702,7 +702,7 @@ function filterStatementCustomers() {
   if (!select) return;
   const current = select.value;
   select.innerHTML = `<option value="">ग्राहक चुनें</option>` + customers
-    .filter(c => !q || [c.customer_code,c.full_name,c.contact_number,c.center_name].some(v => String(v || "").toLocaleLowerCase().includes(q)))
+    .filter(c => c.is_active !== false && (c.customer_status || "ACTIVE") === "ACTIVE" && (!q || [c.customer_code,c.full_name,c.contact_number,c.center_name].some(v => String(v || "").toLocaleLowerCase().includes(q)))
     .map(c => `<option value="${esc(c.id)}">${esc(c.customer_code)} · ${esc(c.full_name)} · ${esc(phone(c.contact_number))}</option>`).join("");
   if (customers.some(c => c.id === current) && Array.from(select.options).some(o => o.value === current)) select.value = current;
 }
