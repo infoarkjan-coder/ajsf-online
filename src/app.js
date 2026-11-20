@@ -1,3 +1,17 @@
+function renderCustomerPickerResults(selectId, searchId, resultsId) {
+  const select = $(selectId), search = $(searchId), box = $(resultsId);
+  if (!select || !search || !box) return;
+  const q = (search.value || "").trim().toLocaleLowerCase();
+  const matches = customers.filter(c => !q || [c.customer_code,c.full_name,c.contact_number,c.center_name].some(v => String(v || "").toLocaleLowerCase().includes(q))).slice(0,60);
+  box.innerHTML = matches.map(c => `<button type="button" class="customer-picker-option" data-customer-id="${esc(c.id)}"><strong>${esc(formatCustomerId(c.customer_code))} · ${esc(c.full_name || "")}</strong><small>${esc(phone(c.contact_number) || "")} · ${esc(c.center_name || "")}</small></button>`).join("") || '<p class="customer-picker-empty">कोई ग्राहक नहीं मिला। नाम, ID या मोबाइल से खोजें।</p>';
+  box.querySelectorAll(".customer-picker-option").forEach(button => button.addEventListener("click", () => {
+    select.value = button.dataset.customerId;
+    const chosen = customers.find(c => c.id === select.value);
+    search.value = chosen ? formatCustomerId(chosen.customer_code) + " · " + chosen.full_name : "";
+    box.innerHTML = "";
+    select.dispatchEvent(new Event("change", {bubbles:true}));
+  }));
+}
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./config.js";
 
@@ -624,16 +638,13 @@ function displayDueDate(d) {
   return d.toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"});
 }
 function filterScheduleCustomers() {
-  const q = ($("scheduleSearch")?.value || "").trim().toLocaleLowerCase();
   const select = $("scheduleCustomer");
   if (!select) return;
   const current = select.value;
-  select.innerHTML = `<option value="">ग्राहक चुनें</option>` + customers
-    .filter(c => !q || [c.customer_code,c.full_name,c.contact_number,c.center_name].some(v => String(v || "").toLocaleLowerCase().includes(q)))
-    .map(c => `<option value="${esc(c.id)}">${esc(formatCustomerId(c.customer_code))} · ${esc(c.full_name || "")} · ${esc(phone(c.contact_number))}</option>`).join("");
-  if (Array.from(select.options).some(o => o.value === current)) select.value = current;
-}
-function populateScheduleLoans() {
+  select.innerHTML = '<option value="">ग्राहक चुनें</option>' + customers.map(c => `<option value="${esc(c.id)}">${esc(formatCustomerId(c.customer_code))} · ${esc(c.full_name || "")} · ${esc(phone(c.contact_number))}</option>`).join("");
+  if (customers.some(c => c.id === current)) select.value = current;
+  renderCustomerPickerResults("scheduleCustomer","scheduleSearch","scheduleCustomerResults");
+}function populateScheduleLoans() {
   const id = $("scheduleCustomer").value;
   const list = loans.filter(l => l.customer_id === id);
   $("scheduleLoan").innerHTML = `<option value="">लोन चुनें</option>` + list.map(l => `<option value="${esc(l.id)}">${esc(l.loan_reference || "Loan")} · ${money(l.loan_amount)}</option>`).join("");
@@ -737,16 +748,13 @@ function printRepaymentSchedule() {
 }
 
 function filterLedgerCustomers() {
-  const q = ($("ledgerSearch")?.value || "").trim().toLocaleLowerCase();
   const select = $("ledgerCustomer");
   if (!select) return;
   const current = select.value;
-  select.innerHTML = `<option value="">ग्राहक चुनें</option>` + customers
-    .filter(c => !q || [c.customer_code,c.full_name,c.contact_number,c.center_name].some(v => String(v || "").toLocaleLowerCase().includes(q)))
-    .map(c => `<option value="${esc(c.id)}">${esc(formatCustomerId(c.customer_code))} · ${esc(c.full_name || "")} · ${esc(phone(c.contact_number))}</option>`).join("");
-  if (Array.from(select.options).some(o => o.value === current)) select.value = current;
-}
-function printCustomerLedger() {
+  select.innerHTML = '<option value="">ग्राहक चुनें</option>' + customers.map(c => `<option value="${esc(c.id)}">${esc(formatCustomerId(c.customer_code))} · ${esc(c.full_name || "")} · ${esc(phone(c.contact_number))}</option>`).join("");
+  if (customers.some(c => c.id === current)) select.value = current;
+  renderCustomerPickerResults("ledgerCustomer","ledgerSearch","ledgerCustomerResults");
+}function printCustomerLedger() {
   if (!$("ledgerCustomer").value) return showMessage("पहले ग्राहक खोजकर चुनें।", "warn");
   const area = $("ledgerPrintArea");
   if (!area) return showMessage("पहले Ledger लोड होने दें।", "warn");
@@ -779,16 +787,13 @@ function filterCustomerRows() {
   });
 }
 function filterStatementCustomers() {
-  const q = ($("statementSearch")?.value || "").trim().toLocaleLowerCase();
   const select = $("statementCustomer");
   if (!select) return;
   const current = select.value;
-  select.innerHTML = `<option value="">ग्राहक चुनें</option>` + customers
-    .filter(c => !q || [c.customer_code,c.full_name,c.contact_number,c.center_name].some(v => String(v || "").toLocaleLowerCase().includes(q)))
-    .map(c => `<option value="${esc(c.id)}">${esc(formatCustomerId(c.customer_code))} · ${esc(c.full_name)} · ${esc(phone(c.contact_number))}</option>`).join("");
-  if (customers.some(c => c.id === current) && Array.from(select.options).some(o => o.value === current)) select.value = current;
-}
-function renderCustomerStatement() {
+  select.innerHTML = '<option value="">ग्राहक चुनें</option>' + customers.map(c => `<option value="${esc(c.id)}">${esc(formatCustomerId(c.customer_code))} · ${esc(c.full_name || "")} · ${esc(phone(c.contact_number))}</option>`).join("");
+  if (customers.some(c => c.id === current)) select.value = current;
+  renderCustomerPickerResults("statementCustomer","statementSearch","statementCustomerResults");
+}function renderCustomerStatement() {
   const id = $("statementCustomer").value;
   const root = $("statementOutput");
   if (!id) { root.innerHTML = `<p class="muted">ग्राहक चुनने पर Loan Statement दिखाई देगा।</p>`; return; }
