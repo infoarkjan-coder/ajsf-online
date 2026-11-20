@@ -2,6 +2,7 @@ function renderCustomerPickerResults(selectId, searchId, resultsId) {
   const select = $(selectId), search = $(searchId), box = $(resultsId);
   if (!select || !search || !box) return;
   const q = (search.value || "").trim().toLocaleLowerCase();
+  if (!q) { box.innerHTML = ""; return; }
   const matches = customers.filter(c => !q || [c.customer_code,c.full_name,c.contact_number,c.center_name].some(v => String(v || "").toLocaleLowerCase().includes(q))).slice(0,60);
   box.innerHTML = matches.map(c => `<button type="button" class="customer-picker-option" data-customer-id="${esc(c.id)}"><strong>${esc(formatCustomerId(c.customer_code))} · ${esc(c.full_name || "")}</strong><small>${esc(phone(c.contact_number) || "")} · ${esc(c.center_name || "")}</small></button>`).join("") || '<p class="customer-picker-empty">कोई ग्राहक नहीं मिला। नाम, ID या मोबाइल से खोजें।</p>';
   box.querySelectorAll(".customer-picker-option").forEach(button => button.addEventListener("click", () => {
