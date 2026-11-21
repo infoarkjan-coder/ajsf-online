@@ -56,7 +56,7 @@ self.addEventListener("fetch", event => {
     return;
   }
 
-  const isAppCode = url.origin === self.location.origin && /\\.(js|css)$/.test(url.pathname);
+  const isAppCode = url.origin === self.location.origin && /\.(js|css)$/.test(url.pathname);
   if (isAppCode) {
     // Always prefer fresh app code; use cache only when the device is offline.
     event.respondWith(
