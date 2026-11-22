@@ -2147,14 +2147,35 @@ async function createReceiptPdf() {
   const area = $("receiptContent");
   if (!lastReceipt || !area || !area.innerHTML.trim()) throw new Error("पहले भुगतान सेव करें।");
   await loadReceiptLibrary("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js", () => typeof window.html2canvas === "function");
-  const canvas = await window.html2canvas(area, {scale:2,backgroundColor:"#ffffff",useCORS:true,logging:false});
   await loadReceiptLibrary("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js", () => !!window.jspdf?.jsPDF);
+  if (document.fonts?.ready) {
+    try { await withPdfTimeout(document.fonts.ready,5000,"फ़ॉन्ट लोड होने में देर हो रही है।"); }
+    catch (error) { console.warn("AJSF receipt PDF: font wait skipped",error); }
+  }
+  await Promise.all(Array.from(area.querySelectorAll("img")).map(img => img.complete
+    ? Promise.resolve()
+    : new Promise(resolve => {
+        img.addEventListener("load",resolve,{once:true});
+        img.addEventListener("error",resolve,{once:true});
+        setTimeout(resolve,4000);
+      })
+  ));
+  await withPdfTimeout(new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))),3000,"रसीद स्क्रीन तैयार नहीं हो सकी।");
+  const canvas = await withPdfTimeout(window.html2canvas(area, {
+    scale:2,backgroundColor:"#ffffff",useCORS:true,allowTaint:false,logging:false,
+    imageTimeout:8000,windowWidth:Math.max(document.documentElement.clientWidth,area.scrollWidth)
+  }),30000,"रसीद की PDF इमेज 30 सेकंड में तैयार नहीं हुई।");
+  if (!canvas?.width || !canvas?.height) throw new Error("रसीद की PDF इमेज तैयार नहीं हुई।");
   const {jsPDF} = window.jspdf;
-  const pdf = new jsPDF({orientation:"portrait",unit:"mm",format:"a5"});
-  const width = 138, height = canvas.height * width / canvas.width;
-  pdf.addImage(canvas.toDataURL("image/png"),"PNG",6,6,width,Math.min(height,198));
+  const pdf = new jsPDF({orientation:"portrait",unit:"mm",format:"a5",compress:true});
+  const margin = 6, pageW = 148, pageH = 210, usableW = pageW-margin*2, usableH = pageH-margin*2;
+  const ratio = Math.min(usableW/canvas.width,usableH/canvas.height);
+  const width = canvas.width*ratio, height = canvas.height*ratio;
+  pdf.addImage(canvas.toDataURL("image/jpeg",0.94),"JPEG",(pageW-width)/2,(pageH-height)/2,width,height,undefined,"FAST");
+  const blob = pdf.output("blob");
+  if (!blob || blob.size < 100) throw new Error("रसीद की PDF खाली बनी है।");
   const receiptNo = (lastReceipt.payment.id || lastReceipt.payment.client_tx_id || "receipt").slice(0,8).toUpperCase();
-  return new File([pdf.output("blob")],"AJSF-Receipt-"+receiptNo+".pdf",{type:"application/pdf"});
+  return new File([blob],"AJSF-Receipt-"+receiptNo+".pdf",{type:"application/pdf"});
 }
 async function downloadReceiptPdf() {
   const button = $("downloadReceiptPdfBtn");
