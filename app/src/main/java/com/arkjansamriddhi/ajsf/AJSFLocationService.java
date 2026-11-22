@@ -60,6 +60,8 @@ public class AJSFLocationService extends Service {
 
     private void beginUpdates() {
         try {
+            if (locationManager != null && listener != null) locationManager.removeUpdates(listener);
+            listener = null;
             if (checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) != android.content.pm.PackageManager.PERMISSION_GRANTED
                 && checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
                 stopSelf(); return;
