@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AJSF Customer App</title><meta name="theme-color" content="#123f35">
+<link rel="stylesheet" href="./style.css">
+<style>
+.customer-shell{max-width:980px;margin:24px auto;padding:16px}.customer-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}.customer-stat{padding:18px;border-radius:14px;background:#f0f7f2;border:1px solid #d5e6da}.customer-stat .metric{font-size:25px;font-weight:800;color:#123f35}.customer-table{overflow:auto}.customer-table table{min-width:560px}.customer-actions{display:flex;gap:10px;flex-wrap:wrap}.customer-muted{color:#61766c}.customer-hidden{display:none!important}
+</style>
+</head>
+<body>
+<main class="shell customer-shell">
+<header class="brand"><img class="brand-logo" src="./assets/ajsf-logo.png" alt="AJSF Logo"><div><h1>ARK JAN SAMRIDDHI FOUNDATION</h1><p>SAPNE AAPKE SATH HAMARA</p></div></header>
+<section class="card" id="customerLogin">
+<span class="eyebrow">CUSTOMER PORTAL</span><h2 id="loginTitle">ग्राहक लॉगिन</h2>
+<p class="customer-muted" id="loginHelp">अपने रजिस्टर्ड मोबाइल नंबर और पासवर्ड से लॉगिन करें।</p>
+<form id="customerLoginForm">
+<label for="mobile">Registered Mobile Number</label><input id="mobile" type="tel" inputmode="numeric" autocomplete="username" maxlength="15" required placeholder="मोबाइल नंबर">
+<label for="password">Password</label><input id="password" type="password" autocomplete="current-password" required placeholder="Password">
+<button id="customerLoginBtn" type="submit">लॉगिन करें</button>
+</form>
+<p id="customerLoginMessage" class="message" role="status"></p>
+<div class="customer-actions"><button id="langToggle" type="button" class="secondary">English</button><a href="./index.html" class="small">Staff Login</a></div>
+</section>
+<section id="customerDashboard" class="customer-hidden">
+<div class="dashhead"><div><span class="eyebrow">CUSTOMER DASHBOARD</span><h2><span id="welcomeText">नमस्ते</span>, <span id="customerName">ग्राहक</span></h2><p class="customer-muted">Customer ID: <strong id="customerCode">—</strong> · <span id="customerMobile">—</span></p></div><button id="customerLogout" type="button" class="secondary">लॉगआउट</button></div>
+<p id="dashboardMessage" class="message" role="status"></p>
+<div class="customer-grid">
+<div class="customer-stat"><div class="label" id="loanAmountLabel">Loan Amount</div><div class="metric" id="loanAmount">₹0</div></div>
+<div class="customer-stat"><div class="label" id="paidLabel">EMI Paid</div><div class="metric" id="emiPaid">0</div></div>
+<div class="customer-stat"><div class="label" id="pendingLabel">EMI Pending</div><div class="metric" id="emiPending">0</div></div>
+<div class="customer-stat"><div class="label" id="nextDueLabel">Next Collection Day</div><div class="metric" id="nextDue">—</div></div>
+</div>
+<section class="card" style="margin-top:16px"><div class="panel-head"><h2 id="loansTitle">मेरे लोन</h2></div><div class="customer-table"><table><thead><tr><th>Loan Ref</th><th>Loan Amount</th><th>EMI</th><th>Total EMI</th><th>Status</th></tr></thead><tbody id="customerLoans"></tbody></table></div></section>
+<section class="card" style="margin-top:16px"><div class="panel-head"><h2 id="historyTitle">Payment History</h2></div><div class="customer-table"><table><thead><tr><th>Date</th><th>Loan Ref</th><th>Amount</th><th>Mode</th><th>Receipt</th></tr></thead><tbody id="customerPayments"></tbody></table></div></section>
+<section class="card" style="margin-top:16px"><div class="panel-head"><h2 id="securityTitle">Account Settings</h2></div><p id="passwordNote" class="customer-muted">आप चाहें तो अपना Password बदल सकते हैं। यह अनिवार्य नहीं है।</p><form id="changePasswordForm"><label for="newPassword" id="newPasswordLabel">नया Password</label><input id="newPassword" type="password" minlength="8" autocomplete="new-password" placeholder="कम से कम 8 अक्षर"><button type="submit" id="changePasswordBtn">Password बदलें</button></form><p id="passwordMessage" class="message" role="status"></p></section>
+</section>
+<footer>AJSF CUSTOMER PORTAL · <a href="./index.html">Staff Login</a></footer>
+</main>
+<script type="module" src="./src/customer-app.js"></script>
+</body></html>

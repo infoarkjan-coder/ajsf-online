@@ -29,8 +29,18 @@ function say(message, type="info") {
 function downloadBlob(blob, name) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href = url; a.download = name; a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1500);
+  a.href = url;
+  a.download = name;
+  a.setAttribute("download", name);
+  a.style.position = "fixed";
+  a.style.left = "-10000px";
+  a.style.top = "0";
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    a.remove();
+    URL.revokeObjectURL(url);
+  }, 120000);
 }
 function dateStamp() { return new Date().toISOString().replace(/[:.]/g,"-").slice(0,19); }
 function normalizeDay(value) {
@@ -217,7 +227,7 @@ async function exportCustomers() {
       fetchAllRows("advance_ledger")
     ]);
     const customerIds = new Set(allCustomers.map(c=>c.id));
-    const allLoans = fetchedLoans.filter(l=>customerIds.has(l.customer_id));
+    const allLoans = fetchedLoans.filter(l=>customerIds.has(l.customer_id) && l.is_archived !== true);
     const loanIds = new Set(allLoans.map(l=>l.id));
     const allWeekly = fetchedWeekly.filter(w=>loanIds.has(w.loan_id));
     const allPayments = fetchedPayments.filter(p=>loanIds.has(p.loan_id));
@@ -251,7 +261,7 @@ async function exportCustomers() {
       loanByCustomer.get(l.customer_id).push(l);
     });
     const rows = [];
-    allCustomers.forEach(c=>{
+    allCustomers.filter(c=>c.is_active !== false).forEach(c=>{
       const customerLoans = loanByCustomer.get(c.id) || [];
       if (!customerLoans.length) rows.push(exportTrackerRow(c,null,weeklyByLoan,paidByLoan,advanceByLoan,(l,p)=>({collected:0,outstanding:0})));
       else customerLoans.forEach(l=>rows.push(exportTrackerRow(c,l,weeklyByLoan,paidByLoan,advanceByLoan,(loan,payments)=>{
@@ -271,14 +281,17 @@ function cell(row, ...keys) {
   for (const key of keys) if (row[key] !== undefined && row[key] !== null) return String(row[key]).trim();
   return "";
 }
+function normalizeExcelHeader(value) {
+  return String(value ?? "").replace(/^\uFEFF/, "").replace(/\u00A0/g, " ").trim().toLowerCase().replace(/[\s_]+/g," ");
+}
 function headerMap(row) {
   const map = {};
-  Object.keys(row || {}).forEach(k=>{ map[String(k).trim().toLowerCase().replace(/[\s_]+/g," ")] = row[k]; });
+  Object.keys(row || {}).forEach(k=>{ map[normalizeExcelHeader(k)] = row[k]; });
   return map;
 }
 function rowValue(row, ...names) {
   for (const name of names) {
-    const key = String(name).trim().toLowerCase().replace(/[\s_]+/g," ");
+    const key = normalizeExcelHeader(name);
     if (row[key] !== undefined && row[key] !== null) return String(row[key]).trim();
   }
   return "";
@@ -312,6 +325,7 @@ function excelRowsToRecords(raw, existingCustomers, existingLoans, existingWeekl
   const weeklyExisting = new Map();
   existingWeekly.forEach(w=>weeklyExisting.set(w.loan_id+":"+w.week_no,w));
   const customers = new Map(), loans = [], weekly = [], advanceLedger = [], problems=[];
+  const customerIdByCode = new Map(existingCustomers.map(c=>[String(c.customer_code||"").trim(),c.id]));
   const knownAdvanceKeys = new Set((existingAdvance||[]).map(x=>x.idempotency_key));
   let newCustomerCount=0, updateCustomerCount=0, newLoanCount=0, updateLoanCount=0;
   raw.forEach((source,index)=>{
@@ -321,7 +335,9 @@ function excelRowsToRecords(raw, existingCustomers, existingLoans, existingWeekl
     if (!name || !code) { problems.push("Row "+rowNo+": Customer Name और Customer ID जरूरी"); return; }
     const hiddenCustomerId=rowValue(row,"_AJSF Customer UUID");
     const oldCustomer=customerByCode.get(code) || customerById.get(hiddenCustomerId);
-    const customerId=oldCustomer?.id || hiddenCustomerId || crypto.randomUUID();
+    // Customer Code is the stable import key; repeated loan rows reuse one customer UUID.
+    const customerId=oldCustomer?.id || customerIdByCode.get(code) || hiddenCustomerId || crypto.randomUUID();
+    customerIdByCode.set(code,customerId);
     const dayRaw=rowValue(row,"Collection Day");
     const day=normalizeDay(dayRaw);
     if (dayRaw && !day) { problems.push("Row "+rowNo+": Collection Day गलत"); return; }
@@ -351,9 +367,9 @@ function excelRowsToRecords(raw, existingCustomers, existingLoans, existingWeekl
     const loanAmount=numericCell(rowValue(row,"Loan Amount"),"Loan Amount",rowNo,false);
     const emiAmount=numericCell(rowValue(row,"EMI Amount"),"EMI Amount",rowNo,false);
     const terms=numericCell(rowValue(row,"Total EMIs Required"),"Total EMIs Required",rowNo,false);
-    const disbursement=parseExcelDate(rowValue(row,"DATE OF DISBURSEMENT","Date of Disbursement"));
-    const loanTypeRaw=rowValue(row,"FRESH/REPEAT","Loan Type").toUpperCase();
-    const loanType=loanTypeRaw || "";
+    const disbursement=parseExcelDate(rowValue(row,"DATE OF DISBURSEMENT","DATE OF DISBERSMENT","Date of Disbursement"));
+    const loanTypeRaw=rowValue(row,"FRESH/REPEAT","FRESH/REPEET","FRESH REPEET","Loan Type").toUpperCase();
+    const loanType=({REPEET:"REPEAT",REPEATE:"REPEAT",REPEATED:"REPEAT"})[loanTypeRaw] || loanTypeRaw || "";
     const hasLoan=loanAmount!==null || emiAmount!==null || terms!==null || !!loanType || !!disbursement;
     if (!hasLoan) return;
     if (loanAmount===null || emiAmount===null || terms===null || !loanType || !["FRESH","REPEAT"].includes(loanType)) {
@@ -404,7 +420,8 @@ function excelRowsToRecords(raw, existingCustomers, existingLoans, existingWeekl
       total_emis_required:terms, status:["active","closed","cancelled"].includes(loanStatus)?loanStatus:"active",
       source_total_collected:sourceCollected, source_osp:sourceOsp,
       source_emis_paid:paidCount, source_emis_pending:Math.max(0,terms-paidCount),
-      created_by:oldLoan?.created_by || rowValue(row,"_AJSF Loan Created By") || activeUser.id
+      created_by:oldLoan?.created_by || rowValue(row,"_AJSF Loan Created By") || activeUser.id,
+      is_archived:false
     };
     loans.push(loan);
     if (oldLoan) updateLoanCount++; else newLoanCount++;
@@ -416,7 +433,7 @@ function excelRowsToRecords(raw, existingCustomers, existingLoans, existingWeekl
       });
     });
   });
-  return {customers:[...customers.values()],loans,weekly,advanceLedger,problems,newCustomerCount,updateCustomerCount,newLoanCount,updateLoanCount};
+  return {customers:[...customers.values()],customerIds:[...customers.keys()],loans,weekly,advanceLedger,problems,newCustomerCount,updateCustomerCount,newLoanCount,updateLoanCount};
 }
 async function importCustomers(event) {
   const file=event.target.files?.[0];
@@ -427,13 +444,22 @@ async function importCustomers(event) {
     say("Excel जाँची जा रही है…");
     const bytes=await file.arrayBuffer();
     const wb=XLSX.read(bytes,{type:"array",cellDates:false});
-    const sheet=wb.Sheets[wb.SheetNames[0]];
-    const raw=XLSX.utils.sheet_to_json(sheet,{defval:"",raw:false});
+    const preferredSheetName=wb.SheetNames.find(n=>normalizeExcelHeader(n).includes("weekly emi collection tracker")) || wb.SheetNames[0];
+    const sheet=wb.Sheets[preferredSheetName];
+    const matrix=XLSX.utils.sheet_to_json(sheet,{header:1,defval:"",raw:false});
+    const headerIndex=matrix.findIndex(cells=>{
+      const hs=(cells||[]).map(normalizeExcelHeader);
+      return hs.some(h=>["customer name","name of customer","name"].includes(h)) &&
+        hs.some(h=>["customer id","customer code","customerid","customer code/id"].includes(h));
+    });
+    if (headerIndex<0) throw new Error("इस Excel में Customer Name और Customer ID वाले column नहीं मिले। सही शीट: WEEKLY EMI COLLECTION TRACKER चुनें।");
+    const sourceHeaders=(matrix[headerIndex]||[]).map(v=>String(v??"").trim());
+    const raw=matrix.slice(headerIndex+1).filter(cells=>(cells||[]).some(v=>String(v??"").trim()!=="")).map(cells=>{
+      const record={};
+      sourceHeaders.forEach((h,i)=>{if(h) record[h]=cells?.[i]??"";});
+      return record;
+    });
     if (!raw.length) return say("Excel में कोई डेटा नहीं मिला।","error");
-    const headers=Object.keys(raw[0]).map(x=>String(x).trim().toLowerCase());
-    if (!headers.includes("customer name") || !(headers.includes("customer id") || headers.includes("customer code"))) {
-      throw new Error("यह AJSF Weekly EMI Tracker format नहीं है। Full Excel Export से मिली फ़ाइल इस्तेमाल करें।");
-    }
     const [allCustomers,allLoans,allWeekly,allPayments,allAdvance]=await Promise.all([
       fetchAllRows("customers"),
       fetchAllRows("loans"),
@@ -445,20 +471,36 @@ async function importCustomers(event) {
     if (parsed.problems.length) throw new Error("Import रोक दिया गया। "+parsed.problems.slice(0,8).join(" | ")+(parsed.problems.length>8?" | और "+(parsed.problems.length-8)+" त्रुटियाँ":""));
     if (!parsed.customers.length) throw new Error("कोई Import योग्य Customer नहीं मिला।");
     const uniqueCustomerCount=parsed.customers.length;
+    const importedCustomerIds=new Set(parsed.customerIds);
+    const archiveCustomers=allCustomers.filter(c=>c.is_active!==false && !importedCustomerIds.has(c.id));
+    const importedLoanIds=new Set(parsed.loans.map(l=>l.id));
+    const archiveLoans=allLoans.filter(l=>l.is_archived!==true && !importedLoanIds.has(l.id));
     const preview="Excel में "+raw.length+" rows हैं।\n"+
       "Customer records: "+uniqueCustomerCount+" (नए/अपडेट मिलाकर)\n"+
       "नए Loan: "+parsed.newLoanCount+" · अपडेट Loan: "+parsed.updateLoanCount+"\n"+
-      "Weekly Status: "+parsed.weekly.length+" rows\nAdvance Ledger: "+parsed.advanceLedger.length+" new rows\n\n"+
-      "मौजूदा Payment Transactions delete या duplicate नहीं होंगे। Excel के W1–W24 और Loan totals अपडेट होंगे।\n"+
-      "Excel में न होने वाले पुराने रिकॉर्ड delete नहीं होंगे।\n\nक्या Import जारी रखें?";
+      "Weekly Status: "+parsed.weekly.length+" rows\nAdvance Ledger: "+parsed.advanceLedger.length+" new rows\n"+
+      "पुराने ग्राहक जो नई Excel में नहीं हैं: "+archiveCustomers.length+" (Inactive होंगे)\n\n"+
+      "Replace Mode: नई Excel की Customer और Loan List मुख्य सूची बनेगी। Excel में न मिलने वाले पुराने ग्राहक Inactive और पुराने Loan Archived होंगे; उनका Payment/Receipt/Advance इतिहास सुरक्षित रहेगा।\n"+
+      "मौजूदा Payment Transactions सुरक्षित रहेंगे। Excel के W1–W24 और Loan totals अपडेट होंगे।\n\nक्या Import जारी रखें?";
     if (!confirm(preview)) return say("Import रद्द किया गया।");
     for(let i=0;i<parsed.customers.length;i+=50) {
       const {error}=await db.from("customers").upsert(parsed.customers.slice(i,i+50),{onConflict:"id"});
       if(error) throw new Error("Customer batch "+(Math.floor(i/50)+1)+": "+error.message);
     }
+    // Archive omitted customers without deleting linked financial history.
+    for(let i=0;i<archiveCustomers.length;i+=100) {
+      const ids=archiveCustomers.slice(i,i+100).map(c=>c.id);
+      const {error}=await db.from("customers").update({is_active:false}).in("id",ids);
+      if(error) throw new Error("Old Customer archive batch "+(Math.floor(i/100)+1)+": "+error.message);
+    }
     for(let i=0;i<parsed.loans.length;i+=50) {
       const {error}=await db.from("loans").upsert(parsed.loans.slice(i,i+50),{onConflict:"id"});
       if(error) throw new Error("Loan batch "+(Math.floor(i/50)+1)+": "+error.message);
+    }
+    for(let i=0;i<archiveLoans.length;i+=100) {
+      const ids=archiveLoans.slice(i,i+100).map(l=>l.id);
+      const {error}=await db.from("loans").update({is_archived:true}).in("id",ids);
+      if(error) throw new Error("Old Loan archive batch "+(Math.floor(i/100)+1)+": "+error.message);
     }
     for(let i=0;i<parsed.weekly.length;i+=100) {
       const {error}=await db.from("loan_weekly_status").upsert(parsed.weekly.slice(i,i+100),{onConflict:"loan_id,week_no"});
@@ -471,7 +513,7 @@ async function importCustomers(event) {
       if(error) throw new Error("Advance Ledger batch "+(Math.floor(i/100)+1)+": "+error.message);
     }
     await refreshCustomers();
-    say("Import पूरा हुआ। Customer: "+parsed.customers.length+" · Loan: "+parsed.loans.length+" · W1–W24: "+parsed.weekly.length+" · Advance Ledger: "+parsed.advanceLedger.length+". Dashboard Refresh करें।","success");
+    say("Import पूरा हुआ। Customer: "+parsed.customers.length+" · Active Loan: "+parsed.loans.length+" · Archived पुराने Loan: "+archiveLoans.length+" · W1–W24: "+parsed.weekly.length+" · Advance Ledger: "+parsed.advanceLedger.length+". Dashboard Refresh करें।","success");
     document.dispatchEvent(new CustomEvent("ajsf:data-imported"));
   } catch(e) { say("Import असफल: "+e.message,"error"); }
 }
@@ -534,7 +576,7 @@ async function activate(user) {
   const exp=$("exportCustomersExcel"); if(exp) exp.classList.remove("hidden");
 }
 db.auth.onAuthStateChange((event,session) => {
-  if (event === "SIGNED_IN" && session?.user) setTimeout(()=>activate(session.user),0);
+  if ((event === "SIGNED_IN" || event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED") && session?.user) setTimeout(()=>activate(session.user),0);
   if (event === "SIGNED_OUT") { activeUser=null; activeRole=null; }
 });
 document.addEventListener("ajsf:data-imported", () => {
