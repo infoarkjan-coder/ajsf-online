@@ -423,11 +423,12 @@ function renderShell() {
   const dashboard = $("dashboardCard");
   dashboard.classList.toggle("collector-mode", !canAdmin());
   dashboard.classList.remove("collector-payment-mode");
-  // Hide the Admin KPI strip directly for Collectors (not just via stylesheet).
+  // Android APK uses a clean corporate menu home; the website keeps its existing navigation.
+  if (isAjsfAndroidApp()) initAjsfCorporateMenu();
+  // Keep the existing KPI strip hidden for Collectors and hide it in the Android menu home.
   const summaryGrid = dashboard.querySelector(":scope > .grid");
-  if (summaryGrid) summaryGrid.style.setProperty("display", canAdmin() ? "" : "none", "important");
-  // Keep Collector on the demand screen; Admin navigation remains unchanged.
-  activateTab(canAdmin() ? "customers" : "collector-demand");
+  if (summaryGrid) summaryGrid.style.setProperty("display", canAdmin() && !isAjsfAndroidApp() ? "" : "none", "important");
+  activateTab(isAjsfAndroidApp() ? "ajs-menu-home" : (canAdmin() ? "customers" : "collector-demand"));
   const staffAdminSetupBtn = $("staffAdminSetupBtn");
   if (staffAdminSetupBtn) staffAdminSetupBtn.classList.toggle("hidden", !canAdmin());
   const staffPasswordResetBtn = $("staffPasswordResetBtn");
@@ -437,18 +438,104 @@ function renderShell() {
   initAjsfTracking().catch(error => console.warn("AJSF tracking initialization failed", error));
 }
 
+function isAjsfAndroidApp() {
+  return typeof window.AJSFNativePrint !== "undefined";
+}
+function initAjsfCorporateMenu() {
+  const dashboard = $("dashboardCard");
+  const sidebar = dashboard?.querySelector(".sidebar");
+  const content = dashboard?.querySelector(".dashboard-content");
+  if (!dashboard || !sidebar || !content || $("ajsCorporateMenuHome")) return;
+  sidebar.classList.add("ajs-legacy-nav-hidden");
+  const groups = [
+    {id:"customers", title:"Customer Management", subtitle:"ग्राहक और सत्यापन", icon:"♙", tabs:["customers","customer-call","customer-verification"]},
+    {id:"loans", title:"Loan Management", subtitle:"लोन और EMI शेड्यूल", icon:"▤", tabs:["loans","schedule","ledger","statement"]},
+    {id:"collection", title:"Collection & Payments", subtitle:"कलेक्शन, भुगतान और रसीद", icon:"₹", tabs:["collector-demand","payment","payments","receipt-requests","daily-settlement"]},
+    {id:"reports", title:"Reports & Communication", subtitle:"रिपोर्ट और ग्राहक संपर्क", icon:"▥", tabs:["reminder"]},
+    {id:"staff", title:"Staff & Settings", subtitle:"कर्मचारी और सुरक्षा", icon:"⚙", tabs:["staff-password"]}
+  ];
+  const labels = {
+    customers:"Customer Register", "customer-call":"Customer Call", "customer-verification":"Customer Verification",
+    loans:"Loan Details", schedule:"Repayment Schedule", ledger:"Customer Ledger", statement:"Loan Statement",
+    "collector-demand":"Today's Collection Demand", payment:"Payment Entry", payments:"Payment History",
+    "receipt-requests":"Receipt Cancellation Requests", "daily-settlement":"Daily Collection Settlement",
+    reminder:"WhatsApp / SMS Reminder", "staff-password":"Staff Password Management"
+  };
+  const home = document.createElement("section");
+  home.id = "ajsCorporateMenuHome";
+  home.className = "ajs-corp-menu";
+  home.innerHTML = '<div class="ajs-corp-welcome"><span class="eyebrow">ARK JAN SAMRIDDHI FOUNDATION</span><h2> मुख्य मेन्यू</h2><p>अपना कार्य चुनें</p></div><div class="ajs-corp-grid">' +
+    groups.map(g => '<button type="button" class="ajs-corp-card" data-corp-group="'+g.id+'"><span class="ajs-corp-icon">'+g.icon+'</span><span><strong>'+g.title+'</strong><small>'+g.subtitle+'</small></span><span class="ajs-corp-arrow">›</span></button>').join("") +
+    '</div>';
+  const sub = document.createElement("section");
+  sub.id = "ajsCorporateSubMenu";
+  sub.className = "ajs-corp-submenu hidden";
+  content.prepend(sub);
+  content.prepend(home);
+  const style = document.createElement("style");
+  style.id = "ajsCorporateMenuStyles";
+  style.textContent = `
+    .ajs-legacy-nav-hidden{display:none!important}
+    .ajs-corp-menu,.ajs-corp-submenu{padding:8px 2px 22px}
+    .ajs-corp-welcome{padding:12px 4px 18px}
+    .ajs-corp-welcome h2{margin:7px 0 4px;font-size:1.45rem}
+    .ajs-corp-welcome p{margin:0;color:var(--muted,#718078)}
+    .ajs-corp-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+    .ajs-corp-card{min-height:112px;border:1px solid var(--border,#dce5df);border-radius:16px;background:var(--card,#fff);color:var(--text,#173b30);padding:15px 12px;display:flex;align-items:center;gap:10px;text-align:left;box-shadow:0 4px 14px #173b3010}
+    .ajs-corp-icon{width:42px;height:42px;flex:0 0 42px;border-radius:13px;background:#eaf3ee;color:#174b3a;display:grid;place-items:center;font-size:23px;font-weight:700}
+    .ajs-corp-card strong{display:block;font-size:.88rem;line-height:1.25}
+    .ajs-corp-card small{display:block;color:var(--muted,#718078);font-size:.72rem;margin-top:5px;line-height:1.3}
+    .ajs-corp-arrow{margin-left:auto;font-size:25px;color:#789087}
+    .ajs-corp-subhead{display:flex;align-items:center;gap:10px;margin:6px 0 14px}
+    .ajs-corp-subhead h2{font-size:1.2rem;margin:0}
+    .ajs-corp-back{border:1px solid var(--border,#dce5df);border-radius:10px;background:var(--card,#fff);padding:8px 12px}
+    .ajs-corp-links{display:grid;grid-template-columns:1fr;gap:9px}
+    .ajs-corp-link{display:flex;align-items:center;justify-content:space-between;width:100%;text-align:left;padding:14px;border:1px solid var(--border,#dce5df);border-radius:12px;background:var(--card,#fff);color:var(--text,#173b30);font-weight:600}
+    .ajs-corp-link span:last-child{color:#789087;font-size:20px}
+    @media(max-width:420px){.ajs-corp-grid{gap:9px}.ajs-corp-card{padding:12px 9px;min-height:104px;gap:8px}.ajs-corp-icon{width:36px;height:36px;flex-basis:36px}}
+  `;
+  document.head.appendChild(style);
+  home.addEventListener("click", event => {
+    const card = event.target.closest("[data-corp-group]");
+    if (!card) return;
+    const group = groups.find(item => item.id === card.dataset.corpGroup);
+    if (!group) return;
+    const available = group.tabs.filter(tab => {
+      const source = sidebar.querySelector('[data-tab="'+tab+'"]');
+      return source && !source.classList.contains("hidden") && getComputedStyle(source).display !== "none";
+    });
+    sub.innerHTML = '<div class="ajs-corp-subhead"><button type="button" class="ajs-corp-back">← मुख्य मेन्यू</button><h2>'+group.title+'</h2></div><div class="ajs-corp-links">'+
+      available.map(tab => '<button type="button" class="ajs-corp-link" data-corp-tab="'+tab+'"><span>'+labels[tab]+'</span><span>›</span></button>').join("") +
+      '</div>';
+    home.classList.add("hidden");
+    sub.classList.remove("hidden");
+    sub.querySelector(".ajs-corp-back").addEventListener("click", () => {sub.classList.add("hidden");home.classList.remove("hidden");});
+    sub.querySelectorAll("[data-corp-tab]").forEach(button => button.addEventListener("click", () => activateTab(button.dataset.corpTab)));
+  });
+}
 function activateTab(tab) {
+  const androidMenu = isAjsfAndroidApp();
+  if (androidMenu && tab === "ajs-menu-home") {
+    $("ajsCorporateMenuHome")?.classList.remove("hidden");
+    $("ajsCorporateSubMenu")?.classList.add("hidden");
+    document.querySelectorAll("[data-panel]").forEach(p => p.classList.add("hidden"));
+    $("backToDashboardBtn")?.classList.add("hidden");
+    return;
+  }
   document.querySelectorAll("[data-tab]").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
   document.querySelectorAll("[data-panel]").forEach(p => p.classList.toggle("hidden", p.dataset.panel !== tab));
+  if (androidMenu) {
+    $("ajsCorporateMenuHome")?.classList.add("hidden");
+    $("ajsCorporateSubMenu")?.classList.add("hidden");
+  }
   const backButton = $("backToDashboardBtn");
   const defaultTab = canAdmin() ? "customers" : "collector-demand";
-  if (backButton) backButton.classList.toggle("hidden", tab === defaultTab);
+  if (backButton) backButton.classList.toggle("hidden", androidMenu ? false : tab === defaultTab);
 }
 function goToDashboard() {
-  const defaultTab = canAdmin() ? "customers" : "collector-demand";
   $("dashboardCard")?.classList.remove("collector-payment-mode");
   $("receiptPanel")?.classList.add("hidden");
-  activateTab(defaultTab);
+  activateTab(isAjsfAndroidApp() ? "ajs-menu-home" : (canAdmin() ? "customers" : "collector-demand"));
   window.scrollTo({top:0,behavior:"smooth"});
 }
 window.ajsfHandleAndroidBack = function() {
