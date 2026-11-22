@@ -478,3 +478,157 @@ input,select,button{min-height:42px}
 
 /* Customer MIS is redundant with the separate Customer menu; keep it out of the dashboard menu */
 .tabs [data-tab="customer-mis"]{display:none!important}
+
+
+/* Public foundation homepage — clean, balanced and responsive */
+#appShell:not(.logged-in).shell.wide{
+  width:min(calc(100% - 48px),1120px)!important;
+  max-width:1120px!important;
+  padding:28px 0 42px!important;
+}
+#appShell:not(.logged-in)>.brand{
+  width:100%;
+  justify-content:flex-start!important;
+  gap:16px;
+  margin:0 auto 24px!important;
+  padding:0 4px;
+}
+#appShell:not(.logged-in)>.brand .brand-logo{
+  width:76px;height:76px;flex:0 0 76px;
+}
+#appShell:not(.logged-in)>.brand h1{
+  font-size:clamp(18px,2.1vw,25px);
+  line-height:1.25;letter-spacing:.1px;
+}
+#appShell:not(.logged-in)>.brand p{
+  font-size:clamp(11px,1.3vw,14px);
+  letter-spacing:1px;
+}
+.public-hero{
+  display:grid;
+  grid-template-columns:minmax(0,1.45fr) minmax(220px,.75fr);
+  align-items:center;
+  gap:32px;
+  padding:clamp(26px,4vw,48px);
+  margin:0 0 18px;
+  border-radius:20px;
+  background:linear-gradient(120deg,#123f35 0%,#1d6651 100%);
+  color:#fff;
+  box-shadow:0 12px 30px #123f3518;
+}
+.public-hero-copy{min-width:0;max-width:650px}
+.public-hero .eyebrow{color:#d8eadf;letter-spacing:1.1px}
+.public-hero h2{
+  color:#fff;
+  font-size:clamp(27px,4vw,42px);
+  line-height:1.22;
+  letter-spacing:0;
+  margin:12px 0;
+  max-width:14ch;
+  overflow-wrap:normal;
+  word-break:normal;
+}
+.public-hero-copy>p{
+  max-width:590px;
+  color:#e4f0e9;
+  font-size:15px;
+  line-height:1.8;
+  margin:0;
+}
+.public-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:22px}
+.public-actions a,.public-actions button{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-height:46px;padding:11px 20px;border-radius:9px;
+  font-weight:800;text-decoration:none;
+}
+.public-primary{background:#fff;color:#123f35;border:1px solid #fff}
+.public-primary:hover{background:#edf5f0}
+.public-secondary{background:transparent;color:#fff;border:1px solid #c8dfd3}
+.public-hero-mark{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:10px;min-height:220px;padding:24px;
+  border:1px solid #ffffff30;border-radius:16px;
+  background:#ffffff12;text-align:center;
+}
+.public-hero-mark img{
+  display:block;width:118px;height:118px;object-fit:contain;
+  padding:9px;border-radius:12px;background:#fff;
+}
+.public-hero-mark strong{font-size:14px;color:#fff;letter-spacing:.3px}
+.public-hero-mark span{font-size:12px;color:#dcebe3}
+.public-highlights{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:14px;margin:0 0 18px;
+}
+.public-highlights article{
+  min-width:0;padding:20px;border:1px solid #dce8e1;
+  border-radius:14px;background:#fff;
+  box-shadow:0 4px 16px #123f3508;
+}
+.public-highlights article>span{
+  display:inline-block;color:#277052;font-size:11px;font-weight:900;letter-spacing:1px;
+}
+.public-highlights h3{font-size:17px;line-height:1.35;color:#123f35;margin:9px 0 6px}
+.public-highlights p{font-size:13px;line-height:1.65;color:#687a72;margin:0}
+.public-payment{
+  display:grid;grid-template-columns:minmax(0,1fr) 160px;align-items:center;
+  gap:22px;padding:20px 24px;margin:0 0 14px;
+  border:1px solid #dce8e1;border-radius:14px;background:#f6faf7;
+}
+.public-payment .eyebrow{letter-spacing:.8px}
+.public-payment h3{font-size:19px;color:#123f35;margin:7px 0}
+.public-payment p{font-size:13px;line-height:1.65;color:#687a72;margin:0;max-width:650px}
+.qr-placeholder{
+  min-height:112px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:5px;border:1px dashed #9bb9a6;border-radius:12px;background:#fff;color:#123f35;
+}
+.qr-placeholder-icon{font-size:27px;line-height:1;color:#277052}
+.qr-placeholder strong{font-size:11px;letter-spacing:.5px}
+.qr-placeholder small{font-size:10px;color:#687a72}
+.public-login-note{
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:16px 20px;margin:0 auto 22px;
+  border:1px solid #dce8e1;border-radius:13px;background:#fff;
+}
+.public-login-note h3{font-size:16px;color:#123f35;margin:0 0 4px}
+.public-login-note p{font-size:12px;color:#687a72;margin:0}
+.public-login-note a{color:#176247;font-size:14px;font-weight:800;text-decoration:none;white-space:nowrap}
+.public-login-note a span{margin-left:5px}
+#loginCard{
+  width:min(100%,440px);max-width:440px;
+  margin:24px auto 0!important;padding:26px!important;
+  border-radius:15px;box-shadow:0 8px 24px #123f3510;
+}
+#loginCard h2{font-size:23px;margin:8px 0}
+#loginCard .muted{margin:0 0 16px}
+#loginCard form{gap:10px;margin:16px 0}
+#loginCard label{font-size:13px;font-weight:700;color:#344f43}
+#loginCard input{min-height:44px}
+#loginCard button{min-height:46px}
+@media(max-width:760px){
+  #appShell:not(.logged-in).shell.wide{width:min(calc(100% - 28px),600px)!important;padding:18px 0 30px!important}
+  #appShell:not(.logged-in)>.brand{gap:11px;margin-bottom:18px!important}
+  #appShell:not(.logged-in)>.brand .brand-logo{width:60px;height:60px;flex-basis:60px}
+  #appShell:not(.logged-in)>.brand h1{font-size:16px}
+  #appShell:not(.logged-in)>.brand p{font-size:10px;letter-spacing:.55px}
+  .public-hero{grid-template-columns:1fr;gap:18px;padding:25px 22px;border-radius:16px}
+  .public-hero h2{font-size:clamp(26px,7vw,34px);max-width:18ch}
+  .public-hero-copy>p{font-size:13px}
+  .public-hero-mark{min-height:0;padding:16px}
+  .public-hero-mark img{width:82px;height:82px}
+  .public-highlights{grid-template-columns:1fr;gap:10px}
+  .public-highlights article{padding:16px}
+  .public-payment{grid-template-columns:minmax(0,1fr) 112px;gap:12px;padding:16px}
+  .public-login-note{padding:14px 16px}
+}
+@media(max-width:420px){
+  #appShell:not(.logged-in)>.brand .brand-logo{width:52px;height:52px;flex-basis:52px}
+  #appShell:not(.logged-in)>.brand h1{font-size:14px}
+  #appShell:not(.logged-in)>.brand p{font-size:9px;letter-spacing:.35px}
+  .public-hero{padding:21px 17px}
+  .public-actions{display:grid;grid-template-columns:1fr}
+  .public-actions a,.public-actions button{width:100%}
+  .public-payment{grid-template-columns:1fr}
+  .qr-placeholder{min-height:90px}
+  .public-login-note{align-items:flex-start;flex-direction:column}
+}
