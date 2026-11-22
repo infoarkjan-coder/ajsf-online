@@ -41,7 +41,9 @@ tasks.register('generateLauncherIcons') {
             def scale = Math.min((spec.size * 0.92d) / source.getWidth(), (spec.size * 0.92d) / source.getHeight())
             def w = Math.round(source.getWidth() * scale) as int
             def h = Math.round(source.getHeight() * scale) as int
-            g.drawImage(source, (spec.size-w)/2, (spec.size-h)/2, w, h, null)
+            def x = ((spec.size - w) / 2) as int
+            def y = ((spec.size - h) / 2) as int
+            g.drawImage(source, x, y, w, h, null)
             g.dispose()
             ImageIO.write(canvas, 'png', new File(dir, 'ic_launcher.png'))
             ImageIO.write(canvas, 'png', new File(dir, 'ic_launcher_round.png'))
