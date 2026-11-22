@@ -2126,7 +2126,8 @@ function loadDayDemandReport(){
  const previousOdAmount=rupee(previousOdRows.reduce((sum,x)=>sum+x.remaining,0)),previousOdCustomerCount=new Set(previousOdRows.map(x=>x.customer.id)).size;
  $("dayPreviousOdSummary").textContent=previousOdCustomerCount+" ग्राहक · "+money(previousOdAmount);
  $("dayPreviousOdRows").innerHTML=previousOdRows.map(x=>'<tr><td>'+esc(formatCustomerId(x.customer.customer_code))+'</td><td>'+esc(x.customer.full_name||"—")+'</td><td>'+esc(x.loan.loan_reference||"—")+'</td><td>'+x.emi+'</td><td>'+esc(x.dueDate)+'</td><td>'+money(x.demand)+'</td><td>'+money(x.received)+'</td><td><strong>'+money(x.remaining)+'</strong></td><td>'+esc(x.status)+'</td></tr>').join("")||'<tr><td colspan="9" class="empty">चुनी हुई तारीख से पहले कोई पुरानी OD नहीं है।</td></tr>';
- const totalOdAmount=rupee(previousOdAmount+pendingAmount);\n  dayDemandReport={date,selectedDay,customerCount,totalDemand,collectedAmount,pendingAmount,receivedAmount,totalCollected,advanceAmount,advanceRows,closedRows,pendingCustomerCount,collectedRows,pendingRows,previousOdRows,previousOdAmount,previousOdCustomerCount,totalOdAmount,receiptRows};
+ const totalOdAmount=rupee(previousOdAmount+pendingAmount);
+  dayDemandReport={date,selectedDay,customerCount,totalDemand,collectedAmount,pendingAmount,receivedAmount,totalCollected,advanceAmount,advanceRows,closedRows,pendingCustomerCount,collectedRows,pendingRows,previousOdRows,previousOdAmount,previousOdCustomerCount,totalOdAmount,receiptRows};
 }
 function printDayDemandReport(){
  if(!dayDemandReport)loadDayDemandReport();if(!dayDemandReport)return;const r=dayDemandReport,customerById=new Map(customers.map(c=>[c.id,c]));
