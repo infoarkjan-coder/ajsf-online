@@ -64,6 +64,15 @@ function amountInWords(value, hindi=false) {
 
 const phone = (v) => { const s = String(v ?? "").trim(); return /^\d+\.0+$/.test(s) ? s.replace(/\.0+$/, "") : s; };
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function validateStaffPassword(password) {
+  const value = String(password || "");
+  if (value.length < 12 || value.length > 72) return "पासवर्ड 12 से 72 अक्षर का होना चाहिए।";
+  if (!/[a-z]/.test(value) || !/[A-Z]/.test(value) || !/[0-9]/.test(value) || !/[^A-Za-z0-9]/.test(value)) return "पासवर्ड में छोटे-बड़े अक्षर, नंबर और एक विशेष चिन्ह होना चाहिए।";
+  const normalized = value.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const common = ["password","password123","admin","admin123","welcome","welcome123","qwerty","qwerty123","letmein","iloveyou","india123","ajsf123","123456","12345678"];
+  if (common.some(item => normalized.includes(item)) || /(.)\1{4,}/.test(normalized) || "abcdefghijklmnopqrstuvwxyz".includes(normalized) || "01234567890123456789".includes(normalized)) return "यह पासवर्ड बहुत आम या अनुमान लगाने में आसान है। कृपया अलग पासवर्ड चुनें।";
+  return "";
+}
 let supabase, currentUser, profile, customers = [], loans = [], payments = [], weeklyStatuses = [], advanceLedger = [], lastReceipt = null;
 let settlementCollectors = [], dailySettlements = [], receiptCancellationRequests = [];
 let offlineDbPromise;
@@ -2580,7 +2589,8 @@ async function boot() {
     const password = $("staffNewPassword").value;
     const confirmPassword = $("staffConfirmPassword").value;
     if (!targetId) return showMessage("पहले Staff / Collector अकाउंट चुनें।","warn");
-    if (password.length < 10) return showMessage("पासवर्ड कम से कम 10 अक्षर का रखें।","warn");
+    const passwordError = validateStaffPassword(password);
+    if (passwordError) return showMessage(passwordError,"warn");
     if (password !== confirmPassword) return showMessage("दोनों पासवर्ड एक जैसे नहीं हैं।","warn");
     if (!window.confirm("चुने गए Staff / Collector का पासवर्ड बदलना है?")) return;
     setBusy(btn,true,"पासवर्ड अपडेट हो रहा है…");
