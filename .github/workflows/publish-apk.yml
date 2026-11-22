@@ -20,10 +20,10 @@ jobs:
     if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout website branch
+      - name: Checkout production website branch
         uses: actions/checkout@v4
         with:
-          ref: release/receipt-whatsapp-only
+          ref: main
           fetch-depth: 0
 
       - name: Download APK from completed Android build
@@ -43,7 +43,7 @@ jobs:
           test -s ./AJSF-Online.apk
           file ./AJSF-Online.apk
 
-      - name: Commit APK to website branch
+      - name: Commit APK to production website branch
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
@@ -54,4 +54,4 @@ jobs:
             exit 0
           fi
           git commit -m "Publish latest AJSF Android APK"
-          git push origin HEAD:release/receipt-whatsapp-only
+          git push origin HEAD:main
