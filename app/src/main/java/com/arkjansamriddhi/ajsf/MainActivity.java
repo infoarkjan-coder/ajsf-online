@@ -24,7 +24,7 @@ import android.widget.ProgressBar;
 public class MainActivity extends Activity {
     private static final int PERMISSION_REQUEST = 701;
     private static final int FILE_CHOOSER_REQUEST = 702;
-    private static final String HOME = "https://ajsf-online.vercel.app/";
+    private static final String HOME = "https://ajsf-online.vercel.app/?platform=app";
     private WebView webView;
     private ProgressBar progress;
     private ValueCallback<Uri[]> fileCallback;
