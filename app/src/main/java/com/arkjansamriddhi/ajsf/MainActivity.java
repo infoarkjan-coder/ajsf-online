@@ -25,19 +25,35 @@ public class MainActivity extends Activity {
     private static final int PERMISSION_REQUEST = 701;
     private static final int FILE_CHOOSER_REQUEST = 702;
     private static final String HOME = "https://ajsf-online.vercel.app/?platform=app";
+    private static final String TRUSTED_HOST = "ajsf-online.vercel.app";
     private WebView webView;
     private ProgressBar progress;
     private ValueCallback<Uri[]> fileCallback;
-    private PermissionRequest pendingWebPermission;
+    private PermissionRequest pendingCameraRequest;
     private GeolocationPermissions.Callback pendingGeoCallback;
     private String pendingGeoOrigin;
+
+    private boolean isTrustedOrigin(String origin) {
+        try {
+            Uri uri = Uri.parse(origin);
+            return "https".equalsIgnoreCase(uri.getScheme())
+                && TRUSTED_HOST.equalsIgnoreCase(uri.getHost())
+                && (uri.getPort() == -1 || uri.getPort() == 443);
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private boolean granted(String permission) {
+        return checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED;
+    }
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
         buildScreen();
         configureWebView();
         if (state == null) webView.loadUrl(HOME);
-        else webView.restoreState(state);
+        else if (webView.restoreState(state) == null) webView.loadUrl(HOME);
     }
 
     private void buildScreen() {
@@ -50,22 +66,26 @@ public class MainActivity extends Activity {
         setContentView(root);
     }
 
-    private boolean granted(String permission) {
-        return checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED;
-    }
-
     private void configureWebView() {
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
-        settings.setDatabaseEnabled(true);
         settings.setGeolocationEnabled(true);
-        settings.setAllowFileAccess(true);
+        settings.setAllowFileAccess(false);
         settings.setAllowContentAccess(true);
-        settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
 
         webView.setWebViewClient(new WebViewClient() {
+            @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                Uri uri = request.getUrl();
+                if (request.isForMainFrame() && isTrustedOrigin(uri.toString())) return false;
+                if (request.isForMainFrame()) {
+                    try { startActivity(new Intent(Intent.ACTION_VIEW, uri)); }
+                    catch (Exception ignored) { }
+                }
+                return true;
+            }
+
             @Override public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
                 if (request.isForMainFrame()) showConnectionError();
             }
@@ -78,24 +98,32 @@ public class MainActivity extends Activity {
             }
 
             @Override public void onPermissionRequest(PermissionRequest request) {
-                boolean needsCamera = false, needsAudio = false;
-                for (String resource : request.getResources()) {
-                    if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(resource)) needsCamera = true;
-                    if (PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(resource)) needsAudio = true;
-                }
-                if ((!needsCamera || granted(Manifest.permission.CAMERA)) &&
-                    (!needsAudio || granted(Manifest.permission.RECORD_AUDIO))) {
-                    request.grant(request.getResources());
-                } else {
-                    pendingWebPermission = request;
-                    requestPermissions(new String[]{Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO},
-                        PERMISSION_REQUEST);
-                }
+                runOnUiThread(() -> {
+                    if (!isTrustedOrigin(request.getOrigin().toString())) {
+                        request.deny();
+                        return;
+                    }
+                    String[] resources = request.getResources();
+                    boolean cameraOnly = resources.length > 0;
+                    for (String resource : resources) {
+                        if (!PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(resource)) cameraOnly = false;
+                    }
+                    if (!cameraOnly) {
+                        request.deny();
+                    } else if (granted(Manifest.permission.CAMERA)) {
+                        request.grant(new String[]{PermissionRequest.RESOURCE_VIDEO_CAPTURE});
+                    } else {
+                        pendingCameraRequest = request;
+                        requestPermissions(new String[]{Manifest.permission.CAMERA}, PERMISSION_REQUEST);
+                    }
+                });
             }
 
             @Override public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback callback) {
-                if (granted(Manifest.permission.ACCESS_FINE_LOCATION) ||
-                    granted(Manifest.permission.ACCESS_COARSE_LOCATION)) {
+                if (!isTrustedOrigin(origin)) {
+                    callback.invoke(origin, false, false);
+                } else if (granted(Manifest.permission.ACCESS_FINE_LOCATION)
+                        || granted(Manifest.permission.ACCESS_COARSE_LOCATION)) {
                     callback.invoke(origin, true, false);
                 } else {
                     pendingGeoOrigin = origin;
@@ -133,18 +161,19 @@ public class MainActivity extends Activity {
     @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
         super.onRequestPermissionsResult(requestCode, permissions, results);
         if (requestCode != PERMISSION_REQUEST) return;
-        if (pendingWebPermission != null) {
-            boolean ok = true;
-            for (String resource : pendingWebPermission.getResources()) {
-                if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(resource) && !granted(Manifest.permission.CAMERA)) ok = false;
-                if (PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(resource) && !granted(Manifest.permission.RECORD_AUDIO)) ok = false;
+        if (pendingCameraRequest != null) {
+            if (granted(Manifest.permission.CAMERA)
+                    && isTrustedOrigin(pendingCameraRequest.getOrigin().toString())) {
+                pendingCameraRequest.grant(new String[]{PermissionRequest.RESOURCE_VIDEO_CAPTURE});
+            } else {
+                pendingCameraRequest.deny();
             }
-            if (ok) pendingWebPermission.grant(pendingWebPermission.getResources());
-            else pendingWebPermission.deny();
-            pendingWebPermission = null;
+            pendingCameraRequest = null;
         }
         if (pendingGeoCallback != null) {
-            boolean ok = granted(Manifest.permission.ACCESS_FINE_LOCATION) || granted(Manifest.permission.ACCESS_COARSE_LOCATION);
+            boolean ok = isTrustedOrigin(pendingGeoOrigin)
+                && (granted(Manifest.permission.ACCESS_FINE_LOCATION)
+                    || granted(Manifest.permission.ACCESS_COARSE_LOCATION));
             pendingGeoCallback.invoke(pendingGeoOrigin, ok, false);
             pendingGeoCallback = null;
             pendingGeoOrigin = null;
@@ -163,11 +192,21 @@ public class MainActivity extends Activity {
 
     @Override protected void onSaveInstanceState(Bundle out) {
         super.onSaveInstanceState(out);
-        webView.saveState(out);
+        if (webView != null) webView.saveState(out);
     }
 
     @Override public void onBackPressed() {
         if (webView != null && webView.canGoBack()) webView.goBack();
         else super.onBackPressed();
+    }
+
+    @Override protected void onDestroy() {
+        if (fileCallback != null) fileCallback.onReceiveValue(null);
+        if (webView != null) {
+            webView.stopLoading();
+            webView.destroy();
+            webView = null;
+        }
+        super.onDestroy();
     }
 }
