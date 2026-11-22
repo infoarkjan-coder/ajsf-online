@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - feature/new-android-apk-camera-gps
+      - feature/ajsf-live-collector-tracking
     paths:
       - 'app/**'
       - 'build.gradle'
