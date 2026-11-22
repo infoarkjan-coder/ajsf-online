@@ -313,21 +313,43 @@ document.addEventListener("click", event => {
   openStaffPasswordPanel();
 });
 
+async function fetchAllSupabaseRows(makeQuery, pageSize = 1000) {
+  const rows = [];
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await makeQuery().range(from, from + pageSize - 1);
+    if (error) return { data: null, error };
+    rows.push(...(data || []));
+    if (!data || data.length < pageSize) break;
+  }
+  return { data: rows, error: null };
+}
+
 async function loadAll() {
   showMessage("डेटा लोड हो रहा है…");
-  let customerQuery = supabase.from("customers")
-    .select("id, customer_code, full_name, center_name, contact_number, area, address, collection_day, assigned_collector, customer_status, recovery_status, status_reason, status_changed_at, status_notes, is_active")
-    .order("full_name");
-  if (!canAdmin()) customerQuery = customerQuery.eq("assigned_collector", currentUser.id);
-  let c, l, w;
-  const weeklyQuery = supabase.from("loan_weekly_status").select("loan_id, week_no, is_paid, source_marker");
-  let adv;
-  try { [c, l, w, adv] = await Promise.all([
-    customerQuery,
-    supabase.from("loans").select("id, loan_reference, customer_id, loan_type, disbursement_date, loan_amount, emi_amount, total_emis_required, status, source_total_collected, source_osp, source_emis_paid, source_emis_pending, previous_loan_id, is_archived").eq("is_archived", false).order("created_at", {ascending:false}),
-    weeklyQuery,
-    supabase.from("advance_ledger").select("*")
-  ]); } catch (networkError) { c = {error:networkError}; l = {error:networkError}; w = {error:networkError}; adv = {error:networkError}; }
+  const customerQuery = () => {
+    let query = supabase.from("customers")
+      .select("id, customer_code, full_name, center_name, contact_number, area, address, collection_day, assigned_collector, customer_status, recovery_status, status_reason, status_changed_at, status_notes, is_active")
+      .order("full_name");
+    if (!canAdmin()) query = query.eq("assigned_collector", currentUser.id);
+    return query;
+  };
+  const loanQuery = () => supabase.from("loans")
+    .select("id, loan_reference, customer_id, loan_type, disbursement_date, loan_amount, emi_amount, total_emis_required, status, source_total_collected, source_osp, source_emis_paid, source_emis_pending, previous_loan_id, is_archived")
+    .eq("is_archived", false).order("created_at", {ascending:false});
+  const weeklyQuery = () => supabase.from("loan_weekly_status")
+    .select("loan_id, week_no, is_paid, source_marker");
+  const advanceQuery = () => supabase.from("advance_ledger").select("*");
+  let c, l, w, adv;
+  try {
+    [c, l, w, adv] = await Promise.all([
+      fetchAllSupabaseRows(customerQuery),
+      fetchAllSupabaseRows(loanQuery),
+      fetchAllSupabaseRows(weeklyQuery),
+      fetchAllSupabaseRows(advanceQuery)
+    ]);
+  } catch (networkError) {
+    c = {error:networkError}; l = {error:networkError}; w = {error:networkError}; adv = {error:networkError};
+  }
   if (c.error || l.error) {
     const cached = await readSnapshot(`user:${currentUser.id}`);
     if (!cached?.value) throw new Error("डेटा ऑनलाइन लोड नहीं हुआ और इस डिवाइस पर Offline Backup भी नहीं मिला।");
@@ -344,17 +366,20 @@ async function loadAll() {
     showMessage("Offline डेटा खुल गया। इंटरनेट आने पर Pending Payments अपने आप Sync होंगे।", "warn");
     return;
   }
-  customers = c.data || []; loans = l.data || [];
+  customers = c.data || [];
+  loans = l.data || [];
   weeklyStatuses = w && !w.error ? (w.data || []) : [];
   advanceLedger = adv && !adv.error ? (adv.data || []) : [];
   payments = [];
-  for (let start = 0; ; start += 1000) {
-    const { data, error } = await supabase.from("payments").select("*").order("created_at", {ascending:false}).range(start, start + 999);
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await supabase.from("payments").select("*")
+      .order("created_at", {ascending:false}).range(from, from + 999);
     if (error) { payments = []; break; }
     payments.push(...(data || []));
     if (!data || data.length < 1000) break;
   }
-  try { await cacheSnapshot(`user:${currentUser.id}`, {customers, loans, payments, weeklyStatuses, advanceLedger}); } catch (cacheError) { console.warn("Offline cache unavailable", cacheError); }
+  try { await cacheSnapshot(`user:${currentUser.id}`, {customers, loans, payments, weeklyStatuses, advanceLedger}); }
+  catch (cacheError) { console.warn("Offline cache unavailable", cacheError); }
   const requestResult = await supabase.from("receipt_cancellation_requests").select("*").order("created_at",{ascending:false});
   receiptCancellationRequests = requestResult.error ? [] : (requestResult.data || []);
   renderData();
@@ -363,7 +388,6 @@ async function loadAll() {
   await refreshConnectionStatus();
   showMessage("डेटा सफलतापूर्वक लोड हुआ। जमा राशि में आयातित पुरानी वसूली और नए भुगतान शामिल हैं; बकाया में नए भुगतान घटाए गए हैं।", "success");
 }
-
 
 function renderCollectorDemand() {
   const select = $("collectorDemandDay");
