@@ -803,9 +803,9 @@ function printRepaymentSchedule() {
   openAjsfPrint("AJSF Repayment Schedule", area.outerHTML, `
     @page{size:A4 landscape;margin:5mm}
     body{padding:0;font-family:Arial,sans-serif;color:#20352d}
-    .repayment-fold-sheet{position:relative;display:grid;grid-template-columns:1fr 1fr;width:100%;height:200mm;box-sizing:border-box;border:1px solid #244b3c;background:#fff}
-    .repayment-left{grid-column:1;grid-row:1;padding:3mm 5mm 3mm 3mm;box-sizing:border-box;min-width:0}
-    .repayment-right{grid-column:2;grid-row:1;padding:7mm 5mm 4mm 8mm;box-sizing:border-box;min-width:0;border-left:1px dashed #71877b}
+    .repayment-fold-sheet{position:relative;display:flex;flex-direction:row;align-items:stretch;gap:0;width:100%;height:200mm;box-sizing:border-box;border:1px solid #244b3c;background:#fff}
+    .repayment-left{flex:0 0 50%;width:50%;height:100%;padding:3mm 5mm 3mm 3mm;box-sizing:border-box;min-width:0}
+    .repayment-right{flex:0 0 50%;width:50%;height:100%;padding:7mm 5mm 4mm 8mm;box-sizing:border-box;min-width:0;border-left:1px dashed #71877b}
     .repayment-left h2{font-size:11pt;color:#174b3c;text-align:center;margin:0 0 3mm;padding-bottom:2mm;border-bottom:1px solid #174b3c}
     .repayment-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:8pt}
     .repayment-table th{background:#e8f1ec;color:#174b3c;font-weight:bold}
@@ -1958,9 +1958,9 @@ async function downloadElementPdf(element, fileName, options = {}) {
       root.style.cssText += ";display:block!important;width:1100px!important;max-width:none!important;min-width:1100px!important;height:auto!important;min-height:0!important;max-height:none!important;padding:30px!important;margin:0!important;box-sizing:border-box!important;background:#fff!important;color:#20352d!important;font-family:Arial,sans-serif!important;font-size:14px!important;line-height:1.35!important;overflow:visible!important;border:0!important;border-radius:0!important";
       if (element.id === "repaymentSchedulePrint") {
         // Inline !important wins over clone stylesheet rules; explicitly restore the folded two-panel grid.
-        root.style.setProperty("display","grid","important");
-        root.style.setProperty("grid-template-columns","minmax(0,1fr) minmax(0,1fr)","important");
-        root.style.setProperty("grid-template-rows","740px","important");
+        root.style.setProperty("display","flex","important");
+        root.style.setProperty("flex-direction","row","important");
+        root.style.setProperty("align-items","stretch","important");
         root.style.setProperty("align-items","stretch","important");
         root.style.setProperty("width","1100px","important");
         root.style.setProperty("min-width","1100px","important");
@@ -2104,9 +2104,9 @@ async function downloadElementPdf(element, fileName, options = {}) {
         #repaymentSchedulePrint .repayment-right-footer{margin-top:36px!important;display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px 22px!important;font-size:12px!important;color:#52665c!important}
         #repaymentSchedulePrint .repayment-right-footer span{height:45px!important;border-bottom:1px solid #52665c!important}
         #repaymentSchedulePrint .repayment-fold-mark{position:absolute!important;left:50%!important;top:0!important;bottom:0!important;border-left:2px dashed #82958b!important;font-size:0!important}
-#repaymentSchedulePrint.repayment-fold-sheet{display:grid!important;grid-template-columns:1fr 1fr!important;grid-template-rows:1fr!important;align-items:stretch!important;width:1100px!important;height:740px!important;min-height:740px!important;max-height:740px!important;padding:18px!important;box-sizing:border-box!important;position:relative!important;overflow:hidden!important;border:2px solid #244b3c!important;background:#fff!important}
-        #repaymentSchedulePrint .repayment-left{display:block!important;grid-column:1!important;grid-row:1!important;width:auto!important;height:100%!important;padding:10px 18px 10px 6px!important;box-sizing:border-box!important;min-width:0!important}
-        #repaymentSchedulePrint .repayment-right{display:block!important;grid-column:2!important;grid-row:1!important;width:auto!important;height:100%!important;padding:30px 12px 12px 30px!important;box-sizing:border-box!important;min-width:0!important;border-left:2px dashed #71877b!important}
+#repaymentSchedulePrint.repayment-fold-sheet{display:flex!important;flex-direction:row!important;align-items:stretch!important;gap:0!important;width:1100px!important;height:740px!important;min-height:740px!important;max-height:740px!important;padding:18px!important;box-sizing:border-box!important;position:relative!important;overflow:hidden!important;border:2px solid #244b3c!important;background:#fff!important}
+        #repaymentSchedulePrint .repayment-left{display:block!important;flex:0 0 50%!important;width:50%!important;height:100%!important;padding:10px 18px 10px 6px!important;box-sizing:border-box!important;min-width:0!important}
+        #repaymentSchedulePrint .repayment-right{display:block!important;flex:0 0 50%!important;width:50%!important;height:100%!important;padding:30px 12px 12px 30px!important;box-sizing:border-box!important;min-width:0!important;border-left:2px dashed #71877b!important}
         #repaymentSchedulePrint .repayment-left h2{font-size:17px!important;color:#174b3c!important;text-align:center!important;margin:0 0 10px!important;padding-bottom:7px!important;border-bottom:2px solid #174b3c!important}
         #repaymentSchedulePrint .repayment-table{display:table!important;width:100%!important;border-collapse:collapse!important;table-layout:fixed!important;font-size:11px!important}
         #repaymentSchedulePrint .repayment-table thead{display:table-header-group!important}
@@ -2117,7 +2117,7 @@ async function downloadElementPdf(element, fileName, options = {}) {
         #repaymentSchedulePrint .repayment-table td.repayment-sign-cell{height:24px!important}
         #repaymentSchedulePrint .repayment-brand{display:flex!important;align-items:center!important;gap:14px!important;padding:0 0 14px!important;border-bottom:3px solid #174b3c!important}
         #repaymentSchedulePrint .repayment-brand{display:flex!important;align-items:center!important;gap:10px!important;min-width:0!important;overflow:hidden!important}
-        #repaymentSchedulePrint .repayment-brand img{display:block!important;width:68px!important;height:68px!important;min-width:68px!important;min-height:68px!important;max-width:68px!important;max-height:68px!important;object-fit:contain!important;object-position:center!important;flex:0 0 68px!important;margin:0!important;padding:0!important}
+        #repaymentSchedulePrint .repayment-brand img{display:block!important;width:60px!important;height:60px!important;min-width:60px!important;min-height:60px!important;max-width:60px!important;max-height:60px!important;object-fit:contain!important;object-position:center!important;flex:0 0 60px!important;margin:0!important;padding:0!important}
         #repaymentSchedulePrint .repayment-brand>div{min-width:0!important;flex:1 1 auto!important}
         #repaymentSchedulePrint .repayment-brand h1{font-size:17px!important;line-height:1.15!important;overflow-wrap:anywhere!important}
         #repaymentSchedulePrint .repayment-brand p{font-size:10px!important;line-height:1.2!important;letter-spacing:.25px!important}
