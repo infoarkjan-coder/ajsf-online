@@ -502,6 +502,8 @@ function initAjsfCorporateMenu() {
     if (!group) return;
     const available = group.tabs.filter(tab => {
       const source = sidebar.querySelector('[data-tab="'+tab+'"]');
+      if (tab === "staff-password") return canAdmin();
+      if (tab === "collector-demand") return !canAdmin();
       return source && !source.classList.contains("hidden") && getComputedStyle(source).display !== "none";
     });
     sub.innerHTML = '<div class="ajs-corp-subhead"><button type="button" class="ajs-corp-back">← मुख्य मेन्यू</button><h2>'+group.title+'</h2></div><div class="ajs-corp-links">'+
@@ -542,7 +544,8 @@ window.ajsfHandleAndroidBack = function() {
   const defaultTab = canAdmin() ? "customers" : "collector-demand";
   const activeTab = document.querySelector("[data-tab].active")?.dataset.tab || defaultTab;
   const receiptOpen = $("receiptPanel") && !$("receiptPanel").classList.contains("hidden");
-  if (activeTab !== defaultTab || receiptOpen) {
+  const anyPanelOpen = Array.from(document.querySelectorAll("[data-panel]")).some(panel => !panel.classList.contains("hidden"));
+  if ((isAjsfAndroidApp() && anyPanelOpen) || activeTab !== defaultTab || receiptOpen) {
     goToDashboard();
     return true;
   }
