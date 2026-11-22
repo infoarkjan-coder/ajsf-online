@@ -175,6 +175,20 @@ function loanFigures(loan, paymentTotals) {
 }
 
 function openAjsfPrint(title, content, pageCss) {
+  const nativePrint = window.AJSFNativeDownload;
+  if (nativePrint && typeof nativePrint.printHtml === "function") {
+    try {
+      const result = nativePrint.printHtml(title, content, pageCss || "");
+      if (result !== "OK") {
+        showMessage("Print शुरू नहीं हो पाया: " + (result || "Android Print सेवा उपलब्ध नहीं है।"), "warn");
+        return null;
+      }
+      return { native: true };
+    } catch (error) {
+      showMessage("Print शुरू नहीं हो पाया: " + (error?.message || String(error)), "warn");
+      return null;
+    }
+  }
   const w = window.open("", "_blank");
   if (!w) { showMessage("Print popup block है। Browser में pop-ups allow करें।", "warn"); return null; }
   w.document.open();
