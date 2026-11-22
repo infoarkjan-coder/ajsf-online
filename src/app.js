@@ -1835,6 +1835,45 @@ function triggerBrowserDownload(blob, fileName, revokeAfterMs = 120000) {
     URL.revokeObjectURL(url);
   }, revokeAfterMs);
 }
+async function savePdfFile(file) {
+  const native = window.AJSFNativeDownload;
+  if (!native) {
+    triggerBrowserDownload(file,file.name,120000);
+    return;
+  }
+  if (native.beginSave && native.appendChunk && native.finishSave) {
+    const token = native.beginSave(file.name,file.type || "application/pdf");
+    if (!token || token !== token.trim() || token.startsWith("फ़ाइल") || token.startsWith("Downloads") || token.startsWith("इस Android")) {
+      throw new Error(token || "Android Downloads में फ़ाइल बन नहीं सकी।");
+    }
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const chunkSize = 48 * 1024; // divisible by 3, keeping every bridge call small
+      for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+        const chunk = bytes.subarray(offset, Math.min(offset + chunkSize, bytes.length));
+        let binary = "";
+        for (let i = 0; i < chunk.length; i += 0x4000) binary += String.fromCharCode(...chunk.subarray(i, i + 0x4000));
+        const result = native.appendChunk(token,btoa(binary));
+        if (result !== "OK") throw new Error(result || "PDF का डेटा सेव नहीं हुआ।");
+      }
+      const result = native.finishSave(token);
+      if (result !== "OK") throw new Error(result || "PDF Downloads में सेव नहीं हुई।");
+      return;
+    } catch (error) {
+      try { native.cancelSave?.(token); } catch (_) {}
+      throw error;
+    }
+  }
+  if (native.saveBase64) {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    let binary = "";
+    for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    const result = native.saveBase64(btoa(binary),file.name,file.type || "application/pdf");
+    if (result !== "OK") throw new Error(result || "Android में PDF सेव नहीं हो पाई।");
+    return;
+  }
+  triggerBrowserDownload(file,file.name,120000);
+}
 async function downloadElementPdf(element, fileName, options = {}) {
   if (!element || !element.innerHTML.trim()) throw new Error("पहले संबंधित विवरण तैयार करें।");
   await loadReceiptLibrary("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js", () => typeof window.html2canvas === "function");
@@ -2081,15 +2120,7 @@ async function downloadElementPdf(element, fileName, options = {}) {
   const blob = pdf.output("blob");
   if (!blob || blob.size < 100) throw new Error("PDF खाली बनी है। कृपया दोबारा प्रयास करें।");
   const file = new File([blob],fileName,{type:"application/pdf"});
-  if (window.AJSFNativeDownload?.saveBase64) {
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    let binary = "";
-    for (let i=0;i<bytes.length;i+=0x8000) binary += String.fromCharCode(...bytes.subarray(i,i+0x8000));
-    const result = await Promise.resolve(window.AJSFNativeDownload.saveBase64(btoa(binary),file.name,file.type));
-    if (result && result !== "OK") throw new Error(String(result));
-    if (result === "OK" || result === undefined || result === null) return;
-  }
-  triggerBrowserDownload(blob,fileName,120000);
+  await savePdfFile(file);
 }
 async function handleDocumentPdf(buttonId, elementId, fileName, successMessage, options = {}) {
   const button = $(buttonId);
@@ -2120,15 +2151,7 @@ async function downloadReceiptPdf() {
   setBusy(button,true,"PDF तैयार हो रही है…");
   try {
     const file = await createReceiptPdf();
-    if (window.AJSFNativeDownload?.saveBase64) {
-      const bytes = new Uint8Array(await file.arrayBuffer());
-      let binary = "";
-      for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-      const result = window.AJSFNativeDownload.saveBase64(btoa(binary), file.name, file.type);
-      if (result !== "OK") throw new Error(result || "Android में PDF सेव नहीं हो पाई।");
-    } else {
-      triggerBrowserDownload(file,file.name,120000);
-    }
+    await savePdfFile(file);
     showMessage("रसीद PDF Downloads में सेव हो गई है। अब इसे किसी भी ऐप से भेज सकते हैं।","success");
   } catch(error) {
     showMessage("PDF डाउनलोड नहीं हो पाई: " + (error?.message || String(error)),"warn");
