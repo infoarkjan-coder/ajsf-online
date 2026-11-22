@@ -907,31 +907,33 @@ let verificationHomePhoto1 = null, verificationHomePhoto2 = null;
 async function compressVerificationImage(file) {
   if (!file) return null;
   if (!file.type.startsWith("image/")) throw new Error("कृपया JPG, PNG या WebP इमेज चुनें।");
-  if (file.size <= 4 * 1024 * 1024) return file;
+  // Keep already-small images unchanged; compress high-resolution phone photos before upload.
+  const maxBytes = 2 * 1024 * 1024;
+  if (file.size <= maxBytes) return file;
   let bitmap;
-  try { bitmap = await createImageBitmap(file); }
-  catch (_) { throw new Error("यह फोटो पढ़ी नहीं जा सकी। कृपया इसे JPG में बदलकर दोबारा चुनें।"); }
+  try { bitmap = await createImageBitmap(file, { imageOrientation: "from-image" }); }
+  catch (_) { throw new Error("यह फोटो पढ़ी नहीं जा सकी। कृपया JPG या PNG में दोबारा चुनें।"); }
   try {
-    const maxSide = 2000;
+    const maxSide = 1800;
     let scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
     const canvas = document.createElement("canvas");
     let blob = null;
-    for (let pass = 0; pass < 5; pass++) {
+    for (let pass = 0; pass < 8; pass++) {
       canvas.width = Math.max(1, Math.round(bitmap.width * scale));
       canvas.height = Math.max(1, Math.round(bitmap.height * scale));
       const ctx = canvas.getContext("2d", { alpha: false });
+      if (!ctx) throw new Error("फोटो कम्प्रेस करने के लिए पर्याप्त मेमोरी उपलब्ध नहीं है।");
       ctx.fillStyle = "#fff";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-      const quality = [0.84, 0.78, 0.70, 0.64, 0.58][pass];
+      const quality = [0.84, 0.80, 0.76, 0.72, 0.68, 0.64, 0.60, 0.56][pass];
       blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", quality));
-      if (blob && blob.size <= 4 * 1024 * 1024) break;
-      scale *= 0.82;
+      if (blob && blob.size <= maxBytes) break;
+      scale *= 0.88;
     }
-    if (!blob || blob.size > 4 * 1024 * 1024) throw new Error("फोटो 4 MB से कम नहीं हो पाई। कृपया छोटी फोटो चुनें।");
-    return new File([blob], (file.name || "verification-photo").replace(/\.[^.]+$/, "") + ".jpg", {
-      type: "image/jpeg", lastModified: Date.now()
-    });
+    if (!blob || blob.size > maxBytes) throw new Error("फोटो का आकार कम नहीं हो पाया। कृपया थोड़ी छोटी फोटो चुनें।");
+    const baseName = (file.name || "verification-photo").replace(/\.[^.]+$/, "");
+    return new File([blob], baseName + ".jpg", { type: "image/jpeg", lastModified: Date.now() });
   } finally { bitmap.close?.(); }
 }
 
@@ -959,7 +961,6 @@ async function openVerificationCamera(target) {
 function setVerificationPhotoFor(target,file) {
   if(!file) return;
   if(!file.type.startsWith("image/")) return showMessage("कृपया फोटो फ़ाइल चुनें।","warn");
-  if(file.size>5*1024*1024) return showMessage("हर फोटो 5 MB से छोटी होनी चाहिए।","warn");
   const map={customer:["verificationPhotoPreview","verificationPhotoStatus"],home1:["verificationHome1Preview","verificationHome1Status"],home2:["verificationHome2Preview","verificationHome2Status"]};
   if(target==="customer") verificationPhotoFile=file;
   if(target==="home1") verificationHomePhoto1=file;
@@ -1264,11 +1265,15 @@ async function submitCustomerVerification(event) {
   setBusy(btn,true,old?"Verification अपडेट हो रहा है…":"Verification सेव हो रहा है…");
   const uploadedPaths=[];
   try {
-    const uploadPhoto=async(file)=>{if(!file)return null;const safeFile=await compressVerificationImage(file);const p=customerId+"/"+crypto.randomUUID()+".jpg";const up=await supabase.storage.from("customer-verification").upload(p,safeFile,{contentType:"image/jpeg",cacheControl:"3600",upsert:false});if(up.error)throw up.error;uploadedPaths.push(p);return p;};
-    const [path,home1Path,home2Path,aadhaarFrontPath,aadhaarBackPath,panFrontPath,signaturePath]=await Promise.all([
-      uploadPhoto(verificationPhotoFile),uploadPhoto(verificationHomePhoto1),uploadPhoto(verificationHomePhoto2),
-      uploadPhoto(maskedIdentityDocs.aadhaarFront),uploadPhoto(maskedIdentityDocs.aadhaarBack),uploadPhoto(maskedIdentityDocs.panFront),uploadPhoto(verificationSignatureFile)
-    ]);
+    const uploadPhoto=async(file,label)=>{if(!file)return null;const safeFile=await compressVerificationImage(file);const p=customerId+"/"+crypto.randomUUID()+".jpg";const up=await supabase.storage.from("customer-verification").upload(p,safeFile,{contentType:"image/jpeg",cacheControl:"3600",upsert:false});if(up.error)throw new Error(label+" अपलोड नहीं हुई: "+up.error.message);uploadedPaths.push(p);return p;};
+    // Upload one at a time to avoid exhausting Android WebView memory/network on several camera photos.
+    const path=await uploadPhoto(verificationPhotoFile,"ग्राहक की फोटो");
+    const home1Path=await uploadPhoto(verificationHomePhoto1,"घर की पहली फोटो");
+    const home2Path=await uploadPhoto(verificationHomePhoto2,"घर की दूसरी फोटो");
+    const aadhaarFrontPath=await uploadPhoto(maskedIdentityDocs.aadhaarFront,"Aadhaar Front");
+    const aadhaarBackPath=await uploadPhoto(maskedIdentityDocs.aadhaarBack,"Aadhaar Back");
+    const panFrontPath=await uploadPhoto(maskedIdentityDocs.panFront,"PAN Front");
+    const signaturePath=await uploadPhoto(verificationSignatureFile,"हस्ताक्षर");
     const record={
       customer_id:customerId,photo_path:path||old?.photo_path||null,home_photo1_path:home1Path||old?.home_photo1_path||null,home_photo2_path:home2Path||old?.home_photo2_path||null,
       aadhaar_front_masked_path:aadhaarFrontPath||old?.aadhaar_front_masked_path||null,aadhaar_back_masked_path:aadhaarBackPath||old?.aadhaar_back_masked_path||null,pan_front_masked_path:panFrontPath||old?.pan_front_masked_path||null,
