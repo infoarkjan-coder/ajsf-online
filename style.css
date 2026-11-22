@@ -808,3 +808,38 @@ body{background:radial-gradient(ellipse at 50% 0%,#e4f1e9 0%,#f4f8f5 42%,#eef4f0
   [data-panel="customers"] #customerRows tr:has(td.empty){display:block}
   [data-panel="customers"] #customerRows td.empty{display:block;text-align:center}
 }
+
+
+/* Final mobile Customer Register correction: reset the wide table sizing before card layout. */
+@media (max-width: 650px){
+  [data-panel="customers"] .tablewrap{
+    width:100%!important;max-width:100%!important;overflow:visible!important;
+  }
+  [data-panel="customers"] .tablewrap>table{
+    display:block!important;width:100%!important;min-width:0!important;max-width:100%!important;
+    table-layout:auto!important;
+  }
+  [data-panel="customers"] .tablewrap>table>thead{display:none!important}
+  [data-panel="customers"] #customerRows{display:block!important;width:100%!important}
+  [data-panel="customers"] #customerRows>tr{
+    display:grid!important;width:100%!important;max-width:100%!important;min-width:0!important;
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+    align-items:start;gap:10px 14px;overflow:hidden;
+  }
+  [data-panel="customers"] #customerRows>tr>td{
+    display:flex!important;flex-direction:column;align-items:flex-start;
+    width:100%!important;min-width:0!important;max-width:100%!important;
+    white-space:normal!important;word-break:normal!important;
+    overflow-wrap:break-word!important;hyphens:none;
+    writing-mode:horizontal-tb!important;
+    padding:4px 2px!important;
+  }
+  [data-panel="customers"] #customerRows>tr>td:nth-child(1){display:none!important}
+  [data-panel="customers"] #customerRows>tr>td:nth-child(3){grid-column:1/-1!important}
+  [data-panel="customers"] #customerRows>tr>td:last-child{
+    grid-column:1/-1!important;display:flex!important;flex-direction:row!important;
+    flex-wrap:wrap;gap:8px;border-top:1px solid #e5ece8;padding-top:10px!important;
+  }
+  [data-panel="customers"] #customerRows>tr>td:last-child:before{flex-basis:100%}
+  [data-panel="customers"] #customerRows>tr>td:last-child button{width:auto!important;max-width:100%!important}
+}
