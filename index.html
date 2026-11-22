@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="hi">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AJSF Online</title><link rel="manifest" href="./manifest.webmanifest"><meta name="theme-color" content="#123f35"><meta name="description" content="ARK JAN SAMRIDDHI FOUNDATION — digital collection and customer support platform."><link rel="stylesheet" href="./style.css"></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AJSF Online</title><link rel="manifest" href="./manifest.webmanifest"><meta name="theme-color" content="#123f35"><meta name="description" content="ARK JAN SAMRIDDHI FOUNDATION — digital collection and customer support platform."><link rel="stylesheet" href="./style.css"><link rel="stylesheet" href="./platform-views.css"></head>
 <body><main class="shell wide" id="appShell">
 <header class="brand"><img class="brand-logo" src="./assets/ajsf-logo.png" alt="AJSF Logo"><div><h1>ARK JAN SAMRIDDHI FOUNDATION</h1><p>SAPNE AAPKE SATH HAMARA HAI</p></div></header>
 <section class="public-hero" aria-labelledby="publicTitle">
@@ -75,7 +75,7 @@
 <p id="reminderInfo" class="muted" role="status">पहले ग्राहक चुनें।</p>
 </section>
 <section class="card panel hidden" data-panel="payments"><h2>Payment History</h2><div class="tablewrap"><table><thead><tr><th>Payment ID</th><th>Date</th><th>Customer</th><th>Loan Ref</th><th>Amount</th><th>Mode</th></tr></thead><tbody id="paymentRows"></tbody></table></div></section>
-</div></div></section><footer>AJSF ONLINE · Collection Management System</footer></main><script type="module" src="./src/app.js"></script><script type="module" src="./src/data-tools.js"></script><script>
+</div></div></section><footer>AJSF ONLINE · Collection Management System</footer></main><script type="module" src="./src/platform-view.js"></script><script type="module" src="./src/app.js"></script><script type="module" src="./src/data-tools.js"></script><script>
 let ajsfInstallPrompt=null;
 const ajsfInstallButton=document.getElementById("installAppBtn");
 window.addEventListener("beforeinstallprompt",event=>{event.preventDefault();ajsfInstallPrompt=event;if(ajsfInstallButton)ajsfInstallButton.hidden=false;});
