@@ -29,3 +29,116 @@ body.platform-web .platform-view-label { display:none; }
   body.platform-app .grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
   body.platform-app .formgrid { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
+
+
+/* AJSF Professional UI refresh — presentation only */
+body.platform-app {
+  --ajs-green:#14583f; --ajs-green-deep:#0b392c; --ajs-green-soft:#e8f3ed;
+  --ajs-ink:#18352b; --ajs-muted:#6c8177; --ajs-border:#d8e7de;
+  background:linear-gradient(145deg,#f3f8f5 0%,#edf4ef 55%,#f8faf8 100%);
+  color:var(--ajs-ink);
+}
+body.platform-app .shell { padding:10px 12px 28px; }
+body.platform-app .brand {
+  padding:8px 4px 14px; margin-bottom:12px; gap:12px;
+}
+body.platform-app .brand-logo {
+  width:56px;height:56px;border:2px solid #d7e7dc;
+  box-shadow:0 4px 14px #0b392c18;
+}
+body.platform-app .brand h1 { color:var(--ajs-green-deep);font-weight:900;letter-spacing:.1px; }
+body.platform-app .brand p { color:#4c8068;font-weight:800;letter-spacing:.55px; }
+body.platform-app .dashhead {
+  top:0; margin:0 -2px 12px; padding:12px;
+  border:1px solid #dce9e1;border-radius:16px;
+  background:#ffffffed;box-shadow:0 5px 18px #123f3510;
+  backdrop-filter:blur(12px);
+}
+body.platform-app .dashhead h2 { font-size:19px; margin:3px 0;color:var(--ajs-green-deep); }
+body.platform-app .dashhead .row { display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end; }
+body.platform-app .grid { gap:9px; }
+body.platform-app .grid > .card {
+  min-width:0; margin:0; padding:13px;
+  border:1px solid var(--ajs-border);border-radius:15px;
+  background:linear-gradient(150deg,#fff,#f8fbf9);
+  box-shadow:0 5px 16px #123f350b;
+}
+body.platform-app .grid .label { color:#678275;font-size:10px;letter-spacing:.35px; }
+body.platform-app .metric { color:var(--ajs-green);font-size:21px;line-height:1.2;overflow-wrap:anywhere; }
+body.platform-app .sidebar {
+  padding:9px;border:1px solid var(--ajs-border);border-radius:16px;
+  background:#ffffffed;box-shadow:0 7px 20px #123f3510;
+}
+body.platform-app .sidebar-title {
+  padding:5px 8px 8px;color:#6a8276;font-size:10px;letter-spacing:1.5px;
+}
+body.platform-app .sidebar .tabs { padding:2px 0 5px;gap:7px; }
+body.platform-app .sidebar .tabs button {
+  min-height:44px;padding:10px 13px;border:1px solid #e0ebe4;
+  border-radius:12px;background:#f4f8f5;color:#214d3b;
+  font-size:12px;font-weight:800;letter-spacing:.05px;
+  box-shadow:0 2px 5px #0b392c08;transition:background .15s,transform .15s;
+}
+body.platform-app .sidebar .tabs button.active {
+  color:#fff;background:linear-gradient(135deg,#1d7552,#0d4935);
+  border-color:#155b40;box-shadow:0 5px 12px #14583f30;
+}
+body.platform-app .sidebar .tabs button:active,
+body.platform-app button:active { transform:scale(.985); }
+body.platform-app .dashboard-content > .card,
+body.platform-app .dashboard-content > [data-panel] {
+  border:1px solid var(--ajs-border);border-radius:17px;
+  box-shadow:0 7px 22px #123f350d;background:#fff;
+}
+body.platform-app .panel-head { padding-bottom:8px;border-bottom:1px solid #edf2ee;margin-bottom:12px; }
+body.platform-app .panel-head h2 { color:var(--ajs-green-deep);font-weight:900; }
+body.platform-app button {
+  min-height:44px;padding:11px 15px;border:1px solid #14583f;
+  border-radius:12px;background:linear-gradient(135deg,#1d7552,#104a36);
+  color:#fff;font-size:12px;font-weight:800;
+  box-shadow:0 4px 10px #14583f20;
+}
+body.platform-app button.secondary {
+  border:1px solid #cfe1d5;background:linear-gradient(180deg,#f5faf6,#e7f2eb);
+  color:#18543c;box-shadow:none;
+}
+body.platform-app #logoutBtn {
+  border-color:#e8caca;background:linear-gradient(135deg,#fff7f6,#fbe9e7);
+  color:#9b3430;box-shadow:none;
+}
+body.platform-app #backToDashboardBtn {
+  border-color:#cbded2;background:linear-gradient(135deg,#f4faf6,#e5f2e9);
+  color:#15543b;
+}
+body.platform-app .app-download-link {
+  border-radius:14px!important;min-height:54px;
+  background:linear-gradient(135deg,#21845b,#0b392c)!important;
+  box-shadow:0 7px 16px #0b392c25!important;
+}
+body.platform-app input,body.platform-app select,body.platform-app textarea {
+  border:1px solid #d1e1d7;border-radius:11px;background:#fbfdfb;
+  color:#173b2c;padding:12px;font-size:14px;
+}
+body.platform-app input:focus,body.platform-app select:focus,body.platform-app textarea:focus {
+  outline:3px solid #1b805326;border-color:#27845c;
+}
+body.platform-app .connection-status {
+  border-radius:10px;padding:9px 12px;background:#eaf4ee;color:#205b40;
+  font-size:11px;font-weight:800;
+}
+body.platform-app .tablewrap {
+  border:1px solid #e1ebe5;border-radius:12px;background:#fff;
+}
+body.platform-app table th { background:#f1f7f3;color:#557364; }
+body.platform-app table td,body.platform-app table th { padding:10px 9px; }
+body.platform-app .message { padding:3px 0; }
+@media(max-width:759px) {
+  body.platform-app .dashhead { align-items:flex-start; }
+  body.platform-app .dashhead .row { width:100%;justify-content:flex-start; }
+  body.platform-app .dashhead .row button { flex:1 1 auto; }
+  body.platform-app .sidebar { top:0; }
+  body.platform-app .sidebar .tabs { gap:7px; }
+  body.platform-app .sidebar .tabs button { border-radius:11px; }
+  body.platform-app .dashboard-content > .card,
+  body.platform-app .dashboard-content > [data-panel] { padding:13px; }
+}
