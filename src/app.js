@@ -1,18 +1,38 @@
 function renderCustomerPickerResults(selectId, searchId, resultsId) {
   const select = $(selectId), search = $(searchId), box = $(resultsId);
   if (!select || !search || !box) return;
-  const q = (search.value || "").trim().toLocaleLowerCase();
-  if (!q) { box.innerHTML = ""; return; }
-  const normalize = value => String(value || "").toLocaleLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
-  const phonetic = value => { const clean = normalize(value); return clean.length < 3 ? clean : clean[0] + clean.slice(1).replace(/[aeiou]/g, ""); };
-  const qKey = normalize(q), qSound = phonetic(q);
-  const matches = customers.filter(c => [c.customer_code,c.full_name,c.contact_number,c.center_name].some(v => { const value = normalize(v), sound = phonetic(v); return value.includes(qKey) || (qKey.length >= 3 && sound.includes(qSound)); })).slice(0,60);
-  box.innerHTML = matches.map(c => `<button type="button" class="customer-picker-option" data-customer-id="${esc(c.id)}"><strong>${esc(formatCustomerId(c.customer_code))} · ${esc(c.full_name || "")}</strong><small>${esc(phone(c.contact_number) || "")} · ${esc(c.center_name || "")}</small></button>`).join("") || '<p class="customer-picker-empty">कोई ग्राहक नहीं मिला। नाम, ID या मोबाइल से खोजें।</p>';
+  const rawQuery = (search.value || "").trim();
+  if (!rawQuery) {
+    box.innerHTML = '<p class="customer-picker-hint">ग्राहक का नाम, Customer ID या मोबाइल नंबर लिखें।</p>';
+    return;
+  }
+  const normalize = value => String(value || "").toLocaleLowerCase().normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "").replace(/[^\p{L}\p{N}]/gu, "");
+  const phonetic = value => {
+    const clean = normalize(value);
+    return /^[a-z0-9]+$/.test(clean) && clean.length >= 3
+      ? clean[0] + clean.slice(1).replace(/[aeiou]/g, "") : clean;
+  };
+  const queryParts = rawQuery.split(/\s+/).map(normalize).filter(Boolean);
+  const qKey = normalize(rawQuery), qSound = phonetic(rawQuery);
+  const scored = customers.map(c => {
+    const fields = [c.customer_code, c.full_name, c.contact_number, c.center_name].map(normalize).filter(Boolean);
+    const allWordsMatch = queryParts.every(part => fields.some(value => value.includes(part)));
+    const exactMatch = fields.some(value => value === qKey);
+    const startsMatch = fields.some(value => value.startsWith(qKey));
+    const containsMatch = fields.some(value => value.includes(qKey));
+    const phoneticMatch = qKey.length >= 3 && fields.some(value => phonetic(value).includes(qSound));
+    return { customer:c, score: exactMatch ? 4 : startsMatch ? 3 : containsMatch ? 2 : allWordsMatch || phoneticMatch ? 1 : 0 };
+  }).filter(item => item.score > 0)
+    .sort((a,b) => b.score-a.score || String(a.customer.full_name||"").localeCompare(String(b.customer.full_name||""), "hi"))
+    .slice(0,30);
+  box.innerHTML = scored.map(({customer:c}) => `<button type="button" class="customer-picker-option" data-customer-id="${esc(c.id)}"><strong>${esc(formatCustomerId(c.customer_code))} · ${esc(c.full_name || "")}</strong><small>मोबाइल: ${esc(phone(c.contact_number) || "—")} · Center: ${esc(c.center_name || "—")}</small></button>`).join("")
+    || '<p class="customer-picker-empty">कोई ग्राहक नहीं मिला। नाम के कुछ अक्षर, Customer ID या मोबाइल के आखिरी अंक आज़माएँ।</p>';
   box.querySelectorAll(".customer-picker-option").forEach(button => button.addEventListener("click", () => {
     select.value = button.dataset.customerId;
     const chosen = customers.find(c => c.id === select.value);
     search.value = chosen ? formatCustomerId(chosen.customer_code) + " · " + chosen.full_name : "";
-    box.innerHTML = "";
+    box.innerHTML = chosen ? `<p class="customer-picker-hint">चुना गया: <strong>${esc(chosen.full_name || "")}</strong> · ${esc(formatCustomerId(chosen.customer_code))}</p>` : "";
     select.dispatchEvent(new Event("change", {bubbles:true}));
   }));
 }
