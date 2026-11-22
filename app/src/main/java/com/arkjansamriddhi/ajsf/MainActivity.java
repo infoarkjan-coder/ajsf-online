@@ -4,12 +4,18 @@ import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
+import android.content.ContentValues;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Build;
+import android.os.Environment;
+import android.provider.MediaStore;
+import android.util.Base64;
 import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.GeolocationPermissions;
+import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
@@ -20,6 +26,7 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
+import java.io.OutputStream;
 
 public class MainActivity extends Activity {
     private static final int PERMISSION_REQUEST = 701;
@@ -62,6 +69,7 @@ public class MainActivity extends Activity {
         progress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
         root.addView(progress, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 5));
         webView = new WebView(this);
+        webView.addJavascriptInterface(new AJSFNativeDownload(), "AJSFNativeDownload");
         root.addView(webView, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
         setContentView(root);
     }
@@ -148,6 +156,42 @@ public class MainActivity extends Activity {
                 return true;
             }
         });
+    }
+
+
+    private final class AJSFNativeDownload {
+        @JavascriptInterface
+        public String saveBase64(String encoded, String fileName, String mimeType) {
+            if (encoded == null || encoded.isEmpty() || fileName == null || fileName.isEmpty()) {
+                return "PDF डेटा या फ़ाइल नाम खाली है।";
+            }
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                return "इस Android संस्करण में सुरक्षित Downloads सेव सुविधा उपलब्ध नहीं है। कृपया ब्राउज़र से डाउनलोड करें।";
+            }
+            try {
+                byte[] bytes = Base64.decode(encoded, Base64.DEFAULT);
+                String safeName = fileName.replaceAll("[^A-Za-z0-9._-]", "_");
+                if (!safeName.toLowerCase().endsWith(".pdf") && "application/pdf".equals(mimeType)) safeName += ".pdf";
+                ContentValues values = new ContentValues();
+                values.put(MediaStore.Downloads.DISPLAY_NAME, safeName);
+                values.put(MediaStore.Downloads.MIME_TYPE, mimeType == null ? "application/octet-stream" : mimeType);
+                values.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/AJSF Online");
+                values.put(MediaStore.Downloads.IS_PENDING, 1);
+                Uri uri = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+                if (uri == null) return "Downloads में फ़ाइल बनाने में समस्या हुई।";
+                try (OutputStream output = getContentResolver().openOutputStream(uri)) {
+                    if (output == null) throw new IllegalStateException("फ़ाइल लिखने के लिए स्ट्रीम नहीं मिली।");
+                    output.write(bytes);
+                    output.flush();
+                }
+                ContentValues ready = new ContentValues();
+                ready.put(MediaStore.Downloads.IS_PENDING, 0);
+                getContentResolver().update(uri, ready, null, null);
+                return "OK";
+            } catch (Exception error) {
+                return "फ़ाइल सेव नहीं हुई: " + error.getMessage();
+            }
+        }
     }
 
     private void showConnectionError() {
