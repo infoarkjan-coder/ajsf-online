@@ -819,21 +819,62 @@ function filterLedgerCustomers() {
 function renderCustomerCallResults() {
   const root = $("customerCallResults");
   if (!root) return;
-  const q = ($("customerCallSearch")?.value || "").trim().toLocaleLowerCase();
-  const digits = q.replace(/\D/g, "");
-  const normalize = value => String(value || "").toLocaleLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "");
+  const groupSelect = $("customerCallGroup");
+  const daySelect = $("customerCallDay");
+  const dateInput = $("customerCallDate");
+  const searchInput = $("customerCallSearch");
+  const count = $("customerCallCount");
+  const selectedGroup = groupSelect?.value || "";
+  const normalize = value => String(value || "").toLocaleLowerCase().normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "").trim();
   const active = customers.filter(c => c.is_active !== false && (c.customer_status || "ACTIVE") === "ACTIVE");
+
+  if (groupSelect) {
+    const groups = [...new Set(active.map(c => String(c.center_name || "").trim()).filter(Boolean))]
+      .sort((a,b) => a.localeCompare(b, "hi"));
+    groupSelect.innerHTML = '<option value="">सभी Group / Center</option>' +
+      groups.map(group => '<option value="' + esc(group) + '">' + esc(group) + '</option>').join("");
+    groupSelect.value = groups.includes(selectedGroup) ? selectedGroup : "";
+  }
+
+  const selectedDate = dateInput?.value || "";
+  const isScheduledOnDate = customer => {
+    if (!selectedDate) return true;
+    return loans.some(loan => {
+      if (loan.customer_id !== customer.id || loan.status !== "active" || loan.is_archived) return false;
+      const total = Math.max(1, Number(loan.total_emis_required || 24));
+      for (let installment = 1; installment <= total; installment++) {
+        const due = advanceDueDate(loan, customer, installment);
+        if (!due) continue;
+        const dueKey = due.getFullYear() + "-" + String(due.getMonth() + 1).padStart(2, "0") + "-" + String(due.getDate()).padStart(2, "0");
+        if (dueKey === selectedDate) return true;
+      }
+      return false;
+    });
+  };
+
+  const q = (searchInput?.value || "").trim();
+  const qNormalized = normalize(q);
+  const digits = q.replace(/\D/g, "");
   const matches = active.filter(c => {
-    if (!q) return true;
-    const textMatch = [c.customer_code,c.full_name,c.center_name].some(v => normalize(v).includes(q));
+    if (groupSelect?.value && String(c.center_name || "").trim() !== groupSelect.value) return false;
+    if (daySelect?.value && normalize(c.collection_day) !== normalize(daySelect.value)) return false;
+    if (!isScheduledOnDate(c)) return false;
+    if (!qNormalized) return true;
+    const textMatch = [c.customer_code,c.full_name,c.center_name].some(v => normalize(v).includes(qNormalized));
     const phoneDigits = phone(c.contact_number).replace(/\D/g, "");
     return textMatch || (digits.length > 0 && phoneDigits.includes(digits));
-  }).slice(0,100);
+  }).sort((a,b) =>
+    String(a.center_name || "").localeCompare(String(b.center_name || ""), "hi") ||
+    String(a.full_name || "").localeCompare(String(b.full_name || ""), "hi")
+  );
+
+  if (count) count.textContent = "कुल " + active.length + " सक्रिय ग्राहक · इस Filter में " + matches.length + " ग्राहक";
   root.innerHTML = matches.map(c => {
     const number = phone(c.contact_number);
     const dial = String(number || "").replace(/[^\d+]/g, "");
-    return `<article class="customer-call-row"><div class="customer-call-info"><strong>${esc(c.full_name || "—")}</strong><small>${esc(formatCustomerId(c.customer_code))} · ${esc(number || "मोबाइल उपलब्ध नहीं")} · ${esc(c.center_name || "")}</small></div>${dial ? `<a class="customer-call-action" href="tel:${esc(dial)}" aria-label="${esc(c.full_name)} को कॉल करें">Call</a>` : '<span class="muted">नंबर नहीं है</span>'}</article>`;
-  }).join("") || '<p class="customer-picker-empty">कोई ग्राहक नहीं मिला। नाम, Customer ID या मोबाइल नंबर जाँचें।</p>';
+    return '<article class="customer-call-row"><div class="customer-call-info"><strong>' + esc(c.full_name || "—") + '</strong><small>' + esc(formatCustomerId(c.customer_code)) + ' · ' + esc(number || "मोबाइल उपलब्ध नहीं") + ' · ' + esc(c.center_name || "") + ' · ' + esc(c.collection_day || "दिन तय नहीं") + '</small></div>' + (dial ? '<a class="customer-call-action" href="tel:' + esc(dial) + '" aria-label="' + esc(c.full_name) + ' को कॉल करें">Call</a>' : '<span class="muted">नंबर नहीं है</span>') + '</article>';
+  }).join("") || '<p class="customer-picker-empty">इस Filter में कोई सक्रिय ग्राहक नहीं मिला। Group, Collection Day, Date या Search बदलकर देखें।</p>';
 }
 function filterCustomerRows() {
   const q = ($("customerFilter")?.value || "").trim().toLocaleLowerCase();
@@ -2712,6 +2753,9 @@ async function boot() {
   $("sendSmsReminder").addEventListener("click", () => openReminder("sms"));
   $("loanCustomerFilter").addEventListener("change", renderData);
   $("customerCallSearch")?.addEventListener("input", renderCustomerCallResults);
+  $("customerCallGroup")?.addEventListener("change", renderCustomerCallResults);
+  $("customerCallDay")?.addEventListener("change", renderCustomerCallResults);
+  $("customerCallDate")?.addEventListener("change", renderCustomerCallResults);
   $("backToDashboardBtn")?.addEventListener("click", goToDashboard);
   // Customer Register actions are bound directly after each table render above.
   $("ledgerCustomer").addEventListener("change", loadCustomerLedger);
