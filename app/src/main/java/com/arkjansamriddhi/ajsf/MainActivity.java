@@ -27,6 +27,9 @@ import android.webkit.WebViewClient;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import java.io.OutputStream;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 
 public class MainActivity extends Activity {
     private static final int PERMISSION_REQUEST = 701;
@@ -39,6 +42,8 @@ public class MainActivity extends Activity {
     private PermissionRequest pendingCameraRequest;
     private GeolocationPermissions.Callback pendingGeoCallback;
     private String pendingGeoOrigin;
+    private final Map<String, Uri> pendingDownloadUris = new HashMap<>();
+    private final Map<String, OutputStream> pendingDownloadStreams = new HashMap<>();
 
     private boolean isTrustedOrigin(String origin) {
         try {
@@ -161,36 +166,81 @@ public class MainActivity extends Activity {
 
     private final class AJSFNativeDownload {
         @JavascriptInterface
-        public String saveBase64(String encoded, String fileName, String mimeType) {
-            if (encoded == null || encoded.isEmpty() || fileName == null || fileName.isEmpty()) {
-                return "PDF डेटा या फ़ाइल नाम खाली है।";
-            }
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-                return "इस Android संस्करण में सुरक्षित Downloads सेव सुविधा उपलब्ध नहीं है। कृपया ब्राउज़र से डाउनलोड करें।";
-            }
+        public synchronized String beginSave(String fileName, String mimeType) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return "इस Android संस्करण में Downloads सेव सुविधा उपलब्ध नहीं है।";
             try {
-                byte[] bytes = Base64.decode(encoded, Base64.DEFAULT);
-                String safeName = fileName.replaceAll("[^A-Za-z0-9._-]", "_");
-                if (!safeName.toLowerCase().endsWith(".pdf") && "application/pdf".equals(mimeType)) safeName += ".pdf";
+                String safeName = (fileName == null ? "AJSF-Document.pdf" : fileName).replaceAll("[^A-Za-z0-9._-]", "_");
                 ContentValues values = new ContentValues();
                 values.put(MediaStore.Downloads.DISPLAY_NAME, safeName);
-                values.put(MediaStore.Downloads.MIME_TYPE, mimeType == null ? "application/octet-stream" : mimeType);
+                values.put(MediaStore.Downloads.MIME_TYPE, mimeType == null ? "application/pdf" : mimeType);
                 values.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/AJSF Online");
                 values.put(MediaStore.Downloads.IS_PENDING, 1);
                 Uri uri = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
                 if (uri == null) return "Downloads में फ़ाइल बनाने में समस्या हुई।";
-                try (OutputStream output = getContentResolver().openOutputStream(uri)) {
-                    if (output == null) throw new IllegalStateException("फ़ाइल लिखने के लिए स्ट्रीम नहीं मिली।");
-                    output.write(bytes);
-                    output.flush();
+                OutputStream output = getContentResolver().openOutputStream(uri);
+                if (output == null) {
+                    getContentResolver().delete(uri, null, null);
+                    return "फ़ाइल लिखने के लिए स्ट्रीम नहीं मिली।";
                 }
+                String token = UUID.randomUUID().toString();
+                pendingDownloadUris.put(token, uri);
+                pendingDownloadStreams.put(token, output);
+                return token;
+            } catch (Exception error) { return "फ़ाइल सेव शुरू नहीं हुई: " + error.getMessage(); }
+        }
+
+        @JavascriptInterface
+        public synchronized String appendChunk(String token, String encodedChunk) {
+            try {
+                OutputStream output = pendingDownloadStreams.get(token);
+                if (output == null) return "Download session नहीं मिली।";
+                output.write(Base64.decode(encodedChunk, Base64.DEFAULT));
+                return "OK";
+            } catch (Exception error) { return "PDF डेटा सेव नहीं हुआ: " + error.getMessage(); }
+        }
+
+        @JavascriptInterface
+        public synchronized String finishSave(String token) {
+            Uri uri = pendingDownloadUris.get(token);
+            OutputStream output = pendingDownloadStreams.get(token);
+            if (uri == null || output == null) return "Download session पूरी नहीं मिली।";
+            try {
+                output.flush();
+                output.close();
                 ContentValues ready = new ContentValues();
                 ready.put(MediaStore.Downloads.IS_PENDING, 0);
                 getContentResolver().update(uri, ready, null, null);
+                pendingDownloadUris.remove(token);
+                pendingDownloadStreams.remove(token);
                 return "OK";
             } catch (Exception error) {
-                return "फ़ाइल सेव नहीं हुई: " + error.getMessage();
+                try { output.close(); } catch (Exception ignored) { }
+                getContentResolver().delete(uri, null, null);
+                pendingDownloadUris.remove(token);
+                pendingDownloadStreams.remove(token);
+                return "PDF पूरी सेव नहीं हुई: " + error.getMessage();
             }
+        }
+
+        @JavascriptInterface
+        public synchronized void cancelSave(String token) {
+            OutputStream output = pendingDownloadStreams.remove(token);
+            Uri uri = pendingDownloadUris.remove(token);
+            try { if (output != null) output.close(); } catch (Exception ignored) { }
+            if (uri != null) getContentResolver().delete(uri, null, null);
+        }
+
+        @JavascriptInterface
+        public String saveBase64(String encoded, String fileName, String mimeType) {
+            String token = beginSave(fileName, mimeType);
+            if (token == null || token.isEmpty() || token.startsWith("फ़ाइल") || token.startsWith("Downloads") || token.startsWith("इस Android")) return token;
+            try {
+                for (int i = 0; i < encoded.length(); i += 65536) {
+                    String result = appendChunk(token, encoded.substring(i, Math.min(i + 65536, encoded.length())));
+                    if (!"OK".equals(result)) { cancelSave(token); return result; }
+                }
+                return finishSave(token);
+            } catch (Exception error) { cancelSave(token); return "PDF सेव नहीं हुई: " + error.getMessage(); }
         }
     }
 
