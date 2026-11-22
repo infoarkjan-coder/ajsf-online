@@ -226,10 +226,145 @@ function setBusy(button, busy, label = "कृपया प्रतीक्ष
   else { button.textContent = button.dataset.oldText || button.textContent; button.disabled = false; }
 }
 function canAdmin() { return profile?.role === "admin"; }
+let ajsfDutyWatchId = null;
+let ajsfDutyTimer = null;
+let ajsfLocationRefreshTimer = null;
+let ajsfDutySessionId = null;
+
+function ensureTrackingPanel() {
+  const host = document.querySelector(".dashboard-content");
+  if (!host || $("ajsTrackingPanel")) return;
+  const panel = document.createElement("section");
+  panel.className = "card panel hidden";
+  panel.id = "ajsTrackingPanel";
+  panel.innerHTML = `
+    <div class="panel-head"><div><h2>AJSF Live Collector Tracking</h2><p class="muted">लोकेशन केवल Duty Start से Duty End तक रिकॉर्ड होगी। GPS बंद होने पर नई लोकेशन नहीं भेजी जाएगी।</p></div></div>
+    <div class="actions"><button type="button" id="ajsDutyStartBtn">Duty Start</button><button type="button" class="secondary" id="ajsDutyEndBtn">Duty End</button></div>
+    <p id="ajsDutyStatus" class="message" role="status">Duty स्थिति जाँची जा रही है…</p>
+    <div id="ajsSuperAdminTracking" class="hidden"><h3>सभी Admin और Collector की Live Location</h3><p class="small muted">केवल अधिकृत Super Admin इस सूची और 30-दिन की लोकेशन हिस्ट्री को देख सकता है।</p><div id="ajsTrackingRows" class="tablewrap"></div></div>`;
+  host.prepend(panel);
+  $("ajsDutyStartBtn").addEventListener("click", startAjsfDuty);
+  $("ajsDutyEndBtn").addEventListener("click", endAjsfDuty);
+}
+
+function stopAjsfDutyWatch() {
+  if (ajsfDutyWatchId !== null && navigator.geolocation) navigator.geolocation.clearWatch(ajsfDutyWatchId);
+  ajsfDutyWatchId = null;
+  if (ajsfDutyTimer) clearInterval(ajsfDutyTimer);
+  ajsfDutyTimer = null;
+  if (ajsfLocationRefreshTimer) clearInterval(ajsfLocationRefreshTimer);
+  ajsfLocationRefreshTimer = null;
+}
+
+function sendAjsfDutyLocation(position) {
+  if (!ajsfDutySessionId || !currentUser) return;
+  const { latitude, longitude, accuracy } = position.coords;
+  supabase.rpc("ajs_record_duty_location", {
+    p_latitude: latitude, p_longitude: longitude, p_accuracy_m: accuracy
+  }).then(({error}) => {
+    if (error) $("ajsDutyStatus").textContent = "लोकेशन सेव नहीं हुई: " + error.message;
+    else $("ajsDutyStatus").textContent = "Duty चालू है · आखिरी GPS अपडेट: " + new Date().toLocaleTimeString("hi-IN");
+  });
+}
+
+async function startAjsfDuty() {
+  const btn = $("ajsDutyStartBtn");
+  if (!currentUser || !navigator.geolocation) return showMessage("इस डिवाइस में GPS सुविधा उपलब्ध नहीं है।", "error");
+  setBusy(btn,true,"GPS अनुमति जाँची जा रही है…");
+  try {
+    const {data: sessionData} = await supabase.auth.getSession();
+    if (!sessionData?.session?.access_token) throw new Error("Login session समाप्त हो गया है।");
+    const {data: sessionId,error} = await supabase.rpc("ajs_start_duty");
+    if (error) throw error;
+    ajsfDutySessionId = sessionId;
+    navigator.geolocation.getCurrentPosition(
+      position => {
+        sendAjsfDutyLocation(position);
+        stopAjsfDutyWatch();
+        ajsfDutyWatchId = navigator.geolocation.watchPosition(sendAjsfDutyLocation,
+          error => $("ajsDutyStatus").textContent = "GPS उपलब्ध नहीं: " + error.message,
+          {enableHighAccuracy:true, maximumAge:15000, timeout:20000});
+      },
+      async error => {
+        await supabase.rpc("ajs_end_duty");
+        ajsfDutySessionId = null;
+        $("ajsDutyStatus").textContent = "GPS अनुमति/लोकेशन नहीं मिली; Duty शुरू नहीं हुई: " + error.message;
+      },
+      {enableHighAccuracy:true, maximumAge:0, timeout:20000}
+    );
+    $("ajsDutyStatus").textContent = "Duty शुरू हो रही है… GPS अनुमति दें और लोकेशन चालू रखें।";
+    if (profile?.is_super_admin) loadAjsfSuperAdminTracking();
+  } catch(error) {
+    showMessage("Duty Start नहीं हुई: " + (error?.message || String(error)), "error");
+  } finally { setBusy(btn,false); }
+}
+
+async function endAjsfDuty() {
+  const btn = $("ajsDutyEndBtn");
+  setBusy(btn,true,"Duty बंद हो रही है…");
+  try {
+    const {error} = await supabase.rpc("ajs_end_duty");
+    if (error) throw error;
+    stopAjsfDutyWatch();
+    ajsfDutySessionId = null;
+    $("ajsDutyStatus").textContent = "Duty End हो गई। अब लोकेशन रिकॉर्ड नहीं होगी।";
+    if (profile?.is_super_admin) loadAjsfSuperAdminTracking();
+  } catch(error) { showMessage("Duty End नहीं हुई: " + (error?.message || String(error)), "error"); }
+  finally { setBusy(btn,false); }
+}
+
+async function loadAjsfDutyState() {
+  const {data,error} = await supabase.from("staff_duty_sessions")
+    .select("id,duty_started_at,duty_ended_at").eq("staff_id",currentUser.id)
+    .is("duty_ended_at",null).order("duty_started_at",{ascending:false}).limit(1);
+  if (error) throw error;
+  if (data?.length) {
+    ajsfDutySessionId = data[0].id;
+    $("ajsDutyStatus").textContent = "Duty चालू है · शुरू: " + new Date(data[0].duty_started_at).toLocaleString("hi-IN");
+    if (navigator.geolocation) ajsfDutyWatchId = navigator.geolocation.watchPosition(sendAjsfDutyLocation,
+      error => $("ajsDutyStatus").textContent = "GPS उपलब्ध नहीं: " + error.message,
+      {enableHighAccuracy:true,maximumAge:15000,timeout:20000});
+  } else {
+    ajsfDutySessionId = null;
+    $("ajsDutyStatus").textContent = "अभी Duty बंद है।";
+  }
+}
+
+async function loadAjsfSuperAdminTracking() {
+  if (!profile?.is_super_admin) return;
+  const host = $("ajsTrackingRows");
+  if (!host) return;
+  const {data,error} = await supabase.from("staff_location_history")
+    .select("staff_id,latitude,longitude,accuracy_m,recorded_at,profiles!staff_location_history_staff_id_fkey(full_name,staff_code,role)")
+    .gte("recorded_at",new Date(Date.now()-30*86400000).toISOString())
+    .order("recorded_at",{ascending:false}).limit(3000);
+  if (error) { host.textContent = "लोकेशन लोड नहीं हुई: " + error.message; return; }
+  const latest = new Map();
+  (data || []).forEach(row => { if (!latest.has(row.staff_id)) latest.set(row.staff_id,row); });
+  const rows = [...latest.values()];
+  host.innerHTML = rows.length ? "<table><thead><tr><th>कर्मचारी</th><th>Role</th><th>Last Active</th><th>Accuracy</th><th>Map</th></tr></thead><tbody>" +
+    rows.map(row => {
+      const p = row.profiles || {};
+      const mapUrl = "https://www.openstreetmap.org/?mlat=" + encodeURIComponent(row.latitude) + "&mlon=" + encodeURIComponent(row.longitude) + "#map=17/" + encodeURIComponent(row.latitude) + "/" + encodeURIComponent(row.longitude);
+      return "<tr><td>" + esc(p.full_name || row.staff_id) + "<br><small>" + esc(p.staff_code || "") + "</small></td><td>" + esc(p.role || "") + "</td><td>" + esc(new Date(row.recorded_at).toLocaleString("hi-IN")) + "</td><td>" + esc(row.accuracy_m == null ? "—" : Math.round(row.accuracy_m) + " m") + "</td><td><a href=\"" + mapUrl + "\" target=\"_blank\" rel=\"noopener\">Map खोलें</a></td></tr>";
+    }).join("") + "</tbody></table>" : "<p class='muted'>पिछले 30 दिनों में कोई लोकेशन रिकॉर्ड नहीं मिली।";
+}
+
+async function initAjsfTracking() {
+  ensureTrackingPanel();
+  $("ajsTrackingPanel")?.classList.remove("hidden");
+  $("ajsSuperAdminTracking")?.classList.toggle("hidden", !profile?.is_super_admin);
+  try { await loadAjsfDutyState(); } catch(error) { $("ajsDutyStatus").textContent = "Duty स्थिति लोड नहीं हुई: " + error.message; }
+  if (profile?.is_super_admin) {
+    await loadAjsfSuperAdminTracking();
+    ajsfLocationRefreshTimer = setInterval(loadAjsfSuperAdminTracking,30000);
+  }
+}
+
 
 async function loadProfile(user) {
   const { data, error } = await supabase.from("profiles")
-    .select("full_name, role, staff_code, is_active")
+    .select("full_name, role, staff_code, is_active, is_super_admin")
     .eq("id", user.id).single();
   if (error || !data || !data.is_active) throw new Error("सक्रिय प्रोफाइल नहीं मिली। Admin से संपर्क करें।");
   profile = data;
@@ -264,6 +399,7 @@ function renderShell() {
   if (staffPasswordResetBtn) staffPasswordResetBtn.classList.toggle("hidden", !canAdmin());
   const settlementAdminOnly = $("settlementAdminOnly");
   if (settlementAdminOnly) settlementAdminOnly.classList.toggle("hidden", !canAdmin());
+  initAjsfTracking().catch(error => console.warn("AJSF tracking initialization failed", error));
 }
 
 function activateTab(tab) {
@@ -2646,6 +2782,7 @@ async function logout() {
   } catch (error) {
     signOutError = error;
   } finally {
+    stopAjsfDutyWatch();
     currentUser = null; profile = null;
     $("dashboardCard").classList.add("hidden");
     $("loginCard").classList.remove("hidden");
