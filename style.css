@@ -632,3 +632,107 @@ input,select,button{min-height:42px}
   .qr-placeholder{min-height:90px}
   .public-login-note{align-items:flex-start;flex-direction:column}
 }
+
+
+/* AJSF staff workspace refresh — presentation only; business logic untouched */
+#dashboardCard{color:#1c332b}
+#dashboardCard>.dashhead{
+  padding:20px 22px;margin:0 0 14px;border:1px solid #dce8e1;
+  border-radius:16px;background:#fff;box-shadow:0 5px 18px #123f3508;
+}
+#dashboardCard>.dashhead h2{font-size:clamp(21px,2vw,28px);margin:5px 0}
+#dashboardCard>.dashhead .muted{margin:4px 0 0}
+#connectionStatus{
+  display:flex;align-items:center;gap:8px;width:fit-content;max-width:100%;
+  padding:7px 11px;margin:0 0 14px;border:1px solid #dce8e1;
+  border-radius:999px;background:#fff;font-size:12px;color:#426454;
+}
+#dashboardCard>.grid{
+  grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:0 0 18px;
+}
+#dashboardCard>.grid>.card{
+  min-width:0;min-height:112px;margin:0;padding:17px 18px;
+  border:1px solid #dce8e1;border-radius:14px;box-shadow:0 4px 15px #123f3508;
+}
+#dashboardCard>.grid>.card .label{font-size:12px;letter-spacing:.1px}
+#dashboardCard>.grid>.card .metric{font-size:clamp(22px,2.1vw,29px);line-height:1.2;overflow-wrap:anywhere}
+.dashboard-layout{grid-template-columns:232px minmax(0,1fr);gap:16px}
+.sidebar{top:12px;padding:12px;border-radius:15px}
+.sidebar .tabs{gap:5px}
+.sidebar .tabs button{
+  display:flex;align-items:center;min-height:43px;padding:10px 12px;
+  border:1px solid transparent;border-radius:9px;font-size:13px;font-weight:700;
+  transition:background .15s ease,border-color .15s ease;
+}
+.sidebar .tabs button:hover{background:#e7f1eb;border-color:#d4e4d9}
+.sidebar .tabs button.active{background:#123f35;color:#fff;box-shadow:0 3px 9px #123f3522}
+.dashboard-content>.panel{
+  min-width:0;padding:20px;border:1px solid #dce8e1;border-radius:15px;
+  box-shadow:0 5px 18px #123f3508;
+}
+.dashboard-content>.panel>.panel-head{align-items:flex-start;margin-bottom:14px}
+.dashboard-content>.panel>.panel-head h2{font-size:20px;margin:0}
+.dashboard-content>.panel form{margin:14px 0}
+.dashboard-content .tablewrap{
+  border:1px solid #e2ebe5;border-radius:10px;background:#fff;
+}
+.dashboard-content table{font-size:12px}
+.dashboard-content th{
+  position:sticky;top:0;background:#f2f7f3;color:#4e695c;
+  font-size:10px;letter-spacing:.25px;z-index:1;
+}
+.dashboard-content td{color:#30483d}
+.dashboard-content tbody tr:hover{background:#f8fbf9}
+.dashboard-content input,.dashboard-content select{
+  min-height:43px;border-radius:9px;border-color:#d2dfd7;
+}
+.dashboard-content input:focus,.dashboard-content select:focus{
+  outline:2px solid #a5c7b2;outline-offset:1px;border-color:#63977b;
+}
+#dashboardCard.collector-mode>.grid{display:none!important}
+#dashboardCard.collector-mode .dashboard-layout{grid-template-columns:220px minmax(0,1fr)}
+#dashboardCard.collector-mode [data-panel="collector-demand"] .demand-metrics{
+  grid-template-columns:repeat(3,minmax(0,1fr));margin:0 0 14px;
+}
+#dashboardCard.collector-mode [data-panel="collector-demand"] .demand-metrics>.card{
+  margin:0;padding:16px;border-radius:12px;background:#f8fbf9;
+}
+#dashboardCard.collector-mode [data-panel="collector-demand"] .demand-metrics .metric{
+  font-size:25px;
+}
+@media(max-width:900px){
+  #dashboardCard>.grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .dashboard-layout,#dashboardCard.collector-mode .dashboard-layout{grid-template-columns:1fr}
+  .sidebar{position:static}
+  .sidebar .tabs{
+    display:flex!important;flex-direction:row!important;overflow-x:auto;
+    gap:7px;padding:2px 1px 7px;scrollbar-width:thin;
+  }
+  .sidebar .tabs button{flex:0 0 auto;width:auto;white-space:nowrap;text-align:center}
+  #dashboardCard.collector-mode [data-panel="collector-demand"] .demand-metrics{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+  }
+}
+@media(max-width:560px){
+  #dashboardCard>.dashhead{padding:15px;gap:10px}
+  #dashboardCard>.dashhead .row{display:flex;flex-wrap:wrap;gap:7px}
+  #dashboardCard>.dashhead .row button{font-size:12px;padding:9px 10px}
+  #dashboardCard>.grid{gap:8px}
+  #dashboardCard>.grid>.card{min-height:94px;padding:13px}
+  #dashboardCard>.grid>.card .label{font-size:11px}
+  #dashboardCard>.grid>.card .metric{font-size:21px}
+  .dashboard-content>.panel{padding:14px}
+  .dashboard-content>.panel>.panel-head{flex-direction:column;align-items:stretch}
+  #dashboardCard.collector-mode [data-panel="collector-demand"] .demand-metrics{
+    grid-template-columns:1fr 1fr;
+  }
+  #dashboardCard.collector-mode [data-panel="collector-demand"] .demand-metrics>.card:first-child{
+    grid-column:1/-1;
+  }
+  .sidebar{padding:9px}
+  .sidebar-title{padding:4px 7px 9px}
+  .sidebar .tabs button{min-height:40px;padding:9px 11px;font-size:12px}
+}
+@media(prefers-reduced-motion:reduce){
+  .sidebar .tabs button{transition:none}
+}
