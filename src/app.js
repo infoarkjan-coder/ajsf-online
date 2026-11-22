@@ -1874,13 +1874,23 @@ async function savePdfFile(file) {
   }
   triggerBrowserDownload(file,file.name,120000);
 }
+function withPdfTimeout(promise, ms, message) {
+  let timer;
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(message)), ms); })
+  ]).finally(() => clearTimeout(timer));
+}
 async function downloadElementPdf(element, fileName, options = {}) {
   if (!element || !element.innerHTML.trim()) throw new Error("पहले संबंधित विवरण तैयार करें।");
   await loadReceiptLibrary("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js", () => typeof window.html2canvas === "function");
   await loadReceiptLibrary("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js", () => !!window.jspdf?.jsPDF);
-  // Let the selected panel finish layout and wait for its logo before capturing it.
-  if (document.fonts?.ready) await document.fonts.ready;
-  await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  // Android WebView font readiness may never settle; allow export to continue with fallback fonts.
+  if (document.fonts?.ready) {
+    try { await withPdfTimeout(document.fonts.ready,8000,"फ़ॉन्ट लोड होने में देर हो रही है।"); }
+    catch (error) { console.warn("AJSF PDF: font wait skipped",error); }
+  }
+  await withPdfTimeout(new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))),3000,"स्क्रीन तैयार नहीं हो सकी। दोबारा प्रयास करें।");
   await Promise.all(Array.from(element.querySelectorAll("img")).map(img =>
     img.complete ? Promise.resolve() : new Promise(resolve => {
       img.addEventListener("load",resolve,{once:true});
@@ -1901,7 +1911,7 @@ async function downloadElementPdf(element, fileName, options = {}) {
   }
   let canvas;
   try {
-    canvas = await window.html2canvas(element, {
+    canvas = await withPdfTimeout(window.html2canvas(element, {
     scale:2, backgroundColor:"#ffffff", useCORS:true, logging:false,
     windowWidth:1180,
     onclone: clonedDoc => {
@@ -2087,7 +2097,7 @@ async function downloadElementPdf(element, fileName, options = {}) {
       `;
       clonedDoc.head.appendChild(style);
     }
-    });
+    }),45000,"PDF पेज की इमेज 45 सेकंड में तैयार नहीं हुई। पेज छोटा करके दोबारा प्रयास करें।");
   } finally {
     if (expandLandscapeRoot) {
       if (previousInlineStyle === null) element.removeAttribute("style");
@@ -2120,7 +2130,7 @@ async function downloadElementPdf(element, fileName, options = {}) {
   const blob = pdf.output("blob");
   if (!blob || blob.size < 100) throw new Error("PDF खाली बनी है। कृपया दोबारा प्रयास करें।");
   const file = new File([blob],fileName,{type:"application/pdf"});
-  await savePdfFile(file);
+  await withPdfTimeout(savePdfFile(file),20000,"PDF Android Downloads में सेव होने में 20 सेकंड से अधिक लगे। दोबारा प्रयास करें।");
 }
 async function handleDocumentPdf(buttonId, elementId, fileName, successMessage, options = {}) {
   const button = $(buttonId);
