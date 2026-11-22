@@ -142,3 +142,70 @@ body.platform-app .message { padding:3px 0; }
   body.platform-app .dashboard-content > .card,
   body.platform-app .dashboard-content > [data-panel] { padding:13px; }
 }
+
+
+/* Desktop website professional navigation and controls */
+@media (min-width:761px) {
+  body:not(.platform-app) .dashboard-layout {
+    display:grid!important;grid-template-columns:250px minmax(0,1fr)!important;
+    gap:20px!important;align-items:start!important;
+  }
+  body:not(.platform-app) .sidebar {
+    position:sticky;top:16px;padding:12px!important;border:1px solid #d8e7de;
+    border-radius:17px;background:#fff;box-shadow:0 8px 24px #123f3510;
+  }
+  body:not(.platform-app) .sidebar .tabs {
+    display:flex!important;flex-direction:column!important;flex-wrap:nowrap!important;
+    gap:7px!important;margin:0!important;overflow:visible!important;
+  }
+  body:not(.platform-app) .sidebar .tabs button {
+    width:100%!important;min-height:46px;padding:11px 13px!important;
+    text-align:left!important;white-space:normal!important;
+    border:1px solid #deebe3!important;border-radius:12px!important;
+    background:linear-gradient(180deg,#fbfdfb,#f0f6f2)!important;
+    color:#194d39!important;font-weight:800!important;font-size:13px!important;
+    box-shadow:0 2px 7px #123f3508!important;
+  }
+  body:not(.platform-app) .sidebar .tabs button.active {
+    color:#fff!important;border-color:#155b40!important;
+    background:linear-gradient(135deg,#1d7552,#0d4935)!important;
+    box-shadow:0 5px 13px #14583f26!important;
+  }
+}
+body:not(.platform-app) .dashhead {
+  padding:14px 16px;border:1px solid #dce9e1;border-radius:16px;
+  background:#ffffffd9;box-shadow:0 6px 20px #123f350d;
+}
+body:not(.platform-app) .dashhead .row {display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+body:not(.platform-app) button {
+  min-height:44px;padding:11px 16px;border:1px solid #14583f;
+  border-radius:11px;background:linear-gradient(135deg,#1d7552,#104a36);
+  color:#fff;font-weight:800;box-shadow:0 4px 10px #14583f1c;
+}
+body:not(.platform-app) button.secondary {
+  border:1px solid #cfe1d5;background:linear-gradient(180deg,#f5faf6,#e7f2eb);
+  color:#18543c;box-shadow:none;
+}
+body:not(.platform-app) #logoutBtn {
+  border-color:#e8caca;background:linear-gradient(135deg,#fff7f6,#fbe9e7);
+  color:#9b3430;box-shadow:none;
+}
+body:not(.platform-app) .grid>.card {
+  border:1px solid #d8e7de;border-radius:16px;
+  background:linear-gradient(150deg,#fff,#f8fbf9);
+  box-shadow:0 6px 18px #123f350c;
+}
+body:not(.platform-app) .dashboard-content>[data-panel] {
+  border:1px solid #d8e7de;border-radius:17px;box-shadow:0 8px 24px #123f350d;
+}
+body:not(.platform-app) .app-download-link {
+  border-radius:14px!important;background:linear-gradient(135deg,#21845b,#0b392c)!important;
+  box-shadow:0 7px 16px #0b392c25!important;
+}
+@media(max-width:760px) {
+  body:not(.platform-app) .dashboard-layout {display:block!important}
+  body:not(.platform-app) .sidebar {position:static;margin-bottom:12px}
+  body:not(.platform-app) .sidebar .tabs {display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  body:not(.platform-app) .sidebar .tabs button {text-align:center!important}
+  body:not(.platform-app) .dashhead .row {justify-content:flex-start}
+}
