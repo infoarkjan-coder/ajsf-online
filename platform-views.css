@@ -1,0 +1,31 @@
+/* AJSF platform-specific presentation. No business logic or database behavior is changed. */
+:root { --app-nav-height: 68px; }
+body.platform-web .platform-only-app { display:none !important; }
+body.platform-app .public-hero,
+body.platform-app .public-highlights,
+body.platform-app .public-payment,
+body.platform-app .public-login-note { display:none !important; }
+body.platform-app .shell { width:100%; max-width:100%; padding:12px; }
+body.platform-app .brand { padding:8px 4px 14px; }
+body.platform-app .brand-logo { width:48px; height:48px; }
+body.platform-app .brand h1 { font-size:1rem; line-height:1.25; }
+body.platform-app .brand p { font-size:.72rem; }
+body.platform-app .dashhead { position:sticky; top:0; z-index:20; padding:10px 0; background:var(--page, #f4f7f5); }
+body.platform-app .grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+body.platform-app .dashboard-layout { display:block; }
+body.platform-app .sidebar { position:sticky; top:72px; z-index:19; width:100%; margin:0 0 12px; overflow-x:auto; }
+body.platform-app .sidebar .tabs { display:flex; flex-wrap:nowrap; gap:8px; overflow-x:auto; padding:8px; }
+body.platform-app .sidebar .tabs button { flex:0 0 auto; min-height:44px; white-space:nowrap; }
+body.platform-app .dashboard-content { min-width:0; }
+body.platform-app .card { border-radius:14px; }
+body.platform-app button, body.platform-app input, body.platform-app select, body.platform-app textarea { min-height:44px; }
+body.platform-app .tablewrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+body.platform-app .formgrid { grid-template-columns:1fr; }
+body.platform-app .panel-head { align-items:flex-start; flex-wrap:wrap; }
+body.platform-app .platform-view-label { display:block; margin:0 0 10px; padding:8px 12px; border-radius:10px; background:#eaf3ef; color:#164c3d; font-size:.78rem; font-weight:700; }
+body.platform-web .platform-view-label { display:none; }
+@media (min-width:760px) {
+  body.platform-app .shell { max-width:760px; margin:auto; }
+  body.platform-app .grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  body.platform-app .formgrid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
