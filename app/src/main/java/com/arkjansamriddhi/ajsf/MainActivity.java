@@ -196,8 +196,16 @@ public class MainActivity extends Activity {
     }
 
     @Override public void onBackPressed() {
-        if (webView != null && webView.canGoBack()) webView.goBack();
-        else super.onBackPressed();
+        if (webView == null) {
+            super.onBackPressed();
+            return;
+        }
+        webView.evaluateJavascript(
+            "(function(){return window.ajsfHandleAndroidBack ? window.ajsfHandleAndroidBack() : false;})()",
+            value -> {
+                if (!"true".equals(value)) MainActivity.super.onBackPressed();
+            }
+        );
     }
 
     @Override protected void onDestroy() {
