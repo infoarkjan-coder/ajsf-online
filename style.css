@@ -736,3 +736,28 @@ input,select,button{min-height:42px}
 @media(prefers-reduced-motion:reduce){
   .sidebar .tabs button{transition:none}
 }
+
+
+/* Public landing and staff-login flow refinement */
+html { scroll-padding-top: 22px; }
+#loginCard {
+  width: min(100%, 520px);
+  margin: 26px auto 34px;
+  padding: clamp(22px, 3vw, 34px);
+  scroll-margin-top: 22px;
+  border: 1px solid #d8e7df;
+  box-shadow: 0 16px 38px rgba(18,63,53,.09);
+}
+#loginCard h2 { margin: 8px 0 6px; }
+#loginCard form { display:grid; gap:10px; }
+#loginCard form label { margin-top:4px; }
+#loginCard input { width:100%; min-height:46px; }
+#loginCard #loginBtn { width:100%; min-height:48px; margin-top:5px; }
+.public-hero { scroll-margin-top:18px; }
+.public-actions { gap:10px; flex-wrap:wrap; }
+.public-primary, .public-secondary { min-height:46px; display:inline-flex; align-items:center; justify-content:center; }
+@media(max-width:640px) {
+  #loginCard { width:100%; margin:18px auto 26px; padding:22px 18px; }
+  .public-hero { gap:22px; }
+  .public-actions > * { flex:1 1 100%; }
+}
