@@ -545,7 +545,8 @@ window.ajsfHandleAndroidBack = function() {
   const activeTab = document.querySelector("[data-tab].active")?.dataset.tab || defaultTab;
   const receiptOpen = $("receiptPanel") && !$("receiptPanel").classList.contains("hidden");
   const anyPanelOpen = Array.from(document.querySelectorAll("[data-panel]")).some(panel => !panel.classList.contains("hidden"));
-  if ((isAjsfAndroidApp() && anyPanelOpen) || activeTab !== defaultTab || receiptOpen) {
+  const corporateSubmenuOpen = $("ajsCorporateSubMenu") && !$("ajsCorporateSubMenu").classList.contains("hidden");
+  if ((isAjsfAndroidApp() && (anyPanelOpen || corporateSubmenuOpen)) || activeTab !== defaultTab || receiptOpen) {
     goToDashboard();
     return true;
   }
