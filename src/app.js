@@ -842,7 +842,7 @@ function renderCustomerCallResults() {
     if (!selectedDate) return true;
     return loans.some(loan => {
       if (loan.customer_id !== customer.id || loan.status !== "active" || loan.is_archived) return false;
-      const total = Math.max(1, Math.min(60, Number(loan.total_emis_required || 24)));
+      const total = Math.max(1, Number(loan.total_emis_required || 24));
       for (let installment = 1; installment <= total; installment++) {
         const due = advanceDueDate(loan, customer, installment);
         if (!due) continue;
