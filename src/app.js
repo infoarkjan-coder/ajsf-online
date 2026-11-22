@@ -2029,7 +2029,11 @@ async function downloadElementPdf(element, fileName, options = {}) {
         #repaymentSchedulePrint .repayment-table th{background:#e8f1ec!important;color:#174b3c!important;font-weight:700!important}
         #repaymentSchedulePrint .repayment-table td.repayment-sign-cell{height:24px!important}
         #repaymentSchedulePrint .repayment-brand{display:flex!important;align-items:center!important;gap:14px!important;padding:0 0 14px!important;border-bottom:3px solid #174b3c!important}
-        #repaymentSchedulePrint .repayment-brand img{display:block!important;width:76px!important;height:76px!important;max-width:76px!important;object-fit:contain!important;flex:0 0 76px!important}
+        #repaymentSchedulePrint .repayment-brand{display:flex!important;align-items:center!important;gap:10px!important;min-width:0!important;overflow:hidden!important}
+        #repaymentSchedulePrint .repayment-brand img{display:block!important;width:68px!important;height:68px!important;min-width:68px!important;min-height:68px!important;max-width:68px!important;max-height:68px!important;object-fit:contain!important;object-position:center!important;flex:0 0 68px!important;margin:0!important;padding:0!important}
+        #repaymentSchedulePrint .repayment-brand>div{min-width:0!important;flex:1 1 auto!important}
+        #repaymentSchedulePrint .repayment-brand h1{font-size:17px!important;line-height:1.15!important;overflow-wrap:anywhere!important}
+        #repaymentSchedulePrint .repayment-brand p{font-size:10px!important;line-height:1.2!important;letter-spacing:.25px!important}
         #repaymentSchedulePrint .repayment-brand h1{font-size:20px!important;line-height:1.15!important;color:#174b3c!important;margin:0!important}
         #repaymentSchedulePrint .repayment-brand p{font-size:11px!important;font-weight:700!important;letter-spacing:.5px!important;color:#60756b!important;margin:6px 0 0!important}
         #repaymentSchedulePrint .repayment-customer-title{font-size:16px!important;color:#174b3c!important;margin:22px 0 10px!important}
