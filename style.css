@@ -925,3 +925,13 @@ body{background:radial-gradient(ellipse at 50% 0%,#e4f1e9 0%,#f4f8f5 42%,#eef4f0
   }
   [data-panel="customers"] .tablewrap{overflow-x:hidden!important}
 }
+
+/* Customer Call and consistent Dashboard return controls. */
+.customer-call-list{display:grid;gap:9px;margin-top:14px}
+.customer-call-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border:1px solid #d7e2dc;border-radius:12px;background:#fff}
+.customer-call-info{display:grid;gap:4px;min-width:0}
+.customer-call-info strong{overflow-wrap:anywhere}
+.customer-call-info small{color:#61756b;font-size:12px;overflow-wrap:anywhere}
+.customer-call-action{display:inline-flex;align-items:center;justify-content:center;min-width:76px;min-height:40px;padding:8px 15px;border-radius:9px;background:#123f35;color:#fff;text-decoration:none;font-weight:700}
+.customer-call-action:focus-visible,#backToDashboardBtn:focus-visible{outline:3px solid #e4a83a;outline-offset:2px}
+@media(max-width:650px){.customer-call-row{padding:10px;gap:8px}.customer-call-action{min-width:66px}}

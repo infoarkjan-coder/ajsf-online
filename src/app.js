@@ -1,18 +1,38 @@
 function renderCustomerPickerResults(selectId, searchId, resultsId) {
   const select = $(selectId), search = $(searchId), box = $(resultsId);
   if (!select || !search || !box) return;
-  const q = (search.value || "").trim().toLocaleLowerCase();
-  if (!q) { box.innerHTML = ""; return; }
-  const normalize = value => String(value || "").toLocaleLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
-  const phonetic = value => { const clean = normalize(value); return clean.length < 3 ? clean : clean[0] + clean.slice(1).replace(/[aeiou]/g, ""); };
-  const qKey = normalize(q), qSound = phonetic(q);
-  const matches = customers.filter(c => [c.customer_code,c.full_name,c.contact_number,c.center_name].some(v => { const value = normalize(v), sound = phonetic(v); return value.includes(qKey) || (qKey.length >= 3 && sound.includes(qSound)); })).slice(0,60);
-  box.innerHTML = matches.map(c => `<button type="button" class="customer-picker-option" data-customer-id="${esc(c.id)}"><strong>${esc(formatCustomerId(c.customer_code))} · ${esc(c.full_name || "")}</strong><small>${esc(phone(c.contact_number) || "")} · ${esc(c.center_name || "")}</small></button>`).join("") || '<p class="customer-picker-empty">कोई ग्राहक नहीं मिला। नाम, ID या मोबाइल से खोजें।</p>';
+  const rawQuery = (search.value || "").trim();
+  if (!rawQuery) {
+    box.innerHTML = '<p class="customer-picker-hint">ग्राहक का नाम, Customer ID या मोबाइल नंबर लिखें।</p>';
+    return;
+  }
+  const normalize = value => String(value || "").toLocaleLowerCase().normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "").replace(/[^\p{L}\p{N}]/gu, "");
+  const phonetic = value => {
+    const clean = normalize(value);
+    return /^[a-z0-9]+$/.test(clean) && clean.length >= 3
+      ? clean[0] + clean.slice(1).replace(/[aeiou]/g, "") : clean;
+  };
+  const queryParts = rawQuery.split(/\s+/).map(normalize).filter(Boolean);
+  const qKey = normalize(rawQuery), qSound = phonetic(rawQuery);
+  const scored = customers.map(c => {
+    const fields = [c.customer_code, c.full_name, c.contact_number, c.center_name].map(normalize).filter(Boolean);
+    const allWordsMatch = queryParts.every(part => fields.some(value => value.includes(part)));
+    const exactMatch = fields.some(value => value === qKey);
+    const startsMatch = fields.some(value => value.startsWith(qKey));
+    const containsMatch = fields.some(value => value.includes(qKey));
+    const phoneticMatch = qKey.length >= 3 && fields.some(value => phonetic(value).includes(qSound));
+    return { customer:c, score: exactMatch ? 4 : startsMatch ? 3 : containsMatch ? 2 : allWordsMatch || phoneticMatch ? 1 : 0 };
+  }).filter(item => item.score > 0)
+    .sort((a,b) => b.score-a.score || String(a.customer.full_name||"").localeCompare(String(b.customer.full_name||""), "hi"))
+    .slice(0,30);
+  box.innerHTML = scored.map(({customer:c}) => `<button type="button" class="customer-picker-option" data-customer-id="${esc(c.id)}"><strong>${esc(formatCustomerId(c.customer_code))} · ${esc(c.full_name || "")}</strong><small>मोबाइल: ${esc(phone(c.contact_number) || "—")} · Center: ${esc(c.center_name || "—")}</small></button>`).join("")
+    || '<p class="customer-picker-empty">कोई ग्राहक नहीं मिला। नाम के कुछ अक्षर, Customer ID या मोबाइल के आखिरी अंक आज़माएँ।</p>';
   box.querySelectorAll(".customer-picker-option").forEach(button => button.addEventListener("click", () => {
     select.value = button.dataset.customerId;
     const chosen = customers.find(c => c.id === select.value);
     search.value = chosen ? formatCustomerId(chosen.customer_code) + " · " + chosen.full_name : "";
-    box.innerHTML = "";
+    box.innerHTML = chosen ? `<p class="customer-picker-hint">चुना गया: <strong>${esc(chosen.full_name || "")}</strong> · ${esc(formatCustomerId(chosen.customer_code))}</p>` : "";
     select.dispatchEvent(new Event("change", {bubbles:true}));
   }));
 }
@@ -235,7 +255,27 @@ function renderShell() {
 function activateTab(tab) {
   document.querySelectorAll("[data-tab]").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
   document.querySelectorAll("[data-panel]").forEach(p => p.classList.toggle("hidden", p.dataset.panel !== tab));
+  const backButton = $("backToDashboardBtn");
+  const defaultTab = canAdmin() ? "customers" : "collector-demand";
+  if (backButton) backButton.classList.toggle("hidden", tab === defaultTab);
 }
+function goToDashboard() {
+  const defaultTab = canAdmin() ? "customers" : "collector-demand";
+  $("dashboardCard")?.classList.remove("collector-payment-mode");
+  $("receiptPanel")?.classList.add("hidden");
+  activateTab(defaultTab);
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+window.ajsfHandleAndroidBack = function() {
+  const defaultTab = canAdmin() ? "customers" : "collector-demand";
+  const activeTab = document.querySelector("[data-tab].active")?.dataset.tab || defaultTab;
+  const receiptOpen = $("receiptPanel") && !$("receiptPanel").classList.contains("hidden");
+  if (activeTab !== defaultTab || receiptOpen) {
+    goToDashboard();
+    return true;
+  }
+  return false;
+};
 document.addEventListener("click", e => {
   const tab = e.target.closest("[data-tab]");
   if (tab) activateTab(tab.dataset.tab);
@@ -409,6 +449,7 @@ function renderData() {
   $("collectedTotal").textContent = money(figures.reduce((s, f) => s + f.collected, 0));
   $("outstandingTotal").textContent = money(figures.reduce((s, f) => s + f.outstanding, 0));
   const operationalCustomers = customers.filter(c => c.is_active !== false && (c.customer_status || "ACTIVE") === "ACTIVE");
+  renderCustomerCallResults();
   const customerRegisterRows = [...operationalCustomers].sort((a,b) =>
     String(a.center_name || "").localeCompare(String(b.center_name || "")) ||
     String(a.full_name || "").localeCompare(String(b.full_name || ""))
@@ -775,6 +816,25 @@ function filterLedgerCustomers() {
   `);
 }
 
+function renderCustomerCallResults() {
+  const root = $("customerCallResults");
+  if (!root) return;
+  const q = ($("customerCallSearch")?.value || "").trim().toLocaleLowerCase();
+  const digits = q.replace(/\D/g, "");
+  const normalize = value => String(value || "").toLocaleLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "");
+  const active = customers.filter(c => c.is_active !== false && (c.customer_status || "ACTIVE") === "ACTIVE");
+  const matches = active.filter(c => {
+    if (!q) return true;
+    const textMatch = [c.customer_code,c.full_name,c.center_name].some(v => normalize(v).includes(q));
+    const phoneDigits = phone(c.contact_number).replace(/\D/g, "");
+    return textMatch || (digits.length > 0 && phoneDigits.includes(digits));
+  }).slice(0,100);
+  root.innerHTML = matches.map(c => {
+    const number = phone(c.contact_number);
+    const dial = String(number || "").replace(/[^\d+]/g, "");
+    return `<article class="customer-call-row"><div class="customer-call-info"><strong>${esc(c.full_name || "—")}</strong><small>${esc(formatCustomerId(c.customer_code))} · ${esc(number || "मोबाइल उपलब्ध नहीं")} · ${esc(c.center_name || "")}</small></div>${dial ? `<a class="customer-call-action" href="tel:${esc(dial)}" aria-label="${esc(c.full_name)} को कॉल करें">Call</a>` : '<span class="muted">नंबर नहीं है</span>'}</article>`;
+  }).join("") || '<p class="customer-picker-empty">कोई ग्राहक नहीं मिला। नाम, Customer ID या मोबाइल नंबर जाँचें।</p>';
+}
 function filterCustomerRows() {
   const q = ($("customerFilter")?.value || "").trim().toLocaleLowerCase();
   const center = ($("customerCenterFilter")?.value || "").trim().toLocaleLowerCase();
@@ -2651,6 +2711,8 @@ async function boot() {
   $("sendWhatsAppReminder").addEventListener("click", () => openReminder("whatsapp"));
   $("sendSmsReminder").addEventListener("click", () => openReminder("sms"));
   $("loanCustomerFilter").addEventListener("change", renderData);
+  $("customerCallSearch")?.addEventListener("input", renderCustomerCallResults);
+  $("backToDashboardBtn")?.addEventListener("click", goToDashboard);
   // Customer Register actions are bound directly after each table render above.
   $("ledgerCustomer").addEventListener("change", loadCustomerLedger);
   $("ledgerSearch").addEventListener("input", filterLedgerCustomers);
