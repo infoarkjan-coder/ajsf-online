@@ -84,6 +84,7 @@ public class MainActivity extends Activity {
         root.addView(progress, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 5));
         webView = new WebView(this);
         webView.addJavascriptInterface(new AJSFNativeDownload(), "AJSFNativeDownload");
+        webView.addJavascriptInterface(new AJSFNativeTracking(), "AJSFNativeTracking");
         root.addView(webView, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
         setContentView(root);
     }
@@ -172,6 +173,34 @@ public class MainActivity extends Activity {
         });
     }
 
+
+
+    private final class AJSFNativeTracking {
+        @JavascriptInterface
+        public String startTracking(String accessToken, String apiKey, String supabaseUrl) {
+            if (accessToken == null || accessToken.isEmpty() || apiKey == null || apiKey.isEmpty()
+                    || supabaseUrl == null || !supabaseUrl.startsWith("https://")) return "Tracking credentials उपलब्ध नहीं हैं।";
+            if (!granted(Manifest.permission.ACCESS_FINE_LOCATION)
+                    && !granted(Manifest.permission.ACCESS_COARSE_LOCATION)) return "GPS अनुमति नहीं मिली। पहले लोकेशन अनुमति दें।";
+            if (Build.VERSION.SDK_INT >= 33 && !granted(Manifest.permission.POST_NOTIFICATIONS)) {
+                runOnUiThread(() -> requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 704));
+            }
+            Intent service = new Intent(MainActivity.this, AJSFLocationService.class);
+            service.putExtra("access_token", accessToken);
+            service.putExtra("api_key", apiKey);
+            service.putExtra("supabase_url", supabaseUrl);
+            try {
+                if (Build.VERSION.SDK_INT >= 26) startForegroundService(service);
+                else startService(service);
+                return "OK";
+            } catch (Exception error) { return "Tracking service शुरू नहीं हुई: " + error.getMessage(); }
+        }
+
+        @JavascriptInterface
+        public void stopTracking() {
+            runOnUiThread(() -> stopService(new Intent(MainActivity.this, AJSFLocationService.class)));
+        }
+    }
 
     private final class AJSFNativeDownload {
         @JavascriptInterface

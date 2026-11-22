@@ -226,11 +226,181 @@ function setBusy(button, busy, label = "कृपया प्रतीक्ष
   else { button.textContent = button.dataset.oldText || button.textContent; button.disabled = false; }
 }
 function canAdmin() { return profile?.role === "admin"; }
+let ajsfDutyWatchId = null;
+let ajsfDutyTimer = null;
+let ajsfLocationRefreshTimer = null;
+let ajsfDutySessionId = null;
+
+function ensureTrackingPanel() {
+  const host = document.querySelector(".dashboard-content");
+  if (!host || $("ajsTrackingPanel")) return;
+  const panel = document.createElement("section");
+  panel.className = "card panel hidden";
+  panel.id = "ajsTrackingPanel";
+  panel.innerHTML = `
+    <div class="panel-head"><div><h2>AJSF Live Collector Tracking</h2><p class="muted">लोकेशन केवल Duty Start से Duty End तक रिकॉर्ड होगी। GPS बंद होने पर नई लोकेशन नहीं भेजी जाएगी।</p></div></div>
+    <div class="actions"><button type="button" id="ajsDutyStartBtn">Duty Start</button><button type="button" class="secondary" id="ajsDutyEndBtn">Duty End</button></div>
+    <p id="ajsDutyStatus" class="message" role="status">Duty स्थिति जाँची जा रही है…</p>
+    <div id="ajsSuperAdminTracking" class="hidden"><h3>सभी Admin और Collector की Live Location</h3><p class="small muted">केवल अधिकृत Super Admin इस सूची और 30-दिन की लोकेशन हिस्ट्री को देख सकता है।</p><div id="ajsTrackingRows" class="tablewrap"></div><h3>30-दिन की लोकेशन हिस्ट्री</h3><div id="ajsTrackingHistoryRows" class="tablewrap"></div><h3>Duty Start / End हिस्ट्री</h3><div id="ajsDutyHistoryRows" class="tablewrap"></div></div>`;
+  host.prepend(panel);
+  $("ajsDutyStartBtn").addEventListener("click", startAjsfDuty);
+  $("ajsDutyEndBtn").addEventListener("click", endAjsfDuty);
+}
+
+function stopAjsfDutyWatch() {
+  if (ajsfDutyWatchId !== null && navigator.geolocation) navigator.geolocation.clearWatch(ajsfDutyWatchId);
+  ajsfDutyWatchId = null;
+  if (ajsfDutyTimer) clearInterval(ajsfDutyTimer);
+  ajsfDutyTimer = null;
+  if (ajsfLocationRefreshTimer) clearInterval(ajsfLocationRefreshTimer);
+  ajsfLocationRefreshTimer = null;
+}
+
+function sendAjsfDutyLocation(position) {
+  if (!ajsfDutySessionId || !currentUser) return;
+  const { latitude, longitude, accuracy } = position.coords;
+  supabase.rpc("ajs_record_duty_location", {
+    p_latitude: latitude, p_longitude: longitude, p_accuracy_m: accuracy
+  }).then(({error}) => {
+    if (error) $("ajsDutyStatus").textContent = "लोकेशन सेव नहीं हुई: " + error.message;
+    else $("ajsDutyStatus").textContent = "Duty चालू है · आखिरी GPS अपडेट: " + new Date().toLocaleTimeString("hi-IN");
+  });
+}
+
+async function startAjsfDuty() {
+  const btn = $("ajsDutyStartBtn");
+  if (!currentUser || !navigator.geolocation) return showMessage("इस डिवाइस में GPS सुविधा उपलब्ध नहीं है।", "error");
+  setBusy(btn,true,"GPS अनुमति जाँची जा रही है…");
+  try {
+    const {data: sessionData} = await supabase.auth.getSession();
+    if (!sessionData?.session?.access_token) throw new Error("Login session समाप्त हो गया है।");
+    const {data: sessionId,error} = await supabase.rpc("ajs_start_duty");
+    if (error) throw error;
+    ajsfDutySessionId = sessionId;
+    navigator.geolocation.getCurrentPosition(
+      position => {
+        sendAjsfDutyLocation(position);
+        if (window.AJSFNativeTracking?.startTracking) {
+          const token = sessionData.session.access_token;
+          const nativeResult = window.AJSFNativeTracking.startTracking(token, SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL);
+          if (nativeResult !== "OK") $("ajsDutyStatus").textContent = nativeResult;
+        }
+        stopAjsfDutyWatch();
+        ajsfDutyWatchId = navigator.geolocation.watchPosition(sendAjsfDutyLocation,
+          error => $("ajsDutyStatus").textContent = "GPS उपलब्ध नहीं: " + error.message,
+          {enableHighAccuracy:true, maximumAge:15000, timeout:20000});
+      },
+      async error => {
+        await supabase.rpc("ajs_end_duty");
+        ajsfDutySessionId = null;
+        $("ajsDutyStatus").textContent = "GPS अनुमति/लोकेशन नहीं मिली; Duty शुरू नहीं हुई: " + error.message;
+      },
+      {enableHighAccuracy:true, maximumAge:0, timeout:20000}
+    );
+    $("ajsDutyStatus").textContent = "Duty शुरू हो रही है… GPS अनुमति दें और लोकेशन चालू रखें।";
+    if (profile?.is_super_admin) loadAjsfSuperAdminTracking();
+  } catch(error) {
+    showMessage("Duty Start नहीं हुई: " + (error?.message || String(error)), "error");
+  } finally { setBusy(btn,false); }
+}
+
+async function endAjsfDuty() {
+  const btn = $("ajsDutyEndBtn");
+  setBusy(btn,true,"Duty बंद हो रही है…");
+  try {
+    const {error} = await supabase.rpc("ajs_end_duty");
+    if (error) throw error;
+    window.AJSFNativeTracking?.stopTracking?.();
+    stopAjsfDutyWatch();
+    ajsfDutySessionId = null;
+    $("ajsDutyStatus").textContent = "Duty End हो गई। अब लोकेशन रिकॉर्ड नहीं होगी।";
+    if (profile?.is_super_admin) loadAjsfSuperAdminTracking();
+  } catch(error) { showMessage("Duty End नहीं हुई: " + (error?.message || String(error)), "error"); }
+  finally { setBusy(btn,false); }
+}
+
+async function loadAjsfDutyState() {
+  const {data,error} = await supabase.from("staff_duty_sessions")
+    .select("id,duty_started_at,duty_ended_at").eq("staff_id",currentUser.id)
+    .is("duty_ended_at",null).order("duty_started_at",{ascending:false}).limit(1);
+  if (error) throw error;
+  if (data?.length) {
+    ajsfDutySessionId = data[0].id;
+    $("ajsDutyStatus").textContent = "Duty चालू है · शुरू: " + new Date(data[0].duty_started_at).toLocaleString("hi-IN");
+    if (window.AJSFNativeTracking?.startTracking) {
+      const {data: authData} = await supabase.auth.getSession();
+      const token = authData?.session?.access_token;
+      if (token) window.AJSFNativeTracking.startTracking(token, SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL);
+    }
+    if (navigator.geolocation) ajsfDutyWatchId = navigator.geolocation.watchPosition(sendAjsfDutyLocation,
+      error => $("ajsDutyStatus").textContent = "GPS उपलब्ध नहीं: " + error.message,
+      {enableHighAccuracy:true,maximumAge:15000,timeout:20000});
+  } else {
+    ajsfDutySessionId = null;
+    $("ajsDutyStatus").textContent = "अभी Duty बंद है।";
+  }
+}
+
+async function loadAjsfSuperAdminTracking() {
+  if (!profile?.is_super_admin) return;
+  const host = $("ajsTrackingRows");
+  if (!host) return;
+  const {data,error} = await supabase.from("staff_location_history")
+    .select("staff_id,latitude,longitude,accuracy_m,recorded_at,profiles!staff_location_history_staff_id_fkey(full_name,staff_code,role)")
+    .gte("recorded_at",new Date(Date.now()-30*86400000).toISOString())
+    .order("recorded_at",{ascending:false}).limit(3000);
+  if (error) { host.textContent = "लोकेशन लोड नहीं हुई: " + error.message; return; }
+  const latest = new Map();
+  (data || []).forEach(row => { if (!latest.has(row.staff_id)) latest.set(row.staff_id,row); });
+  const rows = [...latest.values()];
+  const mapLink = row => "https://www.openstreetmap.org/?mlat=" + encodeURIComponent(row.latitude) + "&mlon=" + encodeURIComponent(row.longitude) + "#map=17/" + encodeURIComponent(row.latitude) + "/" + encodeURIComponent(row.longitude);
+  host.innerHTML = rows.length ? "<table><thead><tr><th>कर्मचारी</th><th>Role</th><th>Last Active</th><th>Accuracy</th><th>Map</th></tr></thead><tbody>" +
+    rows.map(row => {
+      const p = row.profiles || {};
+      return "<tr><td>" + esc(p.full_name || row.staff_id) + "<br><small>" + esc(p.staff_code || "") + "</small></td><td>" + esc(p.role || "") + "</td><td>" + esc(new Date(row.recorded_at).toLocaleString("hi-IN")) + "</td><td>" + esc(row.accuracy_m == null ? "—" : Math.round(row.accuracy_m) + " m") + "</td><td><a href=\"" + mapLink(row) + "\" target=\"_blank\" rel=\"noopener\">Map खोलें</a></td></tr>";
+    }).join("") + "</tbody></table>" : "<p class='muted'>पिछले 30 दिनों में कोई लोकेशन रिकॉर्ड नहीं मिली।";
+  const historyHost = $("ajsTrackingHistoryRows");
+  if (historyHost) historyHost.innerHTML = (data || []).length ? "<table><thead><tr><th>कर्मचारी</th><th>समय</th><th>Latitude</th><th>Longitude</th><th>Map</th></tr></thead><tbody>" +
+    (data || []).map(row => {
+      const p = row.profiles || {};
+      return "<tr><td>" + esc(p.full_name || row.staff_id) + "</td><td>" + esc(new Date(row.recorded_at).toLocaleString("hi-IN")) + "</td><td>" + esc(Number(row.latitude).toFixed(6)) + "</td><td>" + esc(Number(row.longitude).toFixed(6)) + "</td><td><a href=\"" + mapLink(row) + "\" target=\"_blank\" rel=\"noopener\">Map</a></td></tr>";
+    }).join("") + "</tbody></table>" : "<p class='muted'>कोई history उपलब्ध नहीं है।";
+  const dutyHost = $("ajsDutyHistoryRows");
+  if (dutyHost) {
+    const {data:sessions,error:sessionError} = await supabase.from("staff_duty_sessions")
+      .select("staff_id,duty_started_at,duty_ended_at,profiles!staff_duty_sessions_staff_id_fkey(full_name,staff_code,role)")
+      .gte("duty_started_at",new Date(Date.now()-30*86400000).toISOString())
+      .order("duty_started_at",{ascending:false}).limit(1000);
+    dutyHost.innerHTML = sessionError ? "<p class='muted'>Duty history लोड नहीं हुई: " + esc(sessionError.message) + "</p>" :
+      (sessions || []).length ? "<table><thead><tr><th>कर्मचारी</th><th>Role</th><th>Duty Start</th><th>Duty End</th></tr></thead><tbody>" +
+      sessions.map(s => { const p=s.profiles||{}; return "<tr><td>"+esc(p.full_name||s.staff_id)+"</td><td>"+esc(p.role||"")+"</td><td>"+esc(new Date(s.duty_started_at).toLocaleString("hi-IN"))+"</td><td>"+esc(s.duty_ended_at?new Date(s.duty_ended_at).toLocaleString("hi-IN"):"अभी Duty चालू")+"</td></tr>"; }).join("") +
+      "</tbody></table>" : "<p class='muted'>कोई Duty history उपलब्ध नहीं है।";
+  }
+}
+
+async function initAjsfTracking() {
+  ensureTrackingPanel();
+  $("ajsTrackingPanel")?.classList.remove("hidden");
+  $("ajsSuperAdminTracking")?.classList.toggle("hidden", !profile?.is_super_admin);
+  try { await loadAjsfDutyState(); } catch(error) { $("ajsDutyStatus").textContent = "Duty स्थिति लोड नहीं हुई: " + error.message; }
+  if (profile?.is_super_admin) {
+    await loadAjsfSuperAdminTracking();
+    if (ajsfLocationRefreshTimer) clearInterval(ajsfLocationRefreshTimer);
+    ajsfLocationRefreshTimer = setInterval(loadAjsfSuperAdminTracking,30000);
+  }
+}
+
 
 async function loadProfile(user) {
-  const { data, error } = await supabase.from("profiles")
-    .select("full_name, role, staff_code, is_active")
+  let { data, error } = await supabase.from("profiles")
+    .select("full_name, role, staff_code, is_active, is_super_admin")
     .eq("id", user.id).single();
+  // Safe rollout: old schema remains login-compatible until tracking migration is applied.
+  if (error && /is_super_admin|column/i.test(error.message || "")) {
+    ({ data, error } = await supabase.from("profiles")
+      .select("full_name, role, staff_code, is_active")
+      .eq("id", user.id).single());
+  }
   if (error || !data || !data.is_active) throw new Error("सक्रिय प्रोफाइल नहीं मिली। Admin से संपर्क करें।");
   profile = data;
 }
@@ -253,38 +423,130 @@ function renderShell() {
   const dashboard = $("dashboardCard");
   dashboard.classList.toggle("collector-mode", !canAdmin());
   dashboard.classList.remove("collector-payment-mode");
-  // Hide the Admin KPI strip directly for Collectors (not just via stylesheet).
+  // Android APK uses a clean corporate menu home; the website keeps its existing navigation.
+  if (isAjsfAndroidApp()) initAjsfCorporateMenu();
+  // Keep the existing KPI strip hidden for Collectors and hide it in the Android menu home.
   const summaryGrid = dashboard.querySelector(":scope > .grid");
-  if (summaryGrid) summaryGrid.style.setProperty("display", canAdmin() ? "" : "none", "important");
-  // Keep Collector on the demand screen; Admin navigation remains unchanged.
-  activateTab(canAdmin() ? "customers" : "collector-demand");
+  if (summaryGrid) summaryGrid.style.setProperty("display", canAdmin() && !isAjsfAndroidApp() ? "" : "none", "important");
+  activateTab(isAjsfAndroidApp() ? "ajs-menu-home" : (canAdmin() ? "customers" : "collector-demand"));
   const staffAdminSetupBtn = $("staffAdminSetupBtn");
   if (staffAdminSetupBtn) staffAdminSetupBtn.classList.toggle("hidden", !canAdmin());
   const staffPasswordResetBtn = $("staffPasswordResetBtn");
   if (staffPasswordResetBtn) staffPasswordResetBtn.classList.toggle("hidden", !canAdmin());
   const settlementAdminOnly = $("settlementAdminOnly");
   if (settlementAdminOnly) settlementAdminOnly.classList.toggle("hidden", !canAdmin());
+  initAjsfTracking().catch(error => console.warn("AJSF tracking initialization failed", error));
 }
 
+function isAjsfAndroidApp() {
+  return typeof window.AJSFNativePrint !== "undefined";
+}
+function initAjsfCorporateMenu() {
+  const dashboard = $("dashboardCard");
+  const sidebar = dashboard?.querySelector(".sidebar");
+  const content = dashboard?.querySelector(".dashboard-content");
+  if (!dashboard || !sidebar || !content || $("ajsCorporateMenuHome")) return;
+  sidebar.classList.add("ajs-legacy-nav-hidden");
+  const groups = [
+    {id:"customers", title:"Customer Management", subtitle:"ग्राहक और सत्यापन", icon:"♙", tabs:["customers","customer-call","customer-verification"]},
+    {id:"loans", title:"Loan Management", subtitle:"लोन और EMI शेड्यूल", icon:"▤", tabs:["loans","schedule","ledger","statement"]},
+    {id:"collection", title:"Collection & Payments", subtitle:"कलेक्शन, भुगतान और रसीद", icon:"₹", tabs:["collector-demand","payment","payments","receipt-requests","daily-settlement"]},
+    {id:"reports", title:"Reports & Communication", subtitle:"रिपोर्ट और ग्राहक संपर्क", icon:"▥", tabs:["reminder"]},
+    {id:"staff", title:"Staff & Settings", subtitle:"कर्मचारी और सुरक्षा", icon:"⚙", tabs:["staff-password"]}
+  ];
+  const labels = {
+    customers:"Customer Register", "customer-call":"Customer Call", "customer-verification":"Customer Verification",
+    loans:"Loan Details", schedule:"Repayment Schedule", ledger:"Customer Ledger", statement:"Loan Statement",
+    "collector-demand":"Today's Collection Demand", payment:"Payment Entry", payments:"Payment History",
+    "receipt-requests":"Receipt Cancellation Requests", "daily-settlement":"Daily Collection Settlement",
+    reminder:"WhatsApp / SMS Reminder", "staff-password":"Staff Password Management"
+  };
+  const home = document.createElement("section");
+  home.id = "ajsCorporateMenuHome";
+  home.className = "ajs-corp-menu";
+  home.innerHTML = '<div class="ajs-corp-welcome"><span class="eyebrow">ARK JAN SAMRIDDHI FOUNDATION</span><h2> मुख्य मेन्यू</h2><p>अपना कार्य चुनें</p></div><div class="ajs-corp-grid">' +
+    groups.map(g => '<button type="button" class="ajs-corp-card" data-corp-group="'+g.id+'"><span class="ajs-corp-icon">'+g.icon+'</span><span><strong>'+g.title+'</strong><small>'+g.subtitle+'</small></span><span class="ajs-corp-arrow">›</span></button>').join("") +
+    '</div>';
+  const sub = document.createElement("section");
+  sub.id = "ajsCorporateSubMenu";
+  sub.className = "ajs-corp-submenu hidden";
+  content.prepend(sub);
+  content.prepend(home);
+  const style = document.createElement("style");
+  style.id = "ajsCorporateMenuStyles";
+  style.textContent = `
+    .ajs-legacy-nav-hidden{display:none!important}
+    .ajs-corp-menu,.ajs-corp-submenu{padding:8px 2px 22px}
+    .ajs-corp-welcome{padding:12px 4px 18px}
+    .ajs-corp-welcome h2{margin:7px 0 4px;font-size:1.45rem}
+    .ajs-corp-welcome p{margin:0;color:var(--muted,#718078)}
+    .ajs-corp-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+    .ajs-corp-card{min-height:112px;border:1px solid var(--border,#dce5df);border-radius:16px;background:var(--card,#fff);color:var(--text,#173b30);padding:15px 12px;display:flex;align-items:center;gap:10px;text-align:left;box-shadow:0 4px 14px #173b3010}
+    .ajs-corp-icon{width:42px;height:42px;flex:0 0 42px;border-radius:13px;background:#eaf3ee;color:#174b3a;display:grid;place-items:center;font-size:23px;font-weight:700}
+    .ajs-corp-card strong{display:block;font-size:.88rem;line-height:1.25}
+    .ajs-corp-card small{display:block;color:var(--muted,#718078);font-size:.72rem;margin-top:5px;line-height:1.3}
+    .ajs-corp-arrow{margin-left:auto;font-size:25px;color:#789087}
+    .ajs-corp-subhead{display:flex;align-items:center;gap:10px;margin:6px 0 14px}
+    .ajs-corp-subhead h2{font-size:1.2rem;margin:0}
+    .ajs-corp-back{border:1px solid var(--border,#dce5df);border-radius:10px;background:var(--card,#fff);padding:8px 12px}
+    .ajs-corp-links{display:grid;grid-template-columns:1fr;gap:9px}
+    .ajs-corp-link{display:flex;align-items:center;justify-content:space-between;width:100%;text-align:left;padding:14px;border:1px solid var(--border,#dce5df);border-radius:12px;background:var(--card,#fff);color:var(--text,#173b30);font-weight:600}
+    .ajs-corp-link span:last-child{color:#789087;font-size:20px}
+    @media(max-width:420px){.ajs-corp-grid{gap:9px}.ajs-corp-card{padding:12px 9px;min-height:104px;gap:8px}.ajs-corp-icon{width:36px;height:36px;flex-basis:36px}}
+  `;
+  document.head.appendChild(style);
+  home.addEventListener("click", event => {
+    const card = event.target.closest("[data-corp-group]");
+    if (!card) return;
+    const group = groups.find(item => item.id === card.dataset.corpGroup);
+    if (!group) return;
+    const available = group.tabs.filter(tab => {
+      const source = sidebar.querySelector('[data-tab="'+tab+'"]');
+      if (tab === "staff-password") return canAdmin();
+      if (tab === "collector-demand") return !canAdmin();
+      return source && !source.classList.contains("hidden") && getComputedStyle(source).display !== "none";
+    });
+    sub.innerHTML = '<div class="ajs-corp-subhead"><button type="button" class="ajs-corp-back">← मुख्य मेन्यू</button><h2>'+group.title+'</h2></div><div class="ajs-corp-links">'+
+      available.map(tab => '<button type="button" class="ajs-corp-link" data-corp-tab="'+tab+'"><span>'+labels[tab]+'</span><span>›</span></button>').join("") +
+      '</div>';
+    home.classList.add("hidden");
+    sub.classList.remove("hidden");
+    sub.querySelector(".ajs-corp-back").addEventListener("click", () => {sub.classList.add("hidden");home.classList.remove("hidden");});
+    sub.querySelectorAll("[data-corp-tab]").forEach(button => button.addEventListener("click", () => activateTab(button.dataset.corpTab)));
+  });
+}
 function activateTab(tab) {
+  const androidMenu = isAjsfAndroidApp();
+  if (androidMenu && tab === "ajs-menu-home") {
+    $("ajsCorporateMenuHome")?.classList.remove("hidden");
+    $("ajsCorporateSubMenu")?.classList.add("hidden");
+    document.querySelectorAll("[data-panel]").forEach(p => p.classList.add("hidden"));
+    $("backToDashboardBtn")?.classList.add("hidden");
+    return;
+  }
   document.querySelectorAll("[data-tab]").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
   document.querySelectorAll("[data-panel]").forEach(p => p.classList.toggle("hidden", p.dataset.panel !== tab));
+  if (androidMenu) {
+    $("ajsCorporateMenuHome")?.classList.add("hidden");
+    $("ajsCorporateSubMenu")?.classList.add("hidden");
+  }
   const backButton = $("backToDashboardBtn");
   const defaultTab = canAdmin() ? "customers" : "collector-demand";
-  if (backButton) backButton.classList.toggle("hidden", tab === defaultTab);
+  if (backButton) backButton.classList.toggle("hidden", androidMenu ? false : tab === defaultTab);
 }
 function goToDashboard() {
-  const defaultTab = canAdmin() ? "customers" : "collector-demand";
   $("dashboardCard")?.classList.remove("collector-payment-mode");
   $("receiptPanel")?.classList.add("hidden");
-  activateTab(defaultTab);
+  activateTab(isAjsfAndroidApp() ? "ajs-menu-home" : (canAdmin() ? "customers" : "collector-demand"));
   window.scrollTo({top:0,behavior:"smooth"});
 }
 window.ajsfHandleAndroidBack = function() {
   const defaultTab = canAdmin() ? "customers" : "collector-demand";
   const activeTab = document.querySelector("[data-tab].active")?.dataset.tab || defaultTab;
   const receiptOpen = $("receiptPanel") && !$("receiptPanel").classList.contains("hidden");
-  if (activeTab !== defaultTab || receiptOpen) {
+  const anyPanelOpen = Array.from(document.querySelectorAll("[data-panel]")).some(panel => !panel.classList.contains("hidden"));
+  const corporateSubmenuOpen = $("ajsCorporateSubMenu") && !$("ajsCorporateSubMenu").classList.contains("hidden");
+  if ((isAjsfAndroidApp() && (anyPanelOpen || corporateSubmenuOpen)) || activeTab !== defaultTab || receiptOpen) {
     goToDashboard();
     return true;
   }
@@ -2641,11 +2903,17 @@ async function logout() {
   const btn = $("loginBtn");
   let signOutError = null;
   try {
+    if (ajsfDutySessionId) {
+      await supabase.rpc("ajs_end_duty");
+      window.AJSFNativeTracking?.stopTracking?.();
+      ajsfDutySessionId = null;
+    }
     const { error } = await supabase.auth.signOut({ scope:"local" });
     signOutError = error || null;
   } catch (error) {
     signOutError = error;
   } finally {
+    stopAjsfDutyWatch();
     currentUser = null; profile = null;
     $("dashboardCard").classList.add("hidden");
     $("loginCard").classList.remove("hidden");

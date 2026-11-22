@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - feature/new-android-apk-camera-gps
+      - feature/ajsf-live-collector-tracking
     paths:
       - 'app/**'
       - 'build.gradle'
@@ -41,4 +42,5 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+# Rebuild marker: package latest corporate menu and native live-tracking changes.
 # Production APK publishing is handled by publish-apk.yml on main.
