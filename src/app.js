@@ -255,7 +255,27 @@ function renderShell() {
 function activateTab(tab) {
   document.querySelectorAll("[data-tab]").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
   document.querySelectorAll("[data-panel]").forEach(p => p.classList.toggle("hidden", p.dataset.panel !== tab));
+  const backButton = $("backToDashboardBtn");
+  const defaultTab = canAdmin() ? "customers" : "collector-demand";
+  if (backButton) backButton.classList.toggle("hidden", tab === defaultTab);
 }
+function goToDashboard() {
+  const defaultTab = canAdmin() ? "customers" : "collector-demand";
+  $("dashboardCard")?.classList.remove("collector-payment-mode");
+  $("receiptPanel")?.classList.add("hidden");
+  activateTab(defaultTab);
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+window.ajsfHandleAndroidBack = function() {
+  const defaultTab = canAdmin() ? "customers" : "collector-demand";
+  const activeTab = document.querySelector("[data-tab].active")?.dataset.tab || defaultTab;
+  const receiptOpen = $("receiptPanel") && !$("receiptPanel").classList.contains("hidden");
+  if (activeTab !== defaultTab || receiptOpen) {
+    goToDashboard();
+    return true;
+  }
+  return false;
+};
 document.addEventListener("click", e => {
   const tab = e.target.closest("[data-tab]");
   if (tab) activateTab(tab.dataset.tab);
@@ -429,6 +449,7 @@ function renderData() {
   $("collectedTotal").textContent = money(figures.reduce((s, f) => s + f.collected, 0));
   $("outstandingTotal").textContent = money(figures.reduce((s, f) => s + f.outstanding, 0));
   const operationalCustomers = customers.filter(c => c.is_active !== false && (c.customer_status || "ACTIVE") === "ACTIVE");
+  renderCustomerCallResults();
   const customerRegisterRows = [...operationalCustomers].sort((a,b) =>
     String(a.center_name || "").localeCompare(String(b.center_name || "")) ||
     String(a.full_name || "").localeCompare(String(b.full_name || ""))
@@ -795,6 +816,25 @@ function filterLedgerCustomers() {
   `);
 }
 
+function renderCustomerCallResults() {
+  const root = $("customerCallResults");
+  if (!root) return;
+  const q = ($("customerCallSearch")?.value || "").trim().toLocaleLowerCase();
+  const digits = q.replace(/\D/g, "");
+  const normalize = value => String(value || "").toLocaleLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "");
+  const active = customers.filter(c => c.is_active !== false && (c.customer_status || "ACTIVE") === "ACTIVE");
+  const matches = active.filter(c => {
+    if (!q) return true;
+    const textMatch = [c.customer_code,c.full_name,c.center_name].some(v => normalize(v).includes(q));
+    const phoneDigits = phone(c.contact_number).replace(/\D/g, "");
+    return textMatch || (digits.length > 0 && phoneDigits.includes(digits));
+  }).slice(0,100);
+  root.innerHTML = matches.map(c => {
+    const number = phone(c.contact_number);
+    const dial = String(number || "").replace(/[^\d+]/g, "");
+    return `<article class="customer-call-row"><div class="customer-call-info"><strong>${esc(c.full_name || "—")}</strong><small>${esc(formatCustomerId(c.customer_code))} · ${esc(number || "मोबाइल उपलब्ध नहीं")} · ${esc(c.center_name || "")}</small></div>${dial ? `<a class="customer-call-action" href="tel:${esc(dial)}" aria-label="${esc(c.full_name)} को कॉल करें">Call</a>` : '<span class="muted">नंबर नहीं है</span>'}</article>`;
+  }).join("") || '<p class="customer-picker-empty">कोई ग्राहक नहीं मिला। नाम, Customer ID या मोबाइल नंबर जाँचें।</p>';
+}
 function filterCustomerRows() {
   const q = ($("customerFilter")?.value || "").trim().toLocaleLowerCase();
   const center = ($("customerCenterFilter")?.value || "").trim().toLocaleLowerCase();
@@ -2671,6 +2711,8 @@ async function boot() {
   $("sendWhatsAppReminder").addEventListener("click", () => openReminder("whatsapp"));
   $("sendSmsReminder").addEventListener("click", () => openReminder("sms"));
   $("loanCustomerFilter").addEventListener("change", renderData);
+  $("customerCallSearch")?.addEventListener("input", renderCustomerCallResults);
+  $("backToDashboardBtn")?.addEventListener("click", goToDashboard);
   // Customer Register actions are bound directly after each table render above.
   $("ledgerCustomer").addEventListener("change", loadCustomerLedger);
   $("ledgerSearch").addEventListener("input", filterLedgerCustomers);
