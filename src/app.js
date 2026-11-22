@@ -392,9 +392,15 @@ async function initAjsfTracking() {
 
 
 async function loadProfile(user) {
-  const { data, error } = await supabase.from("profiles")
+  let { data, error } = await supabase.from("profiles")
     .select("full_name, role, staff_code, is_active, is_super_admin")
     .eq("id", user.id).single();
+  // Safe rollout: old schema remains login-compatible until tracking migration is applied.
+  if (error && /is_super_admin|column/i.test(error.message || "")) {
+    ({ data, error } = await supabase.from("profiles")
+      .select("full_name, role, staff_code, is_active")
+      .eq("id", user.id).single());
+  }
   if (error || !data || !data.is_active) throw new Error("सक्रिय प्रोफाइल नहीं मिली। Admin से संपर्क करें।");
   profile = data;
 }
