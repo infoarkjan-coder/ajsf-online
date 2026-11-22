@@ -26,7 +26,12 @@
 <div class="dashboard-content">
 <section class="card panel hidden" data-panel="customer-call">
   <div class="panel-head"><div><h2>Customer Call</h2><p class="muted">ग्राहक का नाम, Customer ID या मोबाइल नंबर खोजें और Call दबाएँ।</p></div></div>
-  <div class="field"><label for="customerCallSearch">ग्राहक खोजें</label><input id="customerCallSearch" type="search" placeholder="नाम / Customer ID / मोबाइल नंबर…" autocomplete="off"></div>
+  <div class="formgrid customer-call-filters">
+    <div class="field"><label for="customerCallGroup">Group / Center Wise</label><select id="customerCallGroup"><option value="">सभी Group / Center</option></select></div>
+    <div class="field"><label for="customerCallDay">Collection Day Wise</label><select id="customerCallDay"><option value="">सभी दिन</option><option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option><option>Sunday</option></select></div>
+    <div class="field"><label for="customerCallSearch">ग्राहक खोजें</label><input id="customerCallSearch" type="search" placeholder="नाम / Customer ID / मोबाइल नंबर…" autocomplete="off"></div>
+  </div>
+  <p id="customerCallCount" class="muted" aria-live="polite">ग्राहक सूची लोड हो रही है…</p>
   <div id="customerCallResults" class="customer-call-list" aria-live="polite"><p class="muted">ग्राहक सूची लोड हो रही है…</p></div>
 </section>
 <section class="card panel hidden" data-panel="staff-password">
