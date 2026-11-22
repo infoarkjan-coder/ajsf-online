@@ -38,8 +38,14 @@ Deno.serve(async (req: Request) => {
   const targetId = String(body.target_user_id || "");
   const password = String(body.new_password || "");
   if (!/^[0-9a-f-]{36}$/i.test(targetId)) return json({ error: "Staff account नहीं मिला।" }, 400);
-  if (password.length < 10 || password.length > 72)
-    return json({ error: "पासवर्ड 10 से 72 अक्षर का होना चाहिए।" }, 400);
+  if (password.length < 12 || password.length > 72)
+    return json({ error: "पासवर्ड 12 से 72 अक्षर का होना चाहिए।" }, 400);
+  if (!/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/[0-9]/.test(password) || !/[^A-Za-z0-9]/.test(password))
+    return json({ error: "पासवर्ड में छोटे-बड़े अक्षर, नंबर और एक विशेष चिन्ह होना चाहिए।" }, 400);
+  const normalizedPassword = password.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const commonPasswords = ["password", "password123", "admin", "admin123", "welcome", "welcome123", "qwerty", "qwerty123", "letmein", "iloveyou", "india123", "ajsf123", "123456", "12345678"];
+  if (commonPasswords.some((item) => normalizedPassword.includes(item)) || /(.)\1{4,}/.test(normalizedPassword) || "abcdefghijklmnopqrstuvwxyz".includes(normalizedPassword) || "01234567890123456789".includes(normalizedPassword))
+    return json({ error: "यह पासवर्ड बहुत आम या अनुमान लगाने में आसान है। कृपया अलग पासवर्ड चुनें।" }, 400);
 
   const { data: target, error: targetError } = await admin.from("profiles")
     .select("id, full_name, staff_code, role, is_active").eq("id", targetId).maybeSingle();
