@@ -280,6 +280,11 @@ async function startAjsfDuty() {
     navigator.geolocation.getCurrentPosition(
       position => {
         sendAjsfDutyLocation(position);
+        if (window.AJSFNativeTracking?.startTracking) {
+          const token = sessionData.session.access_token;
+          const nativeResult = window.AJSFNativeTracking.startTracking(token, SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL);
+          if (nativeResult !== "OK") $("ajsDutyStatus").textContent = nativeResult;
+        }
         stopAjsfDutyWatch();
         ajsfDutyWatchId = navigator.geolocation.watchPosition(sendAjsfDutyLocation,
           error => $("ajsDutyStatus").textContent = "GPS उपलब्ध नहीं: " + error.message,
@@ -305,6 +310,7 @@ async function endAjsfDuty() {
   try {
     const {error} = await supabase.rpc("ajs_end_duty");
     if (error) throw error;
+    window.AJSFNativeTracking?.stopTracking?.();
     stopAjsfDutyWatch();
     ajsfDutySessionId = null;
     $("ajsDutyStatus").textContent = "Duty End हो गई। अब लोकेशन रिकॉर्ड नहीं होगी।";
@@ -321,6 +327,11 @@ async function loadAjsfDutyState() {
   if (data?.length) {
     ajsfDutySessionId = data[0].id;
     $("ajsDutyStatus").textContent = "Duty चालू है · शुरू: " + new Date(data[0].duty_started_at).toLocaleString("hi-IN");
+    if (window.AJSFNativeTracking?.startTracking) {
+      const {data: authData} = await supabase.auth.getSession();
+      const token = authData?.session?.access_token;
+      if (token) window.AJSFNativeTracking.startTracking(token, SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL);
+    }
     if (navigator.geolocation) ajsfDutyWatchId = navigator.geolocation.watchPosition(sendAjsfDutyLocation,
       error => $("ajsDutyStatus").textContent = "GPS उपलब्ध नहीं: " + error.message,
       {enableHighAccuracy:true,maximumAge:15000,timeout:20000});
@@ -357,6 +368,7 @@ async function initAjsfTracking() {
   try { await loadAjsfDutyState(); } catch(error) { $("ajsDutyStatus").textContent = "Duty स्थिति लोड नहीं हुई: " + error.message; }
   if (profile?.is_super_admin) {
     await loadAjsfSuperAdminTracking();
+    if (ajsfLocationRefreshTimer) clearInterval(ajsfLocationRefreshTimer);
     ajsfLocationRefreshTimer = setInterval(loadAjsfSuperAdminTracking,30000);
   }
 }
@@ -2777,6 +2789,11 @@ async function logout() {
   const btn = $("loginBtn");
   let signOutError = null;
   try {
+    if (ajsfDutySessionId) {
+      await supabase.rpc("ajs_end_duty");
+      window.AJSFNativeTracking?.stopTracking?.();
+      ajsfDutySessionId = null;
+    }
     const { error } = await supabase.auth.signOut({ scope:"local" });
     signOutError = error || null;
   } catch (error) {
