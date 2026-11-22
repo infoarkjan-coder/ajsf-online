@@ -2736,6 +2736,8 @@ async function boot() {
   $("sendSmsReminder").addEventListener("click", () => openReminder("sms"));
   $("loanCustomerFilter").addEventListener("change", renderData);
   $("customerCallSearch")?.addEventListener("input", renderCustomerCallResults);
+  $("customerCallGroup")?.addEventListener("change", renderCustomerCallResults);
+  $("customerCallDay")?.addEventListener("change", renderCustomerCallResults);
   $("backToDashboardBtn")?.addEventListener("click", goToDashboard);
   // Customer Register actions are bound directly after each table render above.
   $("ledgerCustomer").addEventListener("change", loadCustomerLedger);
