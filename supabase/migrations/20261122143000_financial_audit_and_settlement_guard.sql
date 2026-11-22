@@ -181,3 +181,63 @@ with check (
       and p.is_active = true
   )
 );
+
+-- Extend the same audit trail to receipt cancellation requests, including review metadata.
+create or replace function public.capture_financial_audit()
+returns trigger
+language plpgsql
+security definer
+set search_path = pg_catalog, public, auth
+as $$
+declare
+  v_old jsonb := case when TG_OP in ('UPDATE','DELETE') then to_jsonb(OLD) else '{}'::jsonb end;
+  v_new jsonb := case when TG_OP in ('INSERT','UPDATE') then to_jsonb(NEW) else '{}'::jsonb end;
+  v_row jsonb;
+  v_record_id text;
+  v_details jsonb;
+begin
+  v_row := case when TG_OP = 'DELETE' then v_old else v_new end;
+  v_record_id := coalesce(v_row->>'id', v_row->>'loan_id', v_row->>'payment_id');
+  v_details := jsonb_build_object(
+    'operation', TG_OP, 'table', TG_TABLE_NAME,
+    'old', jsonb_strip_nulls(jsonb_build_object(
+      'amount',v_old->'amount','payment_mode',v_old->'payment_mode','paid_at',v_old->'paid_at',
+      'is_reversal',v_old->'is_reversal','reverses_payment_id',v_old->'reverses_payment_id',
+      'entry_type',v_old->'entry_type','event_date',v_old->'event_date','applied_week_no',v_old->'applied_week_no',
+      'status',v_old->'status','expected_cash',v_old->'expected_cash','expected_upi',v_old->'expected_upi',
+      'expected_bank',v_old->'expected_bank','deposited_cash',v_old->'deposited_cash',
+      'deposited_upi',v_old->'deposited_upi','deposited_bank',v_old->'deposited_bank',
+      'approved_by',v_old->'approved_by','approved_at',v_old->'approved_at',
+      'loan_reference',v_old->'loan_reference','loan_amount',v_old->'loan_amount',
+      'emi_amount',v_old->'emi_amount','final_payment_id',v_old->'final_payment_id',
+      'payment_id',v_old->'payment_id','reason',v_old->'reason','admin_note',v_old->'admin_note',
+      'reviewed_by',v_old->'reviewed_by','reviewed_at',v_old->'reviewed_at',
+      'reversal_payment_id',v_old->'reversal_payment_id'
+    )),
+    'new', jsonb_strip_nulls(jsonb_build_object(
+      'amount',v_new->'amount','payment_mode',v_new->'payment_mode','paid_at',v_new->'paid_at',
+      'is_reversal',v_new->'is_reversal','reverses_payment_id',v_new->'reverses_payment_id',
+      'entry_type',v_new->'entry_type','event_date',v_new->'event_date','applied_week_no',v_new->'applied_week_no',
+      'status',v_new->'status','expected_cash',v_new->'expected_cash','expected_upi',v_new->'expected_upi',
+      'expected_bank',v_new->'expected_bank','deposited_cash',v_new->'deposited_cash',
+      'deposited_upi',v_new->'deposited_upi','deposited_bank',v_new->'deposited_bank',
+      'approved_by',v_new->'approved_by','approved_at',v_new->'approved_at',
+      'loan_reference',v_new->'loan_reference','loan_amount',v_new->'loan_amount',
+      'emi_amount',v_new->'emi_amount','final_payment_id',v_new->'final_payment_id',
+      'payment_id',v_new->'payment_id','reason',v_new->'reason','admin_note',v_new->'admin_note',
+      'reviewed_by',v_new->'reviewed_by','reviewed_at',v_new->'reviewed_at',
+      'reversal_payment_id',v_new->'reversal_payment_id'
+    ))
+  );
+  insert into public.audit_logs(actor_id,action,table_name,record_id,details)
+  values(auth.uid(),TG_TABLE_NAME||'_'||lower(TG_OP),TG_TABLE_NAME,v_record_id,v_details);
+  if TG_OP='DELETE' then return OLD; else return NEW; end if;
+end;
+$$;
+
+drop trigger if exists audit_receipt_cancellation_changes on public.receipt_cancellation_requests;
+create trigger audit_receipt_cancellation_changes
+after insert or update or delete on public.receipt_cancellation_requests
+for each row execute function public.capture_financial_audit();
+
+revoke all on function public.capture_financial_audit() from public,anon,authenticated;
