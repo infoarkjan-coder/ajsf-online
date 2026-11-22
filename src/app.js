@@ -2084,7 +2084,7 @@ function loadDayDemandReport(){
  const receiptRows=payments.filter(p=>!p.is_reversal&&!p.offline_pending&&dateOnlyLocal(p.paid_at||p.created_at)===date&&(!collectorId||p.collector_id===collectorId)).sort((a,b)=>new Date(a.paid_at||a.created_at)-new Date(b.paid_at||b.created_at));
  const advanceRows=advanceLedger.filter(x=>x.entry_type==="advance_received"&&dateOnlyLocal(x.event_date)===date&&(!collectorId||!x.collector_id||x.collector_id===collectorId));
  const closedRows=[];
- for(const loan of loans.filter(l=>l.status!=="active"&&!l.is_archived)){
+ for(const loan of loans.filter(l=>l.status==="closed"&&!l.is_archived)){
   const customer=customerById.get(loan.customer_id);if(!customer||(!selectedDay?false:customer.collection_day!==selectedDay)|| (collectorId&&customer.assigned_collector!==collectorId))continue;
   const loanPayments=payments.filter(p=>p.loan_id===loan.id&&!p.is_reversal&&!p.offline_pending).sort((a,b)=>new Date(b.paid_at||b.created_at)-new Date(a.paid_at||a.created_at));
   const finalPayment=loanPayments[0];if(!finalPayment||dateOnlyLocal(finalPayment.paid_at||finalPayment.created_at)!==date)continue;
