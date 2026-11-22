@@ -2,6 +2,10 @@ plugins {
     id 'com.android.application'
 }
 
+import javax.imageio.ImageIO
+import java.awt.RenderingHints
+import java.awt.image.BufferedImage
+
 android {
     namespace 'com.arkjansamriddhi.ajsf'
     compileSdk 35
@@ -10,7 +14,40 @@ android {
         applicationId 'com.arkjan.ajsfonline'
         minSdk 26
         targetSdk 35
-        versionCode 3
-        versionName '2.0.1'
+        versionCode 4
+        versionName '2.0.2'
     }
 }
+
+def launcherResDir = layout.buildDirectory.dir('generated/res/launcherIcons')
+
+tasks.register('generateLauncherIcons') {
+    inputs.file(rootProject.file('assets/ajsf-logo.png'))
+    outputs.dir(launcherResDir)
+    doLast {
+        def source = ImageIO.read(rootProject.file('assets/ajsf-logo.png'))
+        if (source == null) throw new GradleException('Could not read assets/ajsf-logo.png')
+        [ [name:'mipmap-mdpi', size:48], [name:'mipmap-hdpi', size:72],
+          [name:'mipmap-xhdpi', size:96], [name:'mipmap-xxhdpi', size:144],
+          [name:'mipmap-xxxhdpi', size:192] ].each { spec ->
+            def dir = launcherResDir.get().dir(spec.name).asFile
+            dir.mkdirs()
+            def canvas = new BufferedImage(spec.size, spec.size, BufferedImage.TYPE_INT_ARGB)
+            def g = canvas.createGraphics()
+            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC)
+            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
+            g.setColor(java.awt.Color.WHITE)
+            g.fillRect(0, 0, spec.size, spec.size)
+            def scale = Math.min((spec.size * 0.92d) / source.getWidth(), (spec.size * 0.92d) / source.getHeight())
+            def w = Math.round(source.getWidth() * scale) as int
+            def h = Math.round(source.getHeight() * scale) as int
+            g.drawImage(source, (spec.size-w)/2, (spec.size-h)/2, w, h, null)
+            g.dispose()
+            ImageIO.write(canvas, 'png', new File(dir, 'ic_launcher.png'))
+            ImageIO.write(canvas, 'png', new File(dir, 'ic_launcher_round.png'))
+        }
+    }
+}
+
+android.sourceSets.main.res.srcDir(launcherResDir)
+tasks.named('preBuild').configure { dependsOn('generateLauncherIcons') }
