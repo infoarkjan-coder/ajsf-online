@@ -241,7 +241,7 @@ function ensureTrackingPanel() {
     <div class="panel-head"><div><h2>AJSF Live Collector Tracking</h2><p class="muted">लोकेशन केवल Duty Start से Duty End तक रिकॉर्ड होगी। GPS बंद होने पर नई लोकेशन नहीं भेजी जाएगी।</p></div></div>
     <div class="actions"><button type="button" id="ajsDutyStartBtn">Duty Start</button><button type="button" class="secondary" id="ajsDutyEndBtn">Duty End</button></div>
     <p id="ajsDutyStatus" class="message" role="status">Duty स्थिति जाँची जा रही है…</p>
-    <div id="ajsSuperAdminTracking" class="hidden"><h3>सभी Admin और Collector की Live Location</h3><p class="small muted">केवल अधिकृत Super Admin इस सूची और 30-दिन की लोकेशन हिस्ट्री को देख सकता है।</p><div id="ajsTrackingRows" class="tablewrap"></div></div>`;
+    <div id="ajsSuperAdminTracking" class="hidden"><h3>सभी Admin और Collector की Live Location</h3><p class="small muted">केवल अधिकृत Super Admin इस सूची और 30-दिन की लोकेशन हिस्ट्री को देख सकता है।</p><div id="ajsTrackingRows" class="tablewrap"></div><h3>30-दिन की लोकेशन हिस्ट्री</h3><div id="ajsTrackingHistoryRows" class="tablewrap"></div><h3>Duty Start / End हिस्ट्री</h3><div id="ajsDutyHistoryRows" class="tablewrap"></div></div>`;
   host.prepend(panel);
   $("ajsDutyStartBtn").addEventListener("click", startAjsfDuty);
   $("ajsDutyEndBtn").addEventListener("click", endAjsfDuty);
@@ -353,12 +353,29 @@ async function loadAjsfSuperAdminTracking() {
   const latest = new Map();
   (data || []).forEach(row => { if (!latest.has(row.staff_id)) latest.set(row.staff_id,row); });
   const rows = [...latest.values()];
+  const mapLink = row => "https://www.openstreetmap.org/?mlat=" + encodeURIComponent(row.latitude) + "&mlon=" + encodeURIComponent(row.longitude) + "#map=17/" + encodeURIComponent(row.latitude) + "/" + encodeURIComponent(row.longitude);
   host.innerHTML = rows.length ? "<table><thead><tr><th>कर्मचारी</th><th>Role</th><th>Last Active</th><th>Accuracy</th><th>Map</th></tr></thead><tbody>" +
     rows.map(row => {
       const p = row.profiles || {};
-      const mapUrl = "https://www.openstreetmap.org/?mlat=" + encodeURIComponent(row.latitude) + "&mlon=" + encodeURIComponent(row.longitude) + "#map=17/" + encodeURIComponent(row.latitude) + "/" + encodeURIComponent(row.longitude);
-      return "<tr><td>" + esc(p.full_name || row.staff_id) + "<br><small>" + esc(p.staff_code || "") + "</small></td><td>" + esc(p.role || "") + "</td><td>" + esc(new Date(row.recorded_at).toLocaleString("hi-IN")) + "</td><td>" + esc(row.accuracy_m == null ? "—" : Math.round(row.accuracy_m) + " m") + "</td><td><a href=\"" + mapUrl + "\" target=\"_blank\" rel=\"noopener\">Map खोलें</a></td></tr>";
+      return "<tr><td>" + esc(p.full_name || row.staff_id) + "<br><small>" + esc(p.staff_code || "") + "</small></td><td>" + esc(p.role || "") + "</td><td>" + esc(new Date(row.recorded_at).toLocaleString("hi-IN")) + "</td><td>" + esc(row.accuracy_m == null ? "—" : Math.round(row.accuracy_m) + " m") + "</td><td><a href=\"" + mapLink(row) + "\" target=\"_blank\" rel=\"noopener\">Map खोलें</a></td></tr>";
     }).join("") + "</tbody></table>" : "<p class='muted'>पिछले 30 दिनों में कोई लोकेशन रिकॉर्ड नहीं मिली।";
+  const historyHost = $("ajsTrackingHistoryRows");
+  if (historyHost) historyHost.innerHTML = (data || []).length ? "<table><thead><tr><th>कर्मचारी</th><th>समय</th><th>Latitude</th><th>Longitude</th><th>Map</th></tr></thead><tbody>" +
+    (data || []).map(row => {
+      const p = row.profiles || {};
+      return "<tr><td>" + esc(p.full_name || row.staff_id) + "</td><td>" + esc(new Date(row.recorded_at).toLocaleString("hi-IN")) + "</td><td>" + esc(Number(row.latitude).toFixed(6)) + "</td><td>" + esc(Number(row.longitude).toFixed(6)) + "</td><td><a href=\"" + mapLink(row) + "\" target=\"_blank\" rel=\"noopener\">Map</a></td></tr>";
+    }).join("") + "</tbody></table>" : "<p class='muted'>कोई history उपलब्ध नहीं है।";
+  const dutyHost = $("ajsDutyHistoryRows");
+  if (dutyHost) {
+    const {data:sessions,error:sessionError} = await supabase.from("staff_duty_sessions")
+      .select("staff_id,duty_started_at,duty_ended_at,profiles!staff_duty_sessions_staff_id_fkey(full_name,staff_code,role)")
+      .gte("duty_started_at",new Date(Date.now()-30*86400000).toISOString())
+      .order("duty_started_at",{ascending:false}).limit(1000);
+    dutyHost.innerHTML = sessionError ? "<p class='muted'>Duty history लोड नहीं हुई: " + esc(sessionError.message) + "</p>" :
+      (sessions || []).length ? "<table><thead><tr><th>कर्मचारी</th><th>Role</th><th>Duty Start</th><th>Duty End</th></tr></thead><tbody>" +
+      sessions.map(s => { const p=s.profiles||{}; return "<tr><td>"+esc(p.full_name||s.staff_id)+"</td><td>"+esc(p.role||"")+"</td><td>"+esc(new Date(s.duty_started_at).toLocaleString("hi-IN"))+"</td><td>"+esc(s.duty_ended_at?new Date(s.duty_ended_at).toLocaleString("hi-IN"):"अभी Duty चालू")+"</td></tr>"; }).join("") +
+      "</tbody></table>" : "<p class='muted'>कोई Duty history उपलब्ध नहीं है।";
+  }
 }
 
 async function initAjsfTracking() {
