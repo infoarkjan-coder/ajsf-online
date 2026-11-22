@@ -11,6 +11,12 @@ import android.os.Bundle;
 import android.os.Build;
 import android.os.Environment;
 import android.provider.MediaStore;
+import android.print.PrintAttributes;
+import android.print.PrintManager;
+import android.print.PrintDocumentAdapter;
+import android.print.PrintJob;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Base64;
 import android.view.View;
 import android.view.ViewGroup;
@@ -37,6 +43,9 @@ public class MainActivity extends Activity {
     private static final String HOME = "https://ajsf-online.vercel.app/?platform=app";
     private static final String TRUSTED_HOST = "ajsf-online.vercel.app";
     private WebView webView;
+    private WebView printWebView;
+    private PrintJob activePrintJob;
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private ProgressBar progress;
     private ValueCallback<Uri[]> fileCallback;
     private PermissionRequest pendingCameraRequest;
@@ -166,6 +175,14 @@ public class MainActivity extends Activity {
 
     private final class AJSFNativeDownload {
         @JavascriptInterface
+        public String printHtml(String title, String content, String pageCss) {
+            if (webView == null || !isTrustedOrigin(webView.getUrl())) return "Print केवल AJSF वेबसाइट से शुरू हो सकता है।";
+            if (content == null || content.trim().isEmpty()) return "Print करने के लिए रिपोर्ट खाली है।";
+            runOnUiThread(() -> startNativePrint(title, content, pageCss));
+            return "OK";
+        }
+
+        @JavascriptInterface
         public synchronized String beginSave(String fileName, String mimeType) {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return "इस Android संस्करण में Downloads सेव सुविधा उपलब्ध नहीं है।";
             try {
@@ -241,6 +258,62 @@ public class MainActivity extends Activity {
                 }
                 return finishSave(token);
             } catch (Exception error) { cancelSave(token); return "PDF सेव नहीं हुई: " + error.getMessage(); }
+        }
+    }
+
+    private void startNativePrint(String title, String content, String pageCss) {
+        if (isFinishing() || isDestroyed()) return;
+        try {
+            if (printWebView != null) {
+                printWebView.stopLoading();
+                printWebView.destroy();
+                printWebView = null;
+            }
+            printWebView = new WebView(this);
+            WebSettings printSettings = printWebView.getSettings();
+            printSettings.setJavaScriptEnabled(false);
+            printSettings.setDomStorageEnabled(false);
+            printSettings.setAllowFileAccess(false);
+            String safeTitle = title == null ? "AJSF Report" : title.replaceAll("[<>]", "");
+            String html = "<!doctype html><html lang='en'><head><meta charset='utf-8'>" +
+                "<meta name='viewport' content='width=device-width,initial-scale=1'>" +
+                "<base href='https://ajsf-online.vercel.app/'>" +
+                "<title>" + safeTitle + "</title><style>" +
+                "*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff;color:#172923;font-family:Arial,sans-serif}" +
+                "body{padding:7mm;font-size:10pt;line-height:1.35}" +
+                "img{max-width:100%;object-fit:contain}table{width:100%;border-collapse:collapse}thead{display:table-header-group}tr{break-inside:avoid}" +
+                "th,td{border:1px solid #cbd8d0;padding:6px;text-align:left;vertical-align:top}th{background:#edf5f0;color:#23483c}" +
+                "h1,h2,h3{color:#123f35}small{color:#60756b}" + (pageCss == null ? "" : pageCss) +
+                "@media print{body{padding:0}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}" +
+                "</style></head><body>" + content + "</body></html>";
+            printWebView.setWebViewClient(new WebViewClient() {
+                @Override public void onPageFinished(WebView view, String url) {
+                    view.postDelayed(() -> {
+                        if (isFinishing() || isDestroyed() || view != printWebView) return;
+                        try {
+                            PrintManager manager = (PrintManager) getSystemService(PRINT_SERVICE);
+                            if (manager == null) throw new IllegalStateException("Android Print सेवा उपलब्ध नहीं है।");
+                            PrintDocumentAdapter adapter = view.createPrintDocumentAdapter(safeTitle);
+                            activePrintJob = manager.print(safeTitle, adapter,
+                                new PrintAttributes.Builder()
+                                    .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
+                                    .setColorMode(PrintAttributes.COLOR_MODE_COLOR)
+                                    .setMinMargins(PrintAttributes.Margins.NO_MARGINS)
+                                    .build());
+                        } catch (Exception error) {
+                            new AlertDialog.Builder(MainActivity.this)
+                                .setTitle("AJSF Print")
+                                .setMessage("Print शुरू नहीं हो पाया: " + error.getMessage())
+                                .setPositiveButton("ठीक है", null).show();
+                        }
+                    }, 500);
+                }
+            });
+            printWebView.loadDataWithBaseURL("https://ajsf-online.vercel.app/", html, "text/html", "UTF-8", null);
+        } catch (Exception error) {
+            new AlertDialog.Builder(this).setTitle("AJSF Print")
+                .setMessage("Print तैयार नहीं हो पाया: " + error.getMessage())
+                .setPositiveButton("ठीक है", null).show();
         }
     }
 
