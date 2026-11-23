@@ -323,9 +323,16 @@ public class MainActivity extends Activity {
                             PrintManager manager = (PrintManager) getSystemService(PRINT_SERVICE);
                             if (manager == null) throw new IllegalStateException("Android Print सेवा उपलब्ध नहीं है।");
                             PrintDocumentAdapter adapter = view.createPrintDocumentAdapter(safeTitle);
+                            // Match the report's requested paper size and orientation.
+                            // Repayment schedule, ledger and statement are A4 landscape;
+                            // payment receipt explicitly requests A5 portrait.
+                            boolean receiptA5 = pageCss != null && pageCss.toUpperCase().contains("A5");
+                            PrintAttributes.MediaSize mediaSize = receiptA5
+                                ? PrintAttributes.MediaSize.ISO_A5.asPortrait()
+                                : PrintAttributes.MediaSize.ISO_A4.asLandscape();
                             activePrintJob = manager.print(safeTitle, adapter,
                                 new PrintAttributes.Builder()
-                                    .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
+                                    .setMediaSize(mediaSize)
                                     .setColorMode(PrintAttributes.COLOR_MODE_COLOR)
                                     .setMinMargins(PrintAttributes.Margins.NO_MARGINS)
                                     .build());

@@ -207,8 +207,20 @@ function openAjsfPrint(title, content, pageCss) {
     Promise.all(images.map(img => img.complete ? Promise.resolve() : new Promise(resolve => { img.onload=resolve; img.onerror=resolve; })))
       .then(() => { w.focus(); w.print(); });
   };
-  if (w.document.readyState === "complete") printWhenReady();
-  else w.addEventListener("load", printWhenReady, { once:true });
+  // Return to the AJSF page after the user prints or cancels the print dialog.
+  let printStarted = false;
+  const finishPrint = () => {
+    if (!printStarted) return;
+    try { w.close(); } catch (_) {}
+    try { window.focus(); } catch (_) {}
+  };
+  w.addEventListener("afterprint", () => setTimeout(finishPrint, 150), { once:true });
+  if (w.document.readyState === "complete") {
+    printStarted = true;
+    printWhenReady();
+  } else {
+    w.addEventListener("load", () => { printStarted = true; printWhenReady(); }, { once:true });
+  }
   return w;
 }
 
@@ -2409,7 +2421,22 @@ async function downloadElementPdf(element, fileName, options = {}) {
   const {jsPDF} = window.jspdf;
   const pdf = new jsPDF({orientation:options.orientation || "landscape",unit:"mm",format:"a4",compress:true});
   const pageW = options.orientation === "portrait" ? 210 : 297, pageH = options.orientation === "portrait" ? 297 : 210, margin = Number.isFinite(options.pageMarginMm) ? options.pageMarginMm : 7, usableW = pageW - margin*2, usableH = pageH - margin*2;
-  if (options.fitOnePage) {
+  if (options.fitWidthMultiPage) {
+    // Keep ledger and statement at full A4-landscape width; continue vertically
+    // instead of shrinking a long report to fit a single mostly-empty page.
+    const scale = usableW / canvas.width;
+    const sliceHeight = Math.max(1, Math.floor(usableH / scale));
+    let y = 0, page = 0;
+    while (y < canvas.height) {
+      const h = Math.min(sliceHeight, canvas.height - y);
+      const slice = document.createElement("canvas");
+      slice.width = canvas.width; slice.height = h;
+      slice.getContext("2d").drawImage(canvas, 0, y, canvas.width, h, 0, 0, canvas.width, h);
+      if (page > 0) pdf.addPage("a4", "landscape");
+      pdf.addImage(slice.toDataURL("image/jpeg", 0.94), "JPEG", margin, margin, usableW, h * scale, undefined, "FAST");
+      y += h; page++;
+    }
+  } else if (options.fitOnePage) {
     const ratio = Math.min(usableW/canvas.width,usableH/canvas.height);
     const w = canvas.width*ratio, h = canvas.height*ratio;
     pdf.addImage(canvas.toDataURL("image/jpeg",0.94),"JPEG",(pageW-w)/2,(pageH-h)/2,w,h,undefined,"FAST");
@@ -3125,7 +3152,7 @@ async function boot() {
   // Customer Register actions are bound directly after each table render above.
   $("ledgerCustomer").addEventListener("change", loadCustomerLedger);
   $("ledgerSearch").addEventListener("input", filterLedgerCustomers);
-  $("downloadLedgerPdfBtn").addEventListener("click", () => handleDocumentPdf("downloadLedgerPdfBtn","ledgerPrintArea","AJSF-Customer-Ledger.pdf","Customer Ledger PDF Downloads में सेव हो गई है।",{fitOnePage:true,pageMarginMm:3}));
+  $("downloadLedgerPdfBtn").addEventListener("click", () => handleDocumentPdf("downloadLedgerPdfBtn","ledgerPrintArea","AJSF-Customer-Ledger.pdf","Customer Ledger PDF Downloads में सेव हो गई है।",{fitWidthMultiPage:true,pageMarginMm:5}));
   $("printLedgerBtn").addEventListener("click", printCustomerLedger);
   $("scheduleSearch").addEventListener("input", filterScheduleCustomers);
   $("scheduleCustomer").addEventListener("change", populateScheduleLoans);
@@ -3143,7 +3170,7 @@ async function boot() {
   $("downloadStatementPdfBtn").addEventListener("click", () => {
     if (!$("statementCustomer").value) return showMessage("पहले ग्राहक चुनें।","warn");
     renderCustomerStatement();
-    handleDocumentPdf("downloadStatementPdfBtn","statementPrintArea","AJSF-Customer-Loan-Statement.pdf","Loan Statement PDF Downloads में सेव हो गई है।",{fitOnePage:true,pageMarginMm:3});
+    handleDocumentPdf("downloadStatementPdfBtn","statementPrintArea","AJSF-Customer-Loan-Statement.pdf","Loan Statement PDF Downloads में सेव हो गई है।",{fitWidthMultiPage:true,pageMarginMm:5});
   });
   $("printStatementBtn").addEventListener("click", printCustomerStatement);
   $("printReceiptBtn").addEventListener("click", printReceipt);
