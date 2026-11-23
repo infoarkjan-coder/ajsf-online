@@ -250,7 +250,7 @@ function ensureTrackingPanel() {
   panel.className = "card panel hidden";
   panel.id = "ajsTrackingPanel";
   panel.innerHTML = `
-    <div class="panel-head"><div><h2>AJSF Live Collector Tracking</h2><p class="muted">लोकेशन केवल Duty Start से Duty End तक रिकॉर्ड होगी। GPS बंद होने पर नई लोकेशन नहीं भेजी जाएगी।</p></div></div>
+    <div class="panel-head"><div><h2>AJSF Live Collector Tracking</h2></div></div>
     <div class="actions"><button type="button" id="ajsDutyStartBtn">Duty Start</button><button type="button" class="secondary" id="ajsDutyEndBtn">Duty End</button></div>
     <p id="ajsDutyStatus" class="message" role="status">Duty स्थिति जाँची जा रही है…</p>
     <div id="ajsSuperAdminTracking" class="hidden"><h3>सभी Admin और Collector की Live Location</h3><p class="small muted">केवल अधिकृत Super Admin इस सूची और 30-दिन की लोकेशन हिस्ट्री को देख सकता है।</p><div id="ajsTrackingRows" class="tablewrap"></div><h3>30-दिन की लोकेशन हिस्ट्री</h3><div id="ajsTrackingHistoryRows" class="tablewrap"></div><h3>Duty Start / End हिस्ट्री</h3><div id="ajsDutyHistoryRows" class="tablewrap"></div></div>`;
@@ -423,9 +423,13 @@ function renderShell() {
   $("staffName").textContent = profile.full_name || "Staff";
   $("staffCode").textContent = profile.staff_code || "—";
   $("staffRole").textContent = canAdmin() ? "Admin" : "Collector";
-  $("roleNote").textContent = canAdmin()
-    ? "आप सभी ग्राहक, लोन और भुगतान देख सकते हैं।"
-    : "आपको केवल आपके assigned ग्राहक दिखेंगे।";
+  const roleNote = $("roleNote");
+  if (roleNote) {
+    roleNote.textContent = canAdmin()
+      ? "आप सभी ग्राहक, लोन और भुगतान देख सकते हैं।"
+      : "आपको केवल आपके assigned ग्राहक दिखेंगे।";
+    roleNote.classList.toggle("hidden", isAjsfAndroidApp());
+  }
   const adminOnly = $("adminOnly");
   const collectorOnly = $("collectorOnly");
   if (adminOnly) adminOnly.classList.toggle("hidden", !canAdmin());
