@@ -439,7 +439,8 @@ function renderShell() {
 }
 
 function isAjsfAndroidApp() {
-  return typeof window.AJSFNativePrint !== "undefined";
+  // MainActivity exposes AJSFNativeDownload and AJSFNativeTracking; AJSFNativePrint is not registered.
+  return typeof window.AJSFNativeDownload !== "undefined" || typeof window.AJSFNativeTracking !== "undefined";
 }
 function initAjsfCorporateMenu() {
   const dashboard = $("dashboardCard");
