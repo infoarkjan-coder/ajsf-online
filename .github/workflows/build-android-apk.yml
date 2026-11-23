@@ -10,6 +10,7 @@ on:
     paths:
       - 'app/**'
       - 'platform-views.css'
+      - 'src/app.js'
       - 'index.html'
       - 'build.gradle'
       - 'settings.gradle'
