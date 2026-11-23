@@ -253,7 +253,7 @@ function ensureTrackingPanel() {
     <div class="panel-head"><div><h2>AJSF Live Collector Tracking</h2></div></div>
     <div class="actions"><button type="button" id="ajsDutyStartBtn">Duty Start</button><button type="button" class="secondary" id="ajsDutyEndBtn">Duty End</button></div>
     <p id="ajsDutyStatus" class="message" role="status">Duty स्थिति जाँची जा रही है…</p>
-    <div id="ajsSuperAdminTracking" class="hidden"><h3>सभी Admin और Collector की Live Location</h3><p class="small muted">केवल अधिकृत Super Admin इस सूची और 30-दिन की लोकेशन हिस्ट्री को देख सकता है।</p><div id="ajsTrackingRows" class="tablewrap"></div><h3>30-दिन की लोकेशन हिस्ट्री</h3><div id="ajsTrackingHistoryRows" class="tablewrap"></div><h3>Duty Start / End हिस्ट्री</h3><div id="ajsDutyHistoryRows" class="tablewrap"></div></div>`;
+    <div id="ajsSuperAdminTracking" class="hidden"><h3>सभी Admin और Collector की Live Location</h3><p class="small muted">केवल अधिकृत Super Admin इस सूची और 30-दिन की लोकेशन हिस्ट्री को देख सकता है।</p><div id="ajsTrackingRows" class="tablewrap"></div><h3>30-दिन की लोकेशन हिस्ट्री</h3><p class="small muted">नई लोकेशन सबसे पहले दिखेंगी। बाकी रिकॉर्ड जरूरत पर खोलें।</p><div id="ajsTrackingHistoryRows" class="tablewrap"></div><button type="button" class="secondary hidden" id="ajsTrackingHistoryMore">और लोकेशन देखें</button><h3>Duty Start / End हिस्ट्री</h3><div id="ajsDutyHistoryRows" class="tablewrap"></div></div>`;
   host.prepend(panel);
   $("ajsDutyStartBtn").addEventListener("click", startAjsfDuty);
   $("ajsDutyEndBtn").addEventListener("click", endAjsfDuty);
