@@ -9,6 +9,8 @@ on:
       - feature/ajsf-live-collector-tracking
     paths:
       - 'app/**'
+      - 'platform-views.css'
+      - 'index.html'
       - 'build.gradle'
       - 'settings.gradle'
       - 'gradle.properties'
