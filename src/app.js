@@ -253,7 +253,7 @@ function ensureTrackingPanel() {
     <div class="panel-head"><div><h2>AJSF Live Collector Tracking</h2></div></div>
     <div class="actions"><button type="button" id="ajsDutyStartBtn">Duty Start</button><button type="button" class="secondary" id="ajsDutyEndBtn">Duty End</button></div>
     <p id="ajsDutyStatus" class="message" role="status">Duty स्थिति जाँची जा रही है…</p>
-    <div id="ajsSuperAdminTracking" class="hidden"><h3>सभी Admin और Collector की Live Location</h3><p class="small muted">केवल अधिकृत Super Admin इस सूची और 30-दिन की लोकेशन हिस्ट्री को देख सकता है।</p><div id="ajsTrackingRows" class="tablewrap"></div><h3>30-दिन की लोकेशन हिस्ट्री</h3><div id="ajsTrackingHistoryRows" class="tablewrap"></div><h3>Duty Start / End हिस्ट्री</h3><div id="ajsDutyHistoryRows" class="tablewrap"></div></div>`;
+    <div id="ajsSuperAdminTracking" class="hidden"><h3>सभी Admin और Collector की Live Location</h3><p class="small muted">केवल अधिकृत Super Admin इस सूची और 30-दिन की लोकेशन हिस्ट्री को देख सकता है।</p><div id="ajsTrackingRows" class="tablewrap"></div><h3>30-दिन की लोकेशन हिस्ट्री</h3><p class="small muted">नई लोकेशन सबसे पहले दिखेंगी। बाकी रिकॉर्ड जरूरत पर खोलें।</p><div id="ajsTrackingHistoryRows" class="tablewrap"></div><button type="button" class="secondary hidden" id="ajsTrackingHistoryMore">और लोकेशन देखें</button><h3>Duty Start / End हिस्ट्री</h3><div id="ajsDutyHistoryRows" class="tablewrap"></div></div>`;
   host.prepend(panel);
   $("ajsDutyStartBtn").addEventListener("click", startAjsfDuty);
   $("ajsDutyEndBtn").addEventListener("click", endAjsfDuty);
@@ -372,11 +372,30 @@ async function loadAjsfSuperAdminTracking() {
       return "<tr><td>" + esc(p.full_name || row.staff_id) + "<br><small>" + esc(p.staff_code || "") + "</small></td><td>" + esc(p.role || "") + "</td><td>" + esc(new Date(row.recorded_at).toLocaleString("hi-IN")) + "</td><td>" + esc(row.accuracy_m == null ? "—" : Math.round(row.accuracy_m) + " m") + "</td><td><a href=\"" + mapLink(row) + "\" target=\"_blank\" rel=\"noopener\">Map खोलें</a></td></tr>";
     }).join("") + "</tbody></table>" : "<p class='muted'>पिछले 30 दिनों में कोई लोकेशन रिकॉर्ड नहीं मिली।";
   const historyHost = $("ajsTrackingHistoryRows");
-  if (historyHost) historyHost.innerHTML = (data || []).length ? "<table><thead><tr><th>कर्मचारी</th><th>समय</th><th>Latitude</th><th>Longitude</th><th>Map</th></tr></thead><tbody>" +
-    (data || []).map(row => {
-      const p = row.profiles || {};
-      return "<tr><td>" + esc(p.full_name || row.staff_id) + "</td><td>" + esc(new Date(row.recorded_at).toLocaleString("hi-IN")) + "</td><td>" + esc(Number(row.latitude).toFixed(6)) + "</td><td>" + esc(Number(row.longitude).toFixed(6)) + "</td><td><a href=\"" + mapLink(row) + "\" target=\"_blank\" rel=\"noopener\">Map</a></td></tr>";
-    }).join("") + "</tbody></table>" : "<p class='muted'>कोई history उपलब्ध नहीं है।";
+  const historyMoreBtn = $("ajsTrackingHistoryMore");
+  const historyRows = data || [];
+  let visibleHistoryCount = 10;
+  const renderLocationHistory = () => {
+    if (!historyHost) return;
+    const visibleRows = historyRows.slice(0, visibleHistoryCount);
+    historyHost.innerHTML = visibleRows.length ? "<table><thead><tr><th>कर्मचारी</th><th>समय</th><th>Map</th></tr></thead><tbody>" +
+      visibleRows.map(row => {
+        const p = row.profiles || {};
+        return "<tr><td>" + esc(p.full_name || row.staff_id) + "</td><td>" + esc(new Date(row.recorded_at).toLocaleString("hi-IN")) + "</td><td><a href=\\"" + mapLink(row) + "\\" target=\\"_blank\\" rel=\\"noopener\\">Map</a></td></tr>";
+      }).join("") + "</tbody></table>" : "<p class='muted'>कोई history उपलब्ध नहीं है।";
+    if (historyMoreBtn) {
+      historyMoreBtn.classList.toggle("hidden", visibleHistoryCount >= historyRows.length);
+      historyMoreBtn.textContent = "और लोकेशन देखें (" + Math.max(0, historyRows.length-visibleHistoryCount) + " बाकी)";
+    }
+  };
+  renderLocationHistory();
+  if (historyMoreBtn && !historyMoreBtn.dataset.bound) {
+    historyMoreBtn.dataset.bound = "1";
+    historyMoreBtn.addEventListener("click", () => {
+      visibleHistoryCount += 10;
+      renderLocationHistory();
+    });
+  }
   const dutyHost = $("ajsDutyHistoryRows");
   if (dutyHost) {
     const {data:sessions,error:sessionError} = await supabase.from("staff_duty_sessions")
