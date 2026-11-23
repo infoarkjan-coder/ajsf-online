@@ -441,9 +441,12 @@ function renderShell() {
   dashboard.classList.remove("collector-payment-mode");
   // Android APK uses a clean corporate menu home; the website keeps its existing navigation.
   if (isAjsfAndroidApp()) initAjsfCorporateMenu();
-  // Keep the existing KPI strip hidden for Collectors and hide it in the Android menu home.
+  // Show live KPI summary on the Admin dashboard in both web and Android app; keep it hidden for Collectors.
   const summaryGrid = dashboard.querySelector(":scope > .grid");
-  if (summaryGrid) summaryGrid.style.setProperty("display", canAdmin() && !isAjsfAndroidApp() ? "" : "none", "important");
+  if (summaryGrid) {
+    summaryGrid.classList.toggle("ajs-dashboard-kpis", isAjsfAndroidApp());
+    summaryGrid.style.setProperty("display", canAdmin() ? "" : "none", "important");
+  }
   activateTab(isAjsfAndroidApp() ? "ajs-menu-home" : (canAdmin() ? "customers" : "collector-demand"));
   const staffAdminSetupBtn = $("staffAdminSetupBtn");
   if (staffAdminSetupBtn) staffAdminSetupBtn.classList.toggle("hidden", !canAdmin());
