@@ -517,11 +517,24 @@ function initAjsfCorporateMenu() {
     if (!card) return;
     const group = groups.find(item => item.id === card.dataset.corpGroup);
     if (!group) return;
+    // Keep every Collector on the same menu as Akshay Kumar (AJSF-EMP-001).
+    // Menu visibility is standardized by role; permissions/data scope remain enforced separately.
+    const collectorMenuTabs = new Set([
+      "customers", "customer-call", "customer-verification",
+      "loans", "schedule", "ledger", "statement",
+      "collector-demand", "payment", "payments", "receipt-requests",
+      "reminder"
+    ]);
     const available = group.tabs.filter(tab => {
       const source = sidebar.querySelector('[data-tab="'+tab+'"]');
-      if (tab === "staff-password") return canAdmin();
-      if (tab === "collector-demand") return !canAdmin();
-      return source && !source.classList.contains("hidden") && getComputedStyle(source).display !== "none";
+      if (canAdmin()) {
+        if (tab === "staff-password") return true;
+        if (tab === "collector-demand") return false;
+        return source && !source.classList.contains("hidden") && getComputedStyle(source).display !== "none";
+      }
+      if (!collectorMenuTabs.has(tab)) return false;
+      if (tab === "collector-demand") return true;
+      return !!source;
     });
     sub.innerHTML = '<div class="ajs-corp-subhead"><button type="button" class="ajs-corp-back">← मुख्य मेन्यू</button><h2>'+group.title+'</h2></div><div class="ajs-corp-links">'+
       available.map(tab => '<button type="button" class="ajs-corp-link" data-corp-tab="'+tab+'"><span>'+labels[tab]+'</span><span>›</span></button>').join("") +
