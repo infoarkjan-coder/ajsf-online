@@ -446,3 +446,28 @@ body.platform-app .grid > .card { padding:12px!important; }
 body.platform-app .grid .label { font-size:10px!important;line-height:1.25; }
 body.platform-app .grid .metric { margin-top:5px!important;font-size:20px!important; }
 body.platform-app .dashboard-layout { margin-top:10px!important; }
+
+
+/* Android Admin dashboard: compact live KPI summary */
+body.platform-app #dashboardCard > .ajs-dashboard-kpis {
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:10px!important;
+  margin:12px 0 16px!important;
+}
+body.platform-app #dashboardCard > .ajs-dashboard-kpis > .card {
+  min-width:0!important;
+  min-height:92px!important;
+  padding:14px!important;
+}
+body.platform-app #dashboardCard > .ajs-dashboard-kpis .label {
+  color:#8b674d!important;
+  font-size:13px!important;
+  font-weight:800!important;
+}
+body.platform-app #dashboardCard > .ajs-dashboard-kpis .metric {
+  color:#a94d08!important;
+  font-size:clamp(21px,5vw,29px)!important;
+  font-weight:900!important;
+  overflow-wrap:anywhere!important;
+}
