@@ -45,5 +45,5 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-# Rebuild marker: package latest corporate menu and native live-tracking changes.
+# Rebuild marker: package latest corporate menu, live tracking, and Customer Verification PDF printing changes.
 # Production APK publishing is handled by publish-apk.yml on main.
