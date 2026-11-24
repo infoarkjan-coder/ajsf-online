@@ -1732,8 +1732,8 @@ async function openVerificationPdf(verificationId, existingWindow) {
     const [photoUrl,homePhoto1Url,homePhoto2Url,aadhaarFrontUrl,aadhaarBackUrl,panFrontUrl,signatureUrl]=await Promise.all([signPhoto(data.photo_path),signPhoto(data.home_photo1_path),signPhoto(data.home_photo2_path),signPhoto(data.aadhaar_front_masked_path),signPhoto(data.aadhaar_back_masked_path),signPhoto(data.pan_front_masked_path),signPhoto(data.customer_signature_path)]);
     const reportHtml=verificationPdfHtml(customer,data,photoUrl,homePhoto1Url,homePhoto2Url,aadhaarFrontUrl,aadhaarBackUrl,panFrontUrl,signatureUrl);
     if(nativePrint) {
-      const style=reportHtml.match(/<style>([\\s\\S]*?)<\\/style>/i)?.[1] || "";
-      const body=reportHtml.match(/<body[^>]*>([\\s\\S]*?)<\\/body>/i)?.[1] || "";
+      const style=reportHtml.match(/<style>([\s\S]*?)<\/style>/i)?.[1] || "";
+      const body=reportHtml.match(/<body[^>]*>([\s\S]*?)<\/body>/i)?.[1] || "";
       const title="AJSF-Customer-Verification-"+formatCustomerId(customer.customer_code);
       const result=window.AJSFNativeDownload.printHtml(title,body,style);
       if(result!=="OK") throw new Error(result || "Android Print शुरू नहीं हो पाया।");
