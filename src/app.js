@@ -828,7 +828,7 @@ function renderData() {
 
   $("reminderCustomer").innerHTML = customerOptions;
   updateReminderLoanOptions();
-  $("payCustomer").innerHTML = customerOptions;
+  refreshPaymentCustomerOptions();
   $("ledgerCustomer").innerHTML = customerOptions;
   filterLedgerCustomers();
   $("statementCustomer").innerHTML = customerOptions;
@@ -1194,15 +1194,30 @@ function renderCustomerCallResults() {
   }).join("") || '<p class="customer-picker-empty">इस Filter में कोई सक्रिय ग्राहक नहीं मिला। Group, Collection Day, Date या Search बदलकर देखें।</p>';
 }
 function filterCustomerRows() {
-  const q = ($("customerFilter")?.value || "").trim().toLocaleLowerCase();
-  const center = ($("customerCenterFilter")?.value || "").trim().toLocaleLowerCase();
-  const day = ($("customerDayFilter")?.value || "").trim().toLocaleLowerCase();
-  document.querySelectorAll("#customerRows tr").forEach(row => {
-    const matchesText = !q || row.textContent.toLocaleLowerCase().includes(q);
-    const matchesCenter = !center || (row.dataset.center || "").toLocaleLowerCase() === center;
-    const matchesDay = !day || (row.dataset.day || "").toLocaleLowerCase() === day;
-    row.hidden = !(matchesText && matchesCenter && matchesDay);
+  const normalize = value => String(value || "").trim().replace(/\\s+/g, " ").toLocaleLowerCase();
+  const q = normalize($("customerFilter")?.value);
+  const center = normalize($("customerCenterFilter")?.value);
+  const day = normalize($("customerDayFilter")?.value);
+  const tbody = $("customerRows");
+  if (!tbody) return;
+  const rows = [...tbody.querySelectorAll("tr")].filter(row => !row.classList.contains("empty"));
+  let visibleCount = 0;
+  rows.forEach(row => {
+    const matchesText = !q || normalize(row.textContent).includes(q);
+    const matchesCenter = !center || normalize(row.dataset.center) === center;
+    const matchesDay = !day || normalize(row.dataset.day) === day;
+    const visible = matchesText && matchesCenter && matchesDay;
+    row.hidden = !visible;
+    row.style.display = visible ? "" : "none";
+    if (visible) visibleCount++;
   });
+  tbody.querySelector("#customerFilterEmpty")?.remove();
+  if (rows.length && visibleCount === 0 && (q || center || day)) {
+    const empty = document.createElement("tr");
+    empty.id = "customerFilterEmpty";
+    empty.innerHTML = '<td colspan="10" class="empty">इस Group / Day में कोई ग्राहक नहीं मिला।</td>';
+    tbody.appendChild(empty);
+  }
 }
 function filterStatementCustomers() {
   const select = $("statementCustomer");
@@ -1945,10 +1960,40 @@ function renderAdvanceBalanceInfo() {
   const adjusted=rows.filter(x=>x.entry_type==="advance_adjusted").reduce((n,x)=>n+Number(x.amount||0),0);
   el.textContent="Advance Received: "+money(received)+" · Adjusted: "+money(adjusted)+" · Available Balance: "+money(Math.max(0,received-adjusted));
 }
+function refreshPaymentCustomerOptions() {
+  const select = $("payCustomer");
+  if (!select) return;
+  const day = String($("payCollectionDay")?.value || "").trim().toLocaleLowerCase();
+  const currentCustomer = select.value;
+  const activeLoanCustomerIds = new Set(
+    loans.filter(l => l.status === "active" && l.is_archived !== true).map(l => l.customer_id)
+  );
+  const eligible = customers
+    .filter(c => c.is_active !== false &&
+      (c.customer_status || "ACTIVE") === "ACTIVE" &&
+      activeLoanCustomerIds.has(c.id) &&
+      day &&
+      String(c.collection_day || "").trim().toLocaleLowerCase() === day)
+    .sort((a,b) => String(a.full_name || "").localeCompare(String(b.full_name || ""), "hi"));
+  select.innerHTML = `<option value="">${day ? "ग्राहक चुनें" : "पहले Collection Day चुनें"}</option>` +
+    eligible.map(c => `<option value="${esc(c.id)}">${esc(formatCustomerId(c.customer_code))} · ${esc(c.full_name || "")}</option>`).join("");
+  if (eligible.some(c => c.id === currentCustomer)) select.value = currentCustomer;
+  else select.value = "";
+  refreshLoanOptions();
+  renderAdvanceBalanceInfo();
+}
+
 function refreshLoanOptions() {
-  const customerId = $("payCustomer")?.value;
-  const eligible = loans.filter(l => (!customerId || l.customer_id === customerId) && l.status === "active");
-  $("payLoan").innerHTML = `<option value="">लोन चुनें</option>` + eligible.map(l => `<option value="${esc(l.id)}">${esc(l.loan_reference)} · ${money(l.loan_amount)}</option>`).join("");
+  const customerId = $("payCustomer")?.value || "";
+  const select = $("payLoan");
+  if (!select) return;
+  const currentLoan = select.value;
+  const eligible = customerId
+    ? loans.filter(l => l.customer_id === customerId && l.status === "active" && l.is_archived !== true)
+    : [];
+  select.innerHTML = `<option value="">लोन चुनें</option>` +
+    eligible.map(l => `<option value="${esc(l.id)}">${esc(l.loan_reference)} · ${money(l.loan_amount)}</option>`).join("");
+  if (eligible.some(l => l.id === currentLoan)) select.value = currentLoan;
 }
 
 function showReceipt(payment, customer, loan) {
@@ -3128,6 +3173,8 @@ async function boot() {
     const customer = customers.find(c => c.id === button.dataset.customerId);
     const loan = loans.find(l => l.id === button.dataset.loanId && l.customer_id === customer?.id && l.status === "active");
     if (!customer || !loan) return showMessage("ग्राहक या Active Loan नहीं मिला। डेटा Refresh करें।", "warn");
+    $("payCollectionDay").value = customer.collection_day || "";
+    refreshPaymentCustomerOptions();
     $("payCustomer").value = customer.id;
     refreshLoanOptions();
     $("payLoan").value = loan.id;
@@ -3141,6 +3188,7 @@ async function boot() {
     $("dashboardCard").classList.remove("collector-payment-mode");
     activateTab("collector-demand");
   });
+  $("payCollectionDay")?.addEventListener("change", refreshPaymentCustomerOptions);
   $("payCustomer").addEventListener("change", refreshLoanOptions);
   $("payLoan").addEventListener("change", renderAdvanceBalanceInfo);
   $("reminderCustomer").addEventListener("change", updateReminderLoanOptions);
