@@ -321,3 +321,113 @@ body.platform-app .panel-head { border-bottom-color:#f2ebe5!important; }
   body.platform-app .dashboard-content > [data-panel] { border-radius:16px!important; }
   body.platform-app .sidebar .tabs button.active { color:#fff!important; }
 }
+
+
+/* Premium AJSF menu pages — layout only; existing IDs, forms and workflows stay intact. */
+body.platform-app .sidebar { padding:10px!important; }
+body.platform-app .sidebar-title {
+  display:flex;align-items:center;gap:8px;padding:8px 10px 12px!important;
+  color:#8a5a31!important;font-size:10px!important;letter-spacing:1.35px!important;
+}
+body.platform-app .sidebar-title:before {
+  content:"";width:7px;height:7px;border-radius:50%;background:#e87516;
+  box-shadow:0 0 0 4px #fff0df;
+}
+body.platform-app .sidebar .tabs { gap:8px!important;padding:2px 0 6px!important; }
+body.platform-app .sidebar .tabs button {
+  position:relative;display:flex;align-items:center;gap:10px;
+  min-height:48px!important;padding:10px 12px!important;
+  text-align:left!important;font-size:12px!important;font-weight:750!important;
+  line-height:1.25;border-radius:13px!important;
+  background:linear-gradient(180deg,#fff,#fffaf5)!important;
+  border:1px solid #f0e5dc!important;color:#49413a!important;
+  box-shadow:0 2px 7px #563a2108!important;
+}
+body.platform-app .sidebar .tabs button:before {
+  content:"";display:block;flex:0 0 5px;width:5px;height:5px;
+  border-radius:50%;background:#d9b18e;
+}
+body.platform-app .sidebar .tabs button.active {
+  background:linear-gradient(115deg,#fff0df,#ffe5c9)!important;
+  color:#9a4808!important;border-color:#efc79f!important;
+  box-shadow:inset 3px 0 0 #e87516,0 4px 12px #b85b1714!important;
+}
+body.platform-app .sidebar .tabs button.active:before { background:#e87516;box-shadow:0 0 0 4px #f8d9bb; }
+body.platform-app .dashboard-content > [data-panel] {
+  position:relative;overflow:hidden;padding:18px!important;
+  background:linear-gradient(155deg,#fff 0%,#fff 72%,#fffaf5 100%)!important;
+  border:1px solid #eee2d8!important;border-radius:19px!important;
+  box-shadow:0 9px 26px #4b30140c!important;
+}
+body.platform-app .dashboard-content > [data-panel]:before {
+  content:"";position:absolute;inset:0 0 auto;height:4px;
+  background:linear-gradient(90deg,#e87516,#f4bd83 58%,#fff0df);
+}
+body.platform-app .dashboard-content [data-panel] .panel-head {
+  display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
+  margin:0 0 16px!important;padding:4px 0 13px!important;
+  border-bottom:1px solid #f1e9e2!important;
+}
+body.platform-app .dashboard-content [data-panel] .panel-head h2 {
+  margin:0 0 5px!important;font-size:19px!important;line-height:1.3;
+  letter-spacing:-.2px;color:#292b2d!important;
+}
+body.platform-app .dashboard-content [data-panel] .panel-head .muted {
+  margin:0!important;font-size:11px!important;line-height:1.55;color:#77736e!important;
+}
+body.platform-app .dashboard-content [data-panel] h3 {
+  color:#70431f;font-size:14px;font-weight:850;
+}
+body.platform-app .dashboard-content [data-panel] .formgrid {
+  gap:12px!important;margin:14px 0!important;
+}
+body.platform-app .dashboard-content [data-panel] .field label,
+body.platform-app .dashboard-content [data-panel] label {
+  color:#5d5148;font-size:11px;font-weight:750;
+}
+body.platform-app .dashboard-content [data-panel] input,
+body.platform-app .dashboard-content [data-panel] select,
+body.platform-app .dashboard-content [data-panel] textarea {
+  min-height:46px!important;padding:12px 13px!important;
+  border-radius:12px!important;background:#fffdfa!important;
+  border:1px solid #eadfd5!important;font-size:13px!important;
+}
+body.platform-app .dashboard-content [data-panel] input:focus,
+body.platform-app .dashboard-content [data-panel] select:focus,
+body.platform-app .dashboard-content [data-panel] textarea:focus {
+  outline:3px solid #e8751620!important;border-color:#e87516!important;
+}
+body.platform-app .dashboard-content [data-panel] .tablewrap {
+  margin:12px 0!important;border:1px solid #eee4dc!important;
+  border-radius:13px!important;overflow:auto!important;
+}
+body.platform-app .dashboard-content [data-panel] table { font-size:12px!important; }
+body.platform-app .dashboard-content [data-panel] table th {
+  padding:12px 10px!important;background:#fff4e8!important;
+  color:#795638!important;font-size:10px!important;font-weight:850!important;
+}
+body.platform-app .dashboard-content [data-panel] table td {
+  padding:11px 10px!important;border-bottom:1px solid #f1ebe5!important;
+  color:#3f3d3a;font-size:11px!important;
+}
+body.platform-app .dashboard-content [data-panel] .message {
+  border-radius:10px;font-size:11px!important;
+}
+body.platform-app .dashboard-content [data-panel] button {
+  min-height:43px!important;border-radius:12px!important;
+}
+body.platform-app .dashboard-content [data-panel] button.secondary {
+  background:#fff5e9!important;border-color:#f0d8bf!important;color:#a94d08!important;
+}
+body.platform-app .dashboard-content [data-panel] .actions { gap:8px!important; }
+body.platform-app .dashboard-content [data-panel] .empty {
+  padding:28px 16px!important;border:1px dashed #e8d7c7;
+  border-radius:13px;background:#fffcf8;color:#82776e;
+}
+@media(max-width:759px) {
+  body.platform-app .dashboard-content > [data-panel] { padding:15px!important; }
+  body.platform-app .dashboard-content [data-panel] .panel-head { display:block; }
+  body.platform-app .dashboard-content [data-panel] .panel-head > * + * { margin-top:9px!important; }
+  body.platform-app .sidebar { border-radius:16px!important; }
+  body.platform-app .sidebar .tabs button { flex:0 0 auto; }
+}
