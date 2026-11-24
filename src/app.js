@@ -2556,6 +2556,23 @@ async function downloadElementPdf(element, fileName, options = {}) {
   const file = new File([blob],fileName,{type:"application/pdf"});
   await withPdfTimeout(savePdfFile(file),90000,"PDF Android Downloads में सेव होने में 90 सेकंड से अधिक लगे। दोबारा प्रयास करें।");
 }
+async function handlePreparedDocumentPdf(buttonId, prepare, elementId, fileName, successMessage, options = {}) {
+  const button = $(buttonId);
+  setBusy(button,true,"PDF तैयार हो रही है…");
+  try {
+    prepare();
+    await withPdfTimeout(new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))),3000,"रिपोर्ट स्क्रीन तैयार नहीं हो सकी।");
+    const area = $(elementId);
+    if (!area || !area.innerHTML.trim()) throw new Error("रिपोर्ट खाली है। कृपया ग्राहक/लोन चुनकर दोबारा प्रयास करें।");
+    await downloadElementPdf(area,fileName,options);
+    showDownloadToast(fileName,successMessage);
+  } catch(error) {
+    showMessage("PDF डाउनलोड नहीं हो पाई: "+(error?.message || String(error)),"warn");
+    console.error("AJSF document PDF export failed:",fileName,error);
+  } finally {
+    setBusy(button,false);
+  }
+}
 async function handleDocumentPdf(buttonId, elementId, fileName, successMessage, options = {}) {
   const button = $(buttonId);
   setBusy(button,true,"PDF तैयार हो रही है…");
@@ -3258,7 +3275,10 @@ async function boot() {
   $("scheduleLoan").addEventListener("change", renderRepaymentSchedule);
   $("downloadSchedulePdfBtn").addEventListener("click", () => {
     if (!$("scheduleLoan").value) return showMessage("पहले ग्राहक और लोन चुनें।","warn");
-    handleDocumentPdf("downloadSchedulePdfBtn","repaymentSchedulePrint","AJSF-Repayment-Schedule.pdf","Repayment Schedule PDF Downloads में सेव हो गई है।",{fitOnePage:true});
+    handlePreparedDocumentPdf("downloadSchedulePdfBtn", () => {
+      renderRepaymentSchedule();
+      if (!$("repaymentSchedulePrint")) throw new Error("Repayment Schedule तैयार नहीं हुआ। ग्राहक और लोन दोबारा चुनें।");
+    }, "repaymentSchedulePrint", "AJSF-Repayment-Schedule.pdf", "Repayment Schedule PDF Downloads में सेव हो गई है।", {fitOnePage:true});
   });
   $("printScheduleBtn").addEventListener("click", printRepaymentSchedule);
   $("customerFilter").addEventListener("input", filterCustomerRows);
@@ -3268,8 +3288,10 @@ async function boot() {
   $("statementCustomer").addEventListener("change", renderCustomerStatement);
   $("downloadStatementPdfBtn").addEventListener("click", () => {
     if (!$("statementCustomer").value) return showMessage("पहले ग्राहक चुनें।","warn");
-    renderCustomerStatement();
-    handleDocumentPdf("downloadStatementPdfBtn","statementPrintArea","AJSF-Customer-Loan-Statement.pdf","Loan Statement PDF Downloads में सेव हो गई है।",{fitWidthMultiPage:true,pageMarginMm:5});
+    handlePreparedDocumentPdf("downloadStatementPdfBtn", () => {
+      renderCustomerStatement();
+      if (!$("statementPrintArea")) throw new Error("Loan Statement तैयार नहीं हुआ। ग्राहक दोबारा चुनें।");
+    }, "statementPrintArea", "AJSF-Customer-Loan-Statement.pdf", "Loan Statement PDF Downloads में सेव हो गई है।", {fitWidthMultiPage:true,pageMarginMm:5});
   });
   $("printStatementBtn").addEventListener("click", printCustomerStatement);
   $("printReceiptBtn").addEventListener("click", printReceipt);
