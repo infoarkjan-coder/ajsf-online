@@ -1041,3 +1041,10 @@ body{background:radial-gradient(ellipse at 50% 0%,#e4f1e9 0%,#f4f8f5 42%,#eef4f0
   .ajs-tracking-details .ajs-tracking-history-table{max-height:280px}
   .ajs-tracking-history-table th,.ajs-tracking-history-table td{padding:7px 8px;font-size:11px}
 }
+
+/* Clear Duty IN / OUT time display on mobile and desktop */
+.ajs-duty-time-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:14px 0}
+.ajs-duty-time{min-width:0;padding:13px 15px;border:1px solid var(--line,#e7ddd1);border-radius:14px;background:#fff8ef}
+.ajs-duty-time span{display:block;color:#796b5d;font-size:12px;font-weight:800;letter-spacing:.04em}
+.ajs-duty-time strong{display:block;margin-top:5px;color:#263f36;font-size:clamp(13px,3.3vw,17px);line-height:1.35;overflow-wrap:anywhere}
+@media(max-width:420px){.ajs-duty-time-grid{gap:8px}.ajs-duty-time{padding:11px 10px}.ajs-duty-time span{font-size:10px}}
