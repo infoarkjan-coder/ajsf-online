@@ -733,28 +733,26 @@ function renderCollectorDemand() {
   const select = $("collectorDemandDay");
   const body = $("collectorDemandRows");
   if (!select || !body || canAdmin()) return;
-  const today = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][new Date().getDay()];
-  if (!select.value) select.value = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","MONTHLY"].includes(today) ? today : "Monday";
+  const weekdays = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+  const today = weekdays[new Date().getDay()];
+  if (!select.value) select.value = today;
   const day = select.value;
   const isMonthly = day === "MONTHLY";
   const now = new Date();
-  const periodStart = new Date(now.getFullYear(), now.getMonth(), isMonthly ? 1 : now.getDate() - ((now.getDay() + 6) % 7));
-  periodStart.setHours(0,0,0,0);
-  const periodEnd = isMonthly
-    ? new Date(now.getFullYear(), now.getMonth() + 1, 1)
-    : new Date(periodStart.getFullYear(), periodStart.getMonth(), periodStart.getDate() + 7);
-  const paidByLoan = {};
+  const dayStart = new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  const dayEnd = new Date(now.getFullYear(),now.getMonth(),now.getDate()+1);
+  const todayKey = localDateValue();
+  const collectedByLoan = {};
   payments.filter(p => !p.is_reversal).forEach(p => {
-    const paidDate = new Date(p.paid_at || p.created_at || "");
-    if (!Number.isNaN(paidDate.getTime()) && paidDate >= periodStart && paidDate < periodEnd) {
-      paidByLoan[p.loan_id] = (paidByLoan[p.loan_id] || 0) + Number(p.amount || 0);
+    const paidAt = new Date(p.paid_at || p.created_at || "");
+    if (!Number.isNaN(paidAt.getTime()) && paidAt >= dayStart && paidAt < dayEnd) {
+      collectedByLoan[p.loan_id] = (collectedByLoan[p.loan_id] || 0) + Number(p.amount || p.payment_amount || 0);
     }
   });
-  const weeklyByLoan = {};
-  weeklyStatuses.forEach(row => {
-    if (!weeklyByLoan[row.loan_id]) weeklyByLoan[row.loan_id] = {rows:0, pending:0};
-    weeklyByLoan[row.loan_id].rows++;
-    if (!row.is_paid) weeklyByLoan[row.loan_id].pending++;
+  const advanceByLoan = {};
+  advanceLedger.forEach(entry => {
+    if (entry.entry_type !== "advance_adjusted" || entry.due_date !== todayKey) return;
+    advanceByLoan[entry.loan_id] = (advanceByLoan[entry.loan_id] || 0) + Number(entry.amount || 0);
   });
   const customerById = new Map(customers.map(c => [c.id,c]));
   const totalsByLoan = paymentsByLoan();
@@ -762,45 +760,40 @@ function renderCollectorDemand() {
   loans.forEach(loan => {
     const customer = customerById.get(loan.customer_id);
     if (!customer || customer.is_active === false || (customer.customer_status || "ACTIVE") !== "ACTIVE") return;
-    if (customer.collection_day !== day || loan.status !== "active") return;
+    if ((isMonthly ? customer.collection_day !== "MONTHLY" : String(customer.collection_day || "").toLowerCase() !== day.toLowerCase()) || loan.status !== "active") return;
     const figures = loanFigures(loan, totalsByLoan);
     if (figures.outstanding <= 0) return;
-    const schedule = weeklyByLoan[loan.id];
-    const pendingCount = schedule?.rows
-      ? schedule.pending
-      : (loan.source_emis_pending != null
-        ? Number(loan.source_emis_pending)
-        : (loanFigures(loan, totalsByLoan).outstanding > 0 ? 1 : 0));
-    if (pendingCount <= 0) return;
     const emi = Number(loan.emi_amount || 0);
-    const collectedThisPeriod = Number(paidByLoan[loan.id] || 0);
-    const advanceAdjustedThisPeriod = advanceLedger.filter(x=>x.loan_id===loan.id && x.entry_type==="advance_adjusted" && x.due_date && new Date(x.due_date+"T00:00:00")>=periodStart && new Date(x.due_date+"T00:00:00")<periodEnd).reduce((sum,x)=>sum+Number(x.amount||0),0);
-    const receivable = Math.max(0, Math.round((emi - collectedThisPeriod - advanceAdjustedThisPeriod) * 100) / 100);
-    if (receivable <= 0) return;
-    rows.push({customer, loan, emi, collectedThisPeriod, receivable});
+    const collectedToday = Number(collectedByLoan[loan.id] || 0);
+    const advanceAdjustedToday = Number(advanceByLoan[loan.id] || 0);
+    const remainingDemand = Math.max(0,Math.round((emi-collectedToday-advanceAdjustedToday)*100)/100);
+    rows.push({customer,loan,emi,collectedToday,advanceAdjustedToday,remainingDemand});
   });
   rows.sort((a,b) =>
     String(a.customer.center_name || "").localeCompare(String(b.customer.center_name || "")) ||
     String(a.customer.full_name || "").localeCompare(String(b.customer.full_name || ""))
   );
   const customerCount = new Set(rows.map(row => row.customer.id)).size;
-  const totalReceivable = rows.reduce((sum,row) => sum + row.receivable, 0);
+  const totalDemand = rows.reduce((sum,row) => sum + row.emi,0);
+  const totalCollected = rows.reduce((sum,row) => sum + row.collectedToday,0);
+  const totalRemaining = rows.reduce((sum,row) => sum + row.remainingDemand,0);
   $("collectorDemandCustomerCount").textContent = customerCount.toLocaleString("en-IN");
-  $("collectorDemandTotal").textContent = money(totalReceivable);
+  $("collectorDemandTotal").textContent = money(totalDemand);
+  $("collectorDemandCollection").textContent = money(totalCollected);
   $("collectorDemandLoanCount").textContent = rows.length.toLocaleString("en-IN");
-  $("collectorDemandPeriod").textContent = isMonthly ? "इस महीने की शेष मांग" : "इस सप्ताह की शेष मांग";
+  $("collectorDemandPeriod").textContent = isMonthly ? "आज की मासिक किस्त मांग" : "आज की किस्त मांग";
+  $("collectorDemandRemaining").textContent = money(totalRemaining);
   body.innerHTML = rows.map(row => `<tr>
     <td>${esc(formatCustomerId(row.customer.customer_code))}</td>
     <td><strong>${esc(row.customer.full_name || "—")}</strong><small class="demand-subline">${esc(row.customer.contact_number || "")}</small></td>
     <td>${esc(row.customer.center_name || "—")}</td>
     <td>${esc(row.loan.loan_reference || "—")}</td>
     <td>${money(row.emi)}</td>
-    <td>${money(row.collectedThisPeriod)}</td>
-    <td><strong>${money(row.receivable)}</strong></td>
-    <td><button type="button" class="demand-collect-btn" data-customer-id="${esc(row.customer.id)}" data-loan-id="${esc(row.loan.id)}" data-demand="${row.receivable}">राशि जमा करें</button></td>
-  </tr>`).join("") || `<tr><td colspan="8" class="empty">इस दिन के लिए कोई बकाया EMI मांग नहीं है।</td></tr>`;
+    <td>${money(row.collectedToday)}</td>
+    <td><strong>${money(row.remainingDemand)}</strong></td>
+    <td>${row.remainingDemand > 0 ? `<button type="button" class="demand-collect-btn" data-customer-id="${esc(row.customer.id)}" data-loan-id="${esc(row.loan.id)}" data-demand="${row.remainingDemand}">राशि जमा करें</button>` : '<span class="success-text">आज जमा</span>'}</td>
+  </tr>`).join("") || `<tr><td colspan="8" class="empty">आज इस Collection Day के लिए कोई Active EMI मांग नहीं है।</td></tr>`;
 }
-
 function renderData() {
   $("customersCount").textContent = customers.length;
   $("loansCount").textContent = loans.length;
