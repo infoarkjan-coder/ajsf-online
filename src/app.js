@@ -1720,8 +1720,9 @@ function verificationPdfHtml(customer, verification, photoUrl, homePhoto1Url, ho
 async function openVerificationPdf(verificationId, existingWindow) {
   const id = verificationId || lastVerificationId;
   if (!id) return showMessage("पहले Customer Verification सेव करें।","warn");
-  const win = existingWindow || window.open("", "_blank");
-  if (!win) return showMessage("Popup blocked है। इस पेज के Popups Allow करके PDF बटन दोबारा दबाएँ।","warn");
+  const nativePrint = !!(window.AJSFNativeDownload && typeof window.AJSFNativeDownload.printHtml === "function");
+  const win = nativePrint ? null : (existingWindow || window.open("", "_blank"));
+  if (!nativePrint && !win) return showMessage("Popup blocked है। Popups Allow करके PDF बटन दोबारा दबाएँ।","warn");
   try {
     const {data,error}=await supabase.from("customer_verifications").select("*").eq("id",id).single();
     if(error) throw error;
@@ -1729,8 +1730,19 @@ async function openVerificationPdf(verificationId, existingWindow) {
     if(!customer) throw new Error("ग्राहक रिकॉर्ड नहीं मिला।");
     const signPhoto=async path=>{if(!path) return "";const signed=await supabase.storage.from("customer-verification").createSignedUrl(path,300);if(signed.error) throw signed.error;return signed.data.signedUrl;};
     const [photoUrl,homePhoto1Url,homePhoto2Url,aadhaarFrontUrl,aadhaarBackUrl,panFrontUrl,signatureUrl]=await Promise.all([signPhoto(data.photo_path),signPhoto(data.home_photo1_path),signPhoto(data.home_photo2_path),signPhoto(data.aadhaar_front_masked_path),signPhoto(data.aadhaar_back_masked_path),signPhoto(data.pan_front_masked_path),signPhoto(data.customer_signature_path)]);
-    win.document.open(); win.document.write(verificationPdfHtml(customer,data,photoUrl,homePhoto1Url,homePhoto2Url,aadhaarFrontUrl,aadhaarBackUrl,panFrontUrl,signatureUrl)); win.document.close();
-  } catch(err) { win.close(); showMessage("PDF नहीं खुली: "+(err?.message||String(err)),"error"); }
+    const reportHtml=verificationPdfHtml(customer,data,photoUrl,homePhoto1Url,homePhoto2Url,aadhaarFrontUrl,aadhaarBackUrl,panFrontUrl,signatureUrl);
+    if(nativePrint) {
+      const style=reportHtml.match(/<style>([\\s\\S]*?)<\\/style>/i)?.[1] || "";
+      const body=reportHtml.match(/<body[^>]*>([\\s\\S]*?)<\\/body>/i)?.[1] || "";
+      const title="AJSF-Customer-Verification-"+formatCustomerId(customer.customer_code);
+      const result=window.AJSFNativeDownload.printHtml(title,body,style);
+      if(result!=="OK") throw new Error(result || "Android Print शुरू नहीं हो पाया।");
+      const msg=$("verificationMessage");
+      if(msg) {msg.textContent="Verification रिपोर्ट तैयार है। Print स्क्रीन में “Save as PDF” चुनें।";msg.className="message success";}
+    } else {
+      win.document.open(); win.document.write(reportHtml); win.document.close();
+    }
+  } catch(err) { if(win&&!win.closed)win.close(); showMessage("PDF नहीं खुली: "+(err?.message||String(err)),"error"); }
 }
 async function submitCustomerVerification(event) {
   event.preventDefault();
@@ -1743,7 +1755,7 @@ async function submitCustomerVerification(event) {
   if((!verificationHomePhoto1&&!old?.home_photo1_path)||(!verificationHomePhoto2&&!old?.home_photo2_path)) return showMessage("घर की दोनों फोटो अनिवार्य हैं — सामने से और दूसरे एंगल से।","warn");
   if((!maskedIdentityDocs.aadhaarFront&&!old?.aadhaar_front_masked_path)||(!maskedIdentityDocs.aadhaarBack&&!old?.aadhaar_back_masked_path)||(!maskedIdentityDocs.panFront&&!old?.pan_front_masked_path)) return showMessage("Aadhaar Front, Aadhaar Back और PAN Front — तीनों की masked copy आवश्यक है।", "warn");
   if(!$("verificationConsent").checked) return showMessage("ग्राहक की सहमति आवश्यक है।","warn");
-  const autoPdfWindow=window.open("about:blank","_blank");
+  const autoPdfWindow=(window.AJSFNativeDownload && typeof window.AJSFNativeDownload.printHtml==="function") ? null : window.open("about:blank","_blank");
   setBusy(btn,true,old?"Verification अपडेट हो रहा है…":"Verification सेव हो रहा है…");
   const uploadedPaths=[];
   try {
