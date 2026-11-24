@@ -935,3 +935,70 @@ body{background:radial-gradient(ellipse at 50% 0%,#e4f1e9 0%,#f4f8f5 42%,#eef4f0
 .customer-call-action{display:inline-flex;align-items:center;justify-content:center;min-width:76px;min-height:40px;padding:8px 15px;border-radius:9px;background:#123f35;color:#fff;text-decoration:none;font-weight:700}
 .customer-call-action:focus-visible,#backToDashboardBtn:focus-visible{outline:3px solid #e4a83a;outline-offset:2px}
 @media(max-width:650px){.customer-call-row{padding:10px;gap:8px}.customer-call-action{min-width:66px}}
+
+
+/* AJSF mobile brand header: keep the original logo left and the full name/slogan right. */
+@media (max-width: 650px) {
+  body.platform-app .shell.wide,
+  body.platform-web .shell.wide {
+    width: calc(100% - 24px) !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+  body.platform-app .brand,
+  body.platform-web .brand {
+    display: grid !important;
+    grid-template-columns: clamp(68px, 23vw, 88px) minmax(0, 1fr) !important;
+    align-items: center !important;
+    column-gap: 10px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    padding: 18px 2px 14px !important;
+    margin: 0 0 14px !important;
+    overflow: visible !important;
+  }
+  body.platform-app .brand-logo,
+  body.platform-web .brand-logo {
+    display: block !important;
+    width: clamp(68px, 23vw, 88px) !important;
+    height: clamp(68px, 23vw, 88px) !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    object-fit: contain !important;
+    justify-self: start !important;
+    flex: none !important;
+  }
+  body.platform-app .brand > div,
+  body.platform-web .brand > div {
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+  body.platform-app .brand h1,
+  body.platform-web .brand h1 {
+    margin: 0 !important;
+    font-size: clamp(14px, 4.25vw, 21px) !important;
+    line-height: 1.16 !important;
+    font-weight: 900 !important;
+    letter-spacing: 0 !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+    word-break: normal !important;
+  }
+  body.platform-app .brand p,
+  body.platform-web .brand p {
+    margin: 6px 0 0 !important;
+    font-size: clamp(10px, 2.9vw, 13px) !important;
+    line-height: 1.25 !important;
+    letter-spacing: 0 !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+  }
+}
+
+@media (min-width: 651px) {
+  .brand { align-items: center; }
+  .brand-logo { width: 92px; height: 92px; object-fit: contain; flex: 0 0 92px; }
+  .brand > div { min-width: 0; }
+  .brand h1 { font-size: clamp(21px, 2.2vw, 30px); }
+}
