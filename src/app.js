@@ -224,6 +224,25 @@ function openAjsfPrint(title, content, pageCss) {
   return w;
 }
 
+function showDownloadToast(fileName, detail = "PDF डाउनलोड पूरी हो गई है।") {
+  let toast = $("ajsDownloadToast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "ajsDownloadToast";
+    toast.setAttribute("role", "status");
+    toast.setAttribute("aria-live", "polite");
+    toast.style.cssText = "position:fixed;left:16px;right:16px;bottom:calc(22px + env(safe-area-inset-bottom,0px));z-index:99999;padding:14px 16px;border-radius:14px;background:#173f32;color:#fff;box-shadow:0 8px 28px rgba(0,0,0,.24);font:600 14px/1.45 Arial,sans-serif;white-space:pre-line;text-align:left;opacity:0;transform:translateY(12px);transition:opacity .2s ease,transform .2s ease;pointer-events:none";
+    document.body.appendChild(toast);
+  }
+  toast.textContent = "✓ " + detail + "\\n" + fileName + "\\nDownloads / AJSF Online";
+  toast.style.opacity = "1";
+  toast.style.transform = "translateY(0)";
+  clearTimeout(toast._hideTimer);
+  toast._hideTimer = setTimeout(() => {
+    toast.style.opacity = "0";
+    toast.style.transform = "translateY(12px)";
+  }, 5500);
+}
 function showMessage(message, type = "info") {
   const dashboardCard = $("dashboardCard");
   const dashboardVisible = dashboardCard ? !dashboardCard.classList.contains("hidden") : false;
@@ -2542,7 +2561,7 @@ async function handleDocumentPdf(buttonId, elementId, fileName, successMessage, 
   setBusy(button,true,"PDF तैयार हो रही है…");
   try {
     await downloadElementPdf($(elementId),fileName,options);
-    showMessage(successMessage,"success");
+    showDownloadToast(fileName,successMessage);
   } catch(error) {
     showMessage("PDF डाउनलोड नहीं हो पाई: "+(error?.message || String(error)),"warn");
   } finally { setBusy(button,false); }
@@ -2588,7 +2607,7 @@ async function downloadReceiptPdf() {
   try {
     const file = await createReceiptPdf();
     await savePdfFile(file);
-    showMessage("रसीद PDF Downloads में सेव हो गई है। अब इसे किसी भी ऐप से भेज सकते हैं।","success");
+    showDownloadToast(file.name,"रसीद PDF सफलतापूर्वक डाउनलोड हो गई है।");
   } catch(error) {
     showMessage("PDF डाउनलोड नहीं हो पाई: " + (error?.message || String(error)),"warn");
   } finally {
