@@ -252,6 +252,10 @@ function ensureTrackingPanel() {
   panel.innerHTML = `
     <div class="panel-head"><div><h2>AJSF Live Collector Tracking</h2></div></div>
     <div class="actions"><button type="button" id="ajsDutyStartBtn">Duty Start</button><button type="button" class="secondary" id="ajsDutyEndBtn">Duty End</button></div>
+    <div class="ajs-duty-time-grid" aria-live="polite">
+      <div class="ajs-duty-time"><span>IN TIME · Duty Start</span><strong id="ajsDutyInTime">—</strong></div>
+      <div class="ajs-duty-time"><span>OUT TIME · Duty End</span><strong id="ajsDutyOutTime">—</strong></div>
+    </div>
     <p id="ajsDutyStatus" class="message" role="status">Duty स्थिति जाँची जा रही है…</p>
     <div id="ajsSuperAdminTracking" class="hidden"><h3>सभी Admin और Collector की Live Location</h3><p class="small muted">केवल अधिकृत Super Admin इस सूची और 30-दिन की लोकेशन हिस्ट्री को देख सकता है।</p><div id="ajsTrackingRows" class="tablewrap"></div><details class="ajs-tracking-details"><summary>30-दिन की लोकेशन हिस्ट्री</summary><div id="ajsTrackingHistoryRows" class="tablewrap ajs-tracking-history-table"></div></details><details class="ajs-tracking-details"><summary>Duty Start / End हिस्ट्री</summary><div id="ajsDutyHistoryRows" class="tablewrap ajs-tracking-history-table"></div></details></div>`;
   host.prepend(panel);
@@ -289,6 +293,7 @@ async function startAjsfDuty() {
     const {data: sessionId,error} = await supabase.rpc("ajs_start_duty");
     if (error) throw error;
     ajsfDutySessionId = sessionId;
+    await loadAjsfDutyState();
     navigator.geolocation.getCurrentPosition(
       position => {
         sendAjsfDutyLocation(position);
@@ -325,6 +330,7 @@ async function endAjsfDuty() {
     window.AJSFNativeTracking?.stopTracking?.();
     stopAjsfDutyWatch();
     ajsfDutySessionId = null;
+    await loadAjsfDutyState();
     $("ajsDutyStatus").textContent = "Duty End हो गई। अब लोकेशन रिकॉर्ड नहीं होगी।";
     if (profile?.is_super_admin) loadAjsfSuperAdminTracking();
   } catch(error) { showMessage("Duty End नहीं हुई: " + (error?.message || String(error)), "error"); }
@@ -334,11 +340,15 @@ async function endAjsfDuty() {
 async function loadAjsfDutyState() {
   const {data,error} = await supabase.from("staff_duty_sessions")
     .select("id,duty_started_at,duty_ended_at").eq("staff_id",currentUser.id)
-    .is("duty_ended_at",null).order("duty_started_at",{ascending:false}).limit(1);
+    .order("duty_started_at",{ascending:false}).limit(1);
   if (error) throw error;
-  if (data?.length) {
-    ajsfDutySessionId = data[0].id;
-    $("ajsDutyStatus").textContent = "Duty चालू है · शुरू: " + new Date(data[0].duty_started_at).toLocaleString("hi-IN");
+  const latest = data?.[0] || null;
+  const inTime = $("ajsDutyInTime"), outTime = $("ajsDutyOutTime");
+  if (inTime) inTime.textContent = latest?.duty_started_at ? new Date(latest.duty_started_at).toLocaleString("en-IN",{dateStyle:"medium",timeStyle:"medium"}) : "—";
+  if (outTime) outTime.textContent = latest?.duty_ended_at ? new Date(latest.duty_ended_at).toLocaleString("en-IN",{dateStyle:"medium",timeStyle:"medium"}) : "—";
+  if (latest && !latest.duty_ended_at) {
+    ajsfDutySessionId = latest.id;
+    $("ajsDutyStatus").textContent = "Duty चालू है · शुरू: " + new Date(latest.duty_started_at).toLocaleString("hi-IN");
     if (window.AJSFNativeTracking?.startTracking) {
       const {data: authData} = await supabase.auth.getSession();
       const token = authData?.session?.access_token;
@@ -349,7 +359,9 @@ async function loadAjsfDutyState() {
       {enableHighAccuracy:true,maximumAge:15000,timeout:20000});
   } else {
     ajsfDutySessionId = null;
-    $("ajsDutyStatus").textContent = "अभी Duty बंद है।";
+    $("ajsDutyStatus").textContent = latest?.duty_ended_at
+      ? "पिछली Duty समाप्त: " + new Date(latest.duty_ended_at).toLocaleString("hi-IN")
+      : "अभी Duty बंद है।";
   }
 }
 
