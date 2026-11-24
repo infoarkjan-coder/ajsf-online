@@ -431,3 +431,18 @@ body.platform-app .dashboard-content [data-panel] .empty {
   body.platform-app .sidebar { border-radius:16px!important; }
   body.platform-app .sidebar .tabs button { flex:0 0 auto; }
 }
+
+
+/* Minimal main dashboard: keep essential figures and actions, remove helper copy. */
+body.platform-app .dashhead .eyebrow,
+body.platform-app .dashhead p.muted,
+body.platform-app #connectionStatus,
+body.platform-app #dashboardMessage:empty,
+body.platform-app .sidebar-title { display:none!important; }
+body.platform-app .dashhead { padding:12px 14px!important; margin-bottom:10px!important; }
+body.platform-app .dashhead h2 { margin:0!important;font-size:18px!important; }
+body.platform-app .grid { gap:8px!important; }
+body.platform-app .grid > .card { padding:12px!important; }
+body.platform-app .grid .label { font-size:10px!important;line-height:1.25; }
+body.platform-app .grid .metric { margin-top:5px!important;font-size:20px!important; }
+body.platform-app .dashboard-layout { margin-top:10px!important; }
