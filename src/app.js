@@ -2532,7 +2532,7 @@ async function downloadElementPdf(element, fileName, options = {}) {
   const blob = pdf.output("blob");
   if (!blob || blob.size < 100) throw new Error("PDF खाली बनी है। कृपया दोबारा प्रयास करें।");
   const file = new File([blob],fileName,{type:"application/pdf"});
-  await withPdfTimeout(savePdfFile(file),20000,"PDF Android Downloads में सेव होने में 20 सेकंड से अधिक लगे। दोबारा प्रयास करें।");
+  await withPdfTimeout(savePdfFile(file),90000,"PDF Android Downloads में सेव होने में 90 सेकंड से अधिक लगे। दोबारा प्रयास करें।");
 }
 async function handleDocumentPdf(buttonId, elementId, fileName, successMessage, options = {}) {
   const button = $(buttonId);
