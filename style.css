@@ -1002,3 +1002,42 @@ body{background:radial-gradient(ellipse at 50% 0%,#e4f1e9 0%,#f4f8f5 42%,#eef4f0
   .brand > div { min-width: 0; }
   .brand h1 { font-size: clamp(21px, 2.2vw, 30px); }
 }
+
+
+/* Compact Super Admin tracking history so long 30-day tables do not fill the page. */
+.ajs-tracking-details{
+  margin:14px 0;
+  border:1px solid #dce8e1;
+  border-radius:12px;
+  background:#fff;
+  overflow:hidden;
+}
+.ajs-tracking-details>summary{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:13px 15px;
+  background:#fff5e9;
+  color:#704d2e;
+  font-weight:800;
+  cursor:pointer;
+  list-style:none;
+}
+.ajs-tracking-details>summary::-webkit-details-marker{display:none}
+.ajs-tracking-details>summary::after{content:"＋";font-size:18px;color:#9b6a32}
+.ajs-tracking-details[open]>summary::after{content:"−"}
+.ajs-tracking-details .ajs-tracking-history-table{
+  max-height:340px;
+  overflow:auto;
+  overscroll-behavior:contain;
+  border-top:1px solid #e5ece8;
+}
+.ajs-tracking-history-table table{font-size:12px}
+.ajs-tracking-history-table th,.ajs-tracking-history-table td{padding:8px 9px}
+@media(max-width:650px){
+  .ajs-tracking-details{margin:10px 0}
+  .ajs-tracking-details>summary{padding:11px 12px;font-size:14px}
+  .ajs-tracking-details .ajs-tracking-history-table{max-height:280px}
+  .ajs-tracking-history-table th,.ajs-tracking-history-table td{padding:7px 8px;font-size:11px}
+}
