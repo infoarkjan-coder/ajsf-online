@@ -326,10 +326,13 @@ public class MainActivity extends Activity {
                             // Match the report's requested paper size and orientation.
                             // Repayment schedule, ledger and statement are A4 landscape;
                             // payment receipt explicitly requests A5 portrait.
-                            boolean receiptA5 = pageCss != null && pageCss.toUpperCase().contains("A5");
+                            String printCss = pageCss == null ? "" : pageCss.toUpperCase();
+                            boolean receiptA5 = printCss.contains("A5");
+                            boolean portraitA4 = printCss.contains("A4 PORTRAIT");
                             PrintAttributes.MediaSize mediaSize = receiptA5
                                 ? PrintAttributes.MediaSize.ISO_A5.asPortrait()
-                                : PrintAttributes.MediaSize.ISO_A4.asLandscape();
+                                : (portraitA4 ? PrintAttributes.MediaSize.ISO_A4.asPortrait()
+                                    : PrintAttributes.MediaSize.ISO_A4.asLandscape());
                             activePrintJob = manager.print(safeTitle, adapter,
                                 new PrintAttributes.Builder()
                                     .setMediaSize(mediaSize)
