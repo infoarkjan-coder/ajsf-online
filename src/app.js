@@ -863,8 +863,12 @@ function renderData() {
   }
   const selectedNewLoanCustomer = $("newLoanCustomer")?.value || "";
   if ($("newLoanCustomer")) {
-    $("newLoanCustomer").innerHTML = customerOptions;
-    if (operationalCustomers.some(c => c.id === selectedNewLoanCustomer)) $("newLoanCustomer").value = selectedNewLoanCustomer;
+    const customerSelect = $("newLoanCustomer");
+    const selectedCustomer = operationalCustomers.find(c => c.id === selectedNewLoanCustomer);
+    customerSelect.innerHTML = customerSelect.dataset.customerLocked === "true" && selectedCustomer
+      ? '<option value="' + esc(selectedCustomer.id) + '">' + esc(formatCustomerId(selectedCustomer.customer_code)) + ' · ' + esc(selectedCustomer.full_name || "") + '</option>'
+      : customerOptions;
+    if (selectedCustomer) customerSelect.value = selectedCustomer.id;
   }
   const selectedClosureLoan = $("closeLoanSelect")?.value || "";
   if ($("closeLoanSelect")) {
@@ -1357,12 +1361,15 @@ async function submitNewLoan(event) {
   finally { setBusy(btn,false); }
 }
 function renderNewLoanCustomerDetails() {
-  const customerId = $("newLoanCustomer")?.value || "";
+  const select = $("newLoanCustomer");
+  const customerId = select?.value || "";
   const customer = customers.find(c => c.id === customerId);
   const target = $("newLoanCustomerDetails");
+  const changeButton = $("changeNewLoanCustomerBtn");
+  if (changeButton) changeButton.hidden = !customer || select?.dataset.customerLocked !== "true";
   if (!target) return;
   if (!customer) {
-    target.innerHTML = '<span class="muted">ग्राहक चुनने पर नाम, Customer ID, मोबाइल और Center की जानकारी यहाँ अपने-आप दिखेगी।</span>';
+    target.innerHTML = '<span class="muted">ग्राहक चुनने पर विवरण दिखेगा।</span>';
     return;
   }
   target.innerHTML = '<strong>' + esc(customer.full_name || "—") + '</strong>' +
@@ -1370,6 +1377,28 @@ function renderNewLoanCustomerDetails() {
     ' · मोबाइल: ' + esc(phone(customer.contact_number) || "—") +
     ' · Center: ' + esc(customer.center_name || "—") +
     ' · Collection Day: ' + esc(customer.collection_day || "—") + '</div>';
+}
+function lockNewLoanCustomerSelection() {
+  const select = $("newLoanCustomer");
+  if (!select?.value) return;
+  const customer = customers.find(c => c.id === select.value);
+  if (!customer) return;
+  select.dataset.customerLocked = "true";
+  select.innerHTML = '<option value="' + esc(customer.id) + '">' + esc(formatCustomerId(customer.customer_code)) + ' · ' + esc(customer.full_name || "") + '</option>';
+  select.value = customer.id;
+  renderNewLoanCustomerDetails();
+}
+function unlockNewLoanCustomerSelection() {
+  const select = $("newLoanCustomer");
+  if (!select) return;
+  const selectedId = select.value;
+  select.dataset.customerLocked = "false";
+  select.innerHTML = '<option value="">ग्राहक चुनें</option>' + operationalCustomers.map(c =>
+    '<option value="' + esc(c.id) + '">' + esc(formatCustomerId(c.customer_code)) + ' · ' + esc(c.full_name || "") + '</option>'
+  ).join("");
+  if (operationalCustomers.some(c => c.id === selectedId)) select.value = selectedId;
+  select.focus();
+  renderNewLoanCustomerDetails();
 }
 function updateRepeatLoanOptions() {
   const customerId = $("newLoanCustomer")?.value || "";
@@ -1391,6 +1420,7 @@ function handlePreviousLoanSelection() {
   const customer = customers.find(c => c.id === previous.customer_id && c.is_active !== false && (c.customer_status || "ACTIVE") === "ACTIVE");
   if (!customer) return showMessage("इस पुराने Loan का ग्राहक सक्रिय नहीं है। पहले ग्राहक की स्थिति जाँचें।", "warn");
   $("newLoanCustomer").value = customer.id;
+  lockNewLoanCustomerSelection();
   updateRepeatLoanOptions();
   $("newLoanPrevious").value = previous.id;
 }
@@ -3180,7 +3210,11 @@ async function boot() {
       $("openVerificationPdf")?.addEventListener("click",()=>openVerificationPdf());
       $("newLoanForm")?.addEventListener("submit",submitNewLoan);
       $("closeLoanForm")?.addEventListener("submit",submitLoanClosure);
-      $("newLoanCustomer")?.addEventListener("change",updateRepeatLoanOptions);
+      $("newLoanCustomer")?.addEventListener("change",() => {
+        lockNewLoanCustomerSelection();
+        updateRepeatLoanOptions();
+      });
+      $("changeNewLoanCustomerBtn")?.addEventListener("click",unlockNewLoanCustomerSelection);
       $("newLoanPrevious")?.addEventListener("change",handlePreviousLoanSelection);
       $("closeLoanSelect")?.addEventListener("change",updateClosurePaymentOptions);
       $("closureDate") && ($("closureDate").value=localDateValue());
