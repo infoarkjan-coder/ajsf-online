@@ -861,10 +861,19 @@ function renderData() {
     $("verificationCustomer").innerHTML = customerOptions;
     if (customers.some(c => c.id === selectedVerificationCustomer)) $("verificationCustomer").value = selectedVerificationCustomer;
   }
-  if ($("newLoanCustomer")) $("newLoanCustomer").innerHTML = customerOptions;
-  if ($("closeLoanSelect")) $("closeLoanSelect").innerHTML = '<option value="">Active Loan चुनें</option>' + loans.filter(l=>l.status==="active").map(l=>{const c=customers.find(x=>x.id===l.customer_id);return '<option value="'+esc(l.id)+'">'+esc(l.loan_reference)+' · '+esc(c?.full_name||"")+'</option>';}).join("");
+  const selectedNewLoanCustomer = $("newLoanCustomer")?.value || "";
+  if ($("newLoanCustomer")) {
+    $("newLoanCustomer").innerHTML = customerOptions;
+    if (operationalCustomers.some(c => c.id === selectedNewLoanCustomer)) $("newLoanCustomer").value = selectedNewLoanCustomer;
+  }
+  const selectedClosureLoan = $("closeLoanSelect")?.value || "";
+  if ($("closeLoanSelect")) {
+    $("closeLoanSelect").innerHTML = '<option value="">Active Loan चुनें</option>' + loans.filter(l=>l.status==="active").map(l=>{const c=customers.find(x=>x.id===l.customer_id);return '<option value="'+esc(l.id)+'">'+esc(l.loan_reference)+' · '+esc(c?.full_name||"")+'</option>';}).join("");
+    if (loans.some(l => l.id === selectedClosureLoan && l.status === "active")) $("closeLoanSelect").value = selectedClosureLoan;
+  }
   if ($("newLoanPrevious")) updateRepeatLoanOptions();
-  if ($("closeLoanSelect") && !$("closeLoanSelect").value) updateClosurePaymentOptions();
+  if ($("closeLoanSelect")) updateClosurePaymentOptions();
+  renderNewLoanCustomerDetails();
 
   $("reminderCustomer").innerHTML = customerOptions;
   updateReminderLoanOptions();
@@ -1347,10 +1356,43 @@ async function submitNewLoan(event) {
   } catch(err) { showMessage("नया Loan सेव नहीं हुआ: "+(err?.message||String(err)),"error"); }
   finally { setBusy(btn,false); }
 }
+function renderNewLoanCustomerDetails() {
+  const customerId = $("newLoanCustomer")?.value || "";
+  const customer = customers.find(c => c.id === customerId);
+  const target = $("newLoanCustomerDetails");
+  if (!target) return;
+  if (!customer) {
+    target.innerHTML = '<span class="muted">ग्राहक चुनने पर नाम, Customer ID, मोबाइल और Center की जानकारी यहाँ अपने-आप दिखेगी।</span>';
+    return;
+  }
+  target.innerHTML = '<strong>' + esc(customer.full_name || "—") + '</strong>' +
+    '<div class="small muted">Customer ID: ' + esc(formatCustomerId(customer.customer_code)) +
+    ' · मोबाइल: ' + esc(phone(customer.contact_number) || "—") +
+    ' · Center: ' + esc(customer.center_name || "—") +
+    ' · Collection Day: ' + esc(customer.collection_day || "—") + '</div>';
+}
 function updateRepeatLoanOptions() {
-  const customerId=$("newLoanCustomer")?.value;
-  const closed=loans.filter(l=>l.customer_id===customerId && l.status==="closed");
-  if($("newLoanPrevious")) $("newLoanPrevious").innerHTML='<option value="">नया Loan / कोई पिछला Loan नहीं</option>'+closed.map(l=>'<option value="'+esc(l.id)+'">'+esc(l.loan_reference)+' · बंद</option>').join("");
+  const customerId = $("newLoanCustomer")?.value || "";
+  const previousSelect = $("newLoanPrevious");
+  const selectedPrevious = previousSelect?.value || "";
+  const closed = loans.filter(l => l.customer_id === customerId && l.status === "closed");
+  if (previousSelect) {
+    previousSelect.innerHTML = '<option value="">नया Loan / कोई पिछला Loan नहीं</option>' +
+      closed.map(l => '<option value="' + esc(l.id) + '">' + esc(l.loan_reference) + ' · बंद</option>').join("");
+    if (closed.some(l => l.id === selectedPrevious)) previousSelect.value = selectedPrevious;
+  }
+  renderNewLoanCustomerDetails();
+}
+function handlePreviousLoanSelection() {
+  const previousId = $("newLoanPrevious")?.value || "";
+  if (!previousId) return renderNewLoanCustomerDetails();
+  const previous = loans.find(l => l.id === previousId && l.status === "closed");
+  if (!previous) return;
+  const customer = customers.find(c => c.id === previous.customer_id && c.is_active !== false && (c.customer_status || "ACTIVE") === "ACTIVE");
+  if (!customer) return showMessage("इस पुराने Loan का ग्राहक सक्रिय नहीं है। पहले ग्राहक की स्थिति जाँचें।", "warn");
+  $("newLoanCustomer").value = customer.id;
+  updateRepeatLoanOptions();
+  $("newLoanPrevious").value = previous.id;
 }
 function updateClosurePaymentOptions() {
   const loanId=$("closeLoanSelect")?.value;
@@ -3139,6 +3181,7 @@ async function boot() {
       $("newLoanForm")?.addEventListener("submit",submitNewLoan);
       $("closeLoanForm")?.addEventListener("submit",submitLoanClosure);
       $("newLoanCustomer")?.addEventListener("change",updateRepeatLoanOptions);
+      $("newLoanPrevious")?.addEventListener("change",handlePreviousLoanSelection);
       $("closeLoanSelect")?.addEventListener("change",updateClosurePaymentOptions);
       $("closureDate") && ($("closureDate").value=localDateValue());
 
