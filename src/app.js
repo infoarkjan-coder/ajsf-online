@@ -519,9 +519,11 @@ function initAjsfCorporateMenu() {
     {tab:"reminder",title:"WhatsApp / SMS Reminder",sub:"ग्राहक को रिमाइंडर",icon:"✉"},
     {tab:"staff-password",title:"Staff & Password",sub:"कर्मचारी और सुरक्षा",icon:"⚙"}
   ];
+  // Collector dashboard uses the same clean one-card-per-feature layout,
+  // but excludes admin-only loan creation/closure, settlement approval and staff settings.
   const collectorMenuTabs = new Set([
-    "customers","customer-call","customer-verification","loans","loan-accounts","loan-register",
-    "schedule","ledger","statement","collector-demand","payment","payments","receipt-requests","reminder"
+    "customers","customer-call","customer-verification","loan-accounts","loan-register",
+    "schedule","ledger","statement","collector-demand","payment","payments","reminder"
   ]);
   const available = menuItems.filter(item => {
     const source = sidebar.querySelector('[data-tab="'+item.tab+'"]');
