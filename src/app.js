@@ -1055,11 +1055,11 @@ async function loadCustomerLedger() {
     khataEvents.push(...loanPayments);
   });
   const runningByLoan = Object.fromEntries(customerLoans.map(l => [l.id,0]));
-  const eventOrder = khataEvents.sort((a,b) => {
-    if(a.kind==="opening" || a.kind==="imported-payment") return -1;
-    if(b.kind==="opening" || b.kind==="imported-payment") return 1;
-    return (a.date?.getTime()||0)-(b.date?.getTime()||0);
-  });
+  const eventRank = {opening:0,disbursement:1,"imported-payment":2,payment:3};
+  const eventOrder = khataEvents.sort((a,b) =>
+    (eventRank[a.kind] ?? 4)-(eventRank[b.kind] ?? 4) ||
+    (a.date?.getTime()||0)-(b.date?.getTime()||0)
+  );
   const khataRows = eventOrder.map(event => {
     if(event.kind==="opening") runningByLoan[event.loan.id] = event.amount;
     else if(event.kind==="disbursement") runningByLoan[event.loan.id] += event.amount;
