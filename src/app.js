@@ -500,52 +500,89 @@ function initAjsfCorporateMenu() {
   const content = dashboard?.querySelector(".dashboard-content");
   if (!dashboard || !sidebar || !content || $("ajsCorporateMenuHome")) return;
   sidebar.classList.add("ajs-legacy-nav-hidden");
-  const menuItems = [
-    {tab:"customers",title:"Customer Register",sub:"ग्राहक जोड़ें और खोजें",icon:"♙"},
-    {tab:"customer-call",title:"Customer Call",sub:"ग्राहक को कॉल करें",icon:"☎"},
-    {tab:"customer-verification",title:"Customer Verification",sub:"फोटो और पता सत्यापन",icon:"▣"},
-    {tab:"loans",title:"नया / Repeat Loan",sub:"नया लोन दर्ज करें",icon:"＋"},
-    {tab:"loan-close",title:"पुराना Loan बंद करें",sub:"अंतिम भुगतान के बाद",icon:"✓"},
-    {tab:"loan-accounts",title:"Customer Accounts",sub:"ग्राहक के सभी खाते",icon:"▤"},
-    {tab:"loan-register",title:"Loan-wise Register",sub:"हर लोन का अलग रिकॉर्ड",icon:"▥"},
-    {tab:"ledger",title:"CUSTOMER DIGITAL KHATA",sub:"ग्राहक का पूरा लेन-देन",icon:"₹"},
-    {tab:"schedule",title:"Repayment Schedule",sub:"किस्तों की तारीखें",icon:"▦"},
-    {tab:"statement",title:"Loan Statement",sub:"लोन का पूरा विवरण",icon:"▧"},
-    {tab:"collector-demand",title:"Today's Collection Demand",sub:"आज की वसूली मांग",icon:"◷"},
-    {tab:"payment",title:"Payment Entry",sub:"नई जमा एंट्री",icon:"＋"},
-    {tab:"payments",title:"Payment History",sub:"जमा रसीदों का रिकॉर्ड",icon:"↻"},
-    {tab:"receipt-requests",title:"Receipt Cancellation",sub:"रसीद रद्द करने के अनुरोध",icon:"⊘"},
-    {tab:"daily-settlement",title:"Daily Collection Settlement",sub:"Cash / UPI मिलान",icon:"⇄"},
-    {tab:"reminder",title:"WhatsApp / SMS Reminder",sub:"ग्राहक को रिमाइंडर",icon:"✉"},
-    {tab:"staff-password",title:"Staff & Password",sub:"कर्मचारी और सुरक्षा",icon:"⚙"}
+  const menuGroups = [
+    {id:"customers",title:"ग्राहक",sub:"ग्राहक जोड़ें, खोजें और सत्यापन",icon:"♙",items:[
+      {tab:"customers",title:"Customer Register",sub:"ग्राहक जोड़ें और खोजें",icon:"♙"},
+      {tab:"customer-call",title:"Customer Call",sub:"ग्राहक को कॉल करें",icon:"☎"},
+      {tab:"customer-verification",title:"Customer Verification",sub:"फोटो और पता सत्यापन",icon:"▣"}
+    ]},
+    {id:"loans",title:"Loan Management",sub:"नया लोन, पुराने लोन और खाते",icon:"▤",items:[
+      {tab:"loans",title:"नया / Repeat Loan",sub:"नया लोन दर्ज करें",icon:"＋"},
+      {tab:"loan-close",title:"पुराना Loan बंद करें",sub:"अंतिम भुगतान के बाद",icon:"✓"},
+      {tab:"loan-accounts",title:"Customer Accounts",sub:"ग्राहक के सभी खाते",icon:"▤"},
+      {tab:"loan-register",title:"Loan-wise Register",sub:"हर लोन का अलग रिकॉर्ड",icon:"▥"}
+    ]},
+    {id:"collection",title:"Collection",sub:"Demand, Payment और Settlement",icon:"₹",items:[
+      {tab:"collector-demand",title:"Today's Collection Demand",sub:"आज की वसूली मांग",icon:"◷"},
+      {tab:"payment",title:"Payment Entry",sub:"नई जमा एंट्री",icon:"＋"},
+      {tab:"payments",title:"Payment History",sub:"जमा रसीदों का रिकॉर्ड",icon:"↻"},
+      {tab:"receipt-requests",title:"Receipt Cancellation",sub:"रसीद रद्द करने के अनुरोध",icon:"⊘"},
+      {tab:"daily-settlement",title:"Daily Collection Settlement",sub:"Cash / UPI मिलान",icon:"⇄"}
+    ]},
+    {id:"reports",title:"Reports & Khata",sub:"Digital Khata और Loan Reports",icon:"▦",items:[
+      {tab:"ledger",title:"CUSTOMER DIGITAL KHATA",sub:"ग्राहक का पूरा लेन-देन",icon:"₹"},
+      {tab:"schedule",title:"Repayment Schedule",sub:"किस्तों की तारीखें",icon:"▦"},
+      {tab:"statement",title:"Loan Statement",sub:"लोन का पूरा विवरण",icon:"▧"}
+    ]},
+    {id:"other",title:"अन्य सुविधाएँ",sub:"Reminder और Staff Settings",icon:"⚙",items:[
+      {tab:"reminder",title:"WhatsApp / SMS Reminder",sub:"ग्राहक को रिमाइंडर",icon:"✉"},
+      {tab:"staff-password",title:"Staff & Password",sub:"कर्मचारी और सुरक्षा",icon:"⚙"}
+    ]}
   ];
   const collectorMenuTabs = new Set([
     "customers","customer-call","customer-verification","loans","loan-accounts","loan-register",
     "schedule","ledger","statement","collector-demand","payment","payments","receipt-requests","reminder"
   ]);
-  const available = menuItems.filter(item => {
-    const source = sidebar.querySelector('[data-tab="'+item.tab+'"]');
-    if (canAdmin()) {
-      if (item.tab === "staff-password") return true;
-      if (item.tab === "collector-demand") return false;
-      return source && !source.classList.contains("hidden") && getComputedStyle(source).display !== "none";
-    }
-    if (!collectorMenuTabs.has(item.tab)) return false;
-    if (item.tab === "collector-demand") return true;
-    return !!source;
-  });
+  const availableGroups = menuGroups.map(group => ({
+    ...group,
+    items: group.items.filter(item => {
+      const source = sidebar.querySelector('[data-tab="'+item.tab+'"]');
+      if (canAdmin()) {
+        if (item.tab === "staff-password") return true;
+        if (item.tab === "collector-demand") return false;
+        return source && !source.classList.contains("hidden") && getComputedStyle(source).display !== "none";
+      }
+      if (!collectorMenuTabs.has(item.tab)) return false;
+      if (item.tab === "collector-demand") return true;
+      return !!source;
+    })
+  })).filter(group => group.items.length);
   const home = document.createElement("section");
   home.id = "ajsCorporateMenuHome";
   home.className = "ajs-corp-menu";
   home.innerHTML = '<div class="ajs-corp-welcome"><span class="eyebrow">ARK JAN SAMRIDDHI FOUNDATION</span><h2>मुख्य मेन्यू</h2><p>अपना कार्य चुनें</p></div><div class="ajs-corp-grid">'+
-    available.map(item => '<button type="button" class="ajs-corp-card" data-corp-tab="'+item.tab+'"><span class="ajs-corp-icon">'+item.icon+'</span><span class="ajs-corp-card-copy"><strong>'+item.title+'</strong><small>'+item.sub+'</small></span><span class="ajs-corp-arrow">›</span></button>').join("")+
+    availableGroups.map(group => '<button type="button" class="ajs-corp-card ajs-corp-category" data-corp-group="'+group.id+'"><span class="ajs-corp-icon">'+group.icon+'</span><span class="ajs-corp-card-copy"><strong>'+group.title+'</strong><small>'+group.sub+'</small></span><span class="ajs-corp-arrow">›</span></button>').join("")+
     '</div>';
+  const submenu = document.createElement("section");
+  submenu.id = "ajsCorporateSubMenu";
+  submenu.className = "ajs-corp-submenu hidden";
+  content.prepend(submenu);
   content.prepend(home);
+  home.addEventListener("click", event => {
+    const card = event.target.closest("[data-corp-group]");
+    if (!card) return;
+    const group = availableGroups.find(item => item.id === card.dataset.corpGroup);
+    if (!group) return;
+    submenu.innerHTML = '<button type="button" class="ajs-corp-back" data-corp-home>← मुख्य मेन्यू</button><div class="ajs-corp-welcome"><h2>'+group.title+'</h2><p>'+group.sub+'</p></div><div class="ajs-corp-grid">'+
+      group.items.map(item => '<button type="button" class="ajs-corp-card" data-corp-tab="'+item.tab+'"><span class="ajs-corp-icon">'+item.icon+'</span><span class="ajs-corp-card-copy"><strong>'+item.title+'</strong><small>'+item.sub+'</small></span><span class="ajs-corp-arrow">›</span></button>').join("")+
+      '</div>';
+    home.classList.add("hidden");
+    submenu.classList.remove("hidden");
+  });
+  submenu.addEventListener("click", event => {
+    if (event.target.closest("[data-corp-home]")) {
+      submenu.classList.add("hidden");
+      home.classList.remove("hidden");
+      return;
+    }
+    const card = event.target.closest("[data-corp-tab]");
+    if (card) activateTab(card.dataset.corpTab);
+  });
   const style = document.createElement("style");
   style.id = "ajsCorporateMenuStyles";
   style.textContent = `
     .ajs-legacy-nav-hidden{display:none!important}
-    .ajs-corp-menu{padding:8px 2px 22px}
+    .ajs-corp-menu{padding:8px 2px 22px}\n    .ajs-corp-submenu{padding:8px 2px 22px}\n    .ajs-corp-back{border:0;border-radius:10px;background:#eaf3ee;color:#174b3a;padding:10px 14px;font-weight:800;margin:0 0 12px}\n    .ajs-corp-category{min-height:112px}
     .ajs-corp-welcome{padding:8px 4px 14px}
     .ajs-corp-welcome h2{margin:6px 0 3px;font-size:1.35rem}
     .ajs-corp-welcome p{margin:0;color:var(--muted,#718078)}
