@@ -719,26 +719,26 @@ async function loadAll() {
 function renderCollectorDemand() {
   const select = $("collectorDemandDay");
   const body = $("collectorDemandRows");
+  const dateInput = $("collectorDemandDate");
+  const groupSelect = $("collectorDemandGroup");
   if (!select || !body || canAdmin()) return;
   const weekdays = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
-  const today = weekdays[new Date().getDay()];
-  if (!select.value) select.value = today;
-  const day = select.value;
+  if (dateInput && !dateInput.value) dateInput.value = localDateValue();
+  const demandDate = dateInput?.value || localDateValue();
+  const selectedDate = new Date(demandDate + "T00:00:00");
+  const day = select.value || weekdays[selectedDate.getDay()];
   const isMonthly = day === "MONTHLY";
-  const now = new Date();
-  const dayStart = new Date(now.getFullYear(),now.getMonth(),now.getDate());
-  const dayEnd = new Date(now.getFullYear(),now.getMonth(),now.getDate()+1);
-  const todayKey = localDateValue();
+  const group = groupSelect?.value || "";
   const collectedByLoan = {};
   payments.filter(p => !p.is_reversal).forEach(p => {
-    const paidAt = new Date(p.paid_at || p.created_at || "");
-    if (!Number.isNaN(paidAt.getTime()) && paidAt >= dayStart && paidAt < dayEnd) {
+    const paidAt = p.paid_at || p.created_at;
+    if (settlementDateKey(paidAt) === demandDate) {
       collectedByLoan[p.loan_id] = (collectedByLoan[p.loan_id] || 0) + Number(p.amount || p.payment_amount || 0);
     }
   });
   const advanceByLoan = {};
   advanceLedger.forEach(entry => {
-    if (entry.entry_type !== "advance_adjusted" || entry.due_date !== todayKey) return;
+    if (entry.entry_type !== "advance_adjusted" || entry.due_date !== demandDate) return;
     advanceByLoan[entry.loan_id] = (advanceByLoan[entry.loan_id] || 0) + Number(entry.amount || 0);
   });
   const customerById = new Map(customers.map(c => [c.id,c]));
@@ -747,6 +747,7 @@ function renderCollectorDemand() {
   loans.forEach(loan => {
     const customer = customerById.get(loan.customer_id);
     if (!customer || customer.is_active === false || (customer.customer_status || "ACTIVE") !== "ACTIVE") return;
+    if (group && String(customer.center_name || "") !== group) return;
     if ((isMonthly ? customer.collection_day !== "MONTHLY" : String(customer.collection_day || "").toLowerCase() !== day.toLowerCase()) || loan.status !== "active") return;
     const figures = loanFigures(loan, totalsByLoan);
     if (figures.outstanding <= 0) return;
@@ -760,6 +761,12 @@ function renderCollectorDemand() {
     String(a.customer.center_name || "").localeCompare(String(b.customer.center_name || "")) ||
     String(a.customer.full_name || "").localeCompare(String(b.customer.full_name || ""))
   );
+  if (groupSelect) {
+    const currentGroup = groupSelect.value;
+    const groups = [...new Set(customers.map(c => String(c.center_name || "").trim()).filter(Boolean))].sort((a,b) => a.localeCompare(b));
+    groupSelect.innerHTML = '<option value="">सभी Group / Center</option>' + groups.map(name => '<option value="' + esc(name) + '">' + esc(name) + '</option>').join("");
+    if (groups.includes(currentGroup)) groupSelect.value = currentGroup;
+  }
   const customerCount = new Set(rows.map(row => row.customer.id)).size;
   const totalDemand = rows.reduce((sum,row) => sum + row.emi,0);
   const totalCollected = rows.reduce((sum,row) => sum + row.collectedToday,0);
@@ -768,7 +775,7 @@ function renderCollectorDemand() {
   $("collectorDemandTotal").textContent = money(totalDemand);
   $("collectorDemandCollection").textContent = money(totalCollected);
   $("collectorDemandLoanCount").textContent = rows.length.toLocaleString("en-IN");
-  $("collectorDemandPeriod").textContent = isMonthly ? "आज की मासिक किस्त मांग" : "आज की किस्त मांग";
+  $("collectorDemandPeriod").textContent = (isMonthly ? "मासिक किस्त मांग" : day + " की किस्त मांग") + " · " + demandDate;
   $("collectorDemandRemaining").textContent = money(totalRemaining);
   body.innerHTML = rows.map(row => `<tr>
     <td>${esc(formatCustomerId(row.customer.customer_code))}</td>
@@ -3339,7 +3346,7 @@ async function boot() {
   });
   // Delegated listener survives panel redraws and reliably handles day changes.
   document.addEventListener("change", event => {
-    if (event.target && event.target.id === "collectorDemandDay") renderCollectorDemand();
+    if (event.target && ["collectorDemandDay","collectorDemandDate","collectorDemandGroup"].includes(event.target.id)) renderCollectorDemand();
   });
   $("collectorDemandRows")?.addEventListener("click", event => {
     const button = event.target.closest(".demand-collect-btn");
