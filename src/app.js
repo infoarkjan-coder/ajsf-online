@@ -500,85 +500,70 @@ function initAjsfCorporateMenu() {
   const content = dashboard?.querySelector(".dashboard-content");
   if (!dashboard || !sidebar || !content || $("ajsCorporateMenuHome")) return;
   sidebar.classList.add("ajs-legacy-nav-hidden");
-  const groups = [
-    {id:"customers", title:"Customer Management", subtitle:"ग्राहक और सत्यापन", icon:"♙", tabs:["customers","customer-call","customer-verification"]},
-    {id:"loans", title:"Loan Management", subtitle:"नया Loan, खाते और हिसाब", icon:"▤", tabs:["loans","loan-close","loan-accounts","loan-register","ledger","schedule","statement"]},
-    {id:"collection", title:"Collection & Payments", subtitle:"कलेक्शन, भुगतान और रसीद", icon:"₹", tabs:["collector-demand","payment","payments","receipt-requests","daily-settlement"]},
-    {id:"reports", title:"Reports & Communication", subtitle:"रिपोर्ट और ग्राहक संपर्क", icon:"▥", tabs:["reminder"]},
-    {id:"staff", title:"Staff & Settings", subtitle:"कर्मचारी और सुरक्षा", icon:"⚙", tabs:["staff-password"]}
+  const menuItems = [
+    {tab:"customers",title:"Customer Register",sub:"ग्राहक जोड़ें और खोजें",icon:"♙"},
+    {tab:"customer-call",title:"Customer Call",sub:"ग्राहक को कॉल करें",icon:"☎"},
+    {tab:"customer-verification",title:"Customer Verification",sub:"फोटो और पता सत्यापन",icon:"▣"},
+    {tab:"loans",title:"नया / Repeat Loan",sub:"नया लोन दर्ज करें",icon:"＋"},
+    {tab:"loan-close",title:"पुराना Loan बंद करें",sub:"अंतिम भुगतान के बाद",icon:"✓"},
+    {tab:"loan-accounts",title:"Customer Accounts",sub:"ग्राहक के सभी खाते",icon:"▤"},
+    {tab:"loan-register",title:"Loan-wise Register",sub:"हर लोन का अलग रिकॉर्ड",icon:"▥"},
+    {tab:"ledger",title:"CUSTOMER DIGITAL KHATA",sub:"ग्राहक का पूरा लेन-देन",icon:"₹"},
+    {tab:"schedule",title:"Repayment Schedule",sub:"किस्तों की तारीखें",icon:"▦"},
+    {tab:"statement",title:"Loan Statement",sub:"लोन का पूरा विवरण",icon:"▧"},
+    {tab:"collector-demand",title:"Today's Collection Demand",sub:"आज की वसूली मांग",icon:"◷"},
+    {tab:"payment",title:"Payment Entry",sub:"नई जमा एंट्री",icon:"＋"},
+    {tab:"payments",title:"Payment History",sub:"जमा रसीदों का रिकॉर्ड",icon:"↻"},
+    {tab:"receipt-requests",title:"Receipt Cancellation",sub:"रसीद रद्द करने के अनुरोध",icon:"⊘"},
+    {tab:"daily-settlement",title:"Daily Collection Settlement",sub:"Cash / UPI मिलान",icon:"⇄"},
+    {tab:"reminder",title:"WhatsApp / SMS Reminder",sub:"ग्राहक को रिमाइंडर",icon:"✉"},
+    {tab:"staff-password",title:"Staff & Password",sub:"कर्मचारी और सुरक्षा",icon:"⚙"}
   ];
-  const labels = {
-    customers:"Customer Register", "customer-call":"Customer Call", "customer-verification":"Customer Verification",
-    loans:"नया / Repeat Loan", "loan-close":"पुराना Loan बंद करें", "loan-accounts":"Customer Accounts / ग्राहक खाते", "loan-register":"Loan-wise Register / अलग-अलग Loan", schedule:"Repayment Schedule", ledger:"CUSTOMER DIGITAL KHATA / ग्राहक खाता", statement:"Loan Statement",
-    "collector-demand":"Today's Collection Demand", payment:"Payment Entry", payments:"Payment History",
-    "receipt-requests":"Receipt Cancellation Requests", "daily-settlement":"Daily Collection Settlement",
-    reminder:"WhatsApp / SMS Reminder", "staff-password":"Staff Password Management"
-  };
+  const collectorMenuTabs = new Set([
+    "customers","customer-call","customer-verification","loans","loan-accounts","loan-register",
+    "schedule","ledger","statement","collector-demand","payment","payments","receipt-requests","reminder"
+  ]);
+  const available = menuItems.filter(item => {
+    const source = sidebar.querySelector('[data-tab="'+item.tab+'"]');
+    if (canAdmin()) {
+      if (item.tab === "staff-password") return true;
+      if (item.tab === "collector-demand") return false;
+      return source && !source.classList.contains("hidden") && getComputedStyle(source).display !== "none";
+    }
+    if (!collectorMenuTabs.has(item.tab)) return false;
+    if (item.tab === "collector-demand") return true;
+    return !!source;
+  });
   const home = document.createElement("section");
   home.id = "ajsCorporateMenuHome";
   home.className = "ajs-corp-menu";
-  home.innerHTML = '<div class="ajs-corp-welcome"><span class="eyebrow">ARK JAN SAMRIDDHI FOUNDATION</span><h2> मुख्य मेन्यू</h2><p>अपना कार्य चुनें</p></div><div class="ajs-corp-grid">' +
-    groups.map(g => '<button type="button" class="ajs-corp-card" data-corp-group="'+g.id+'"><span class="ajs-corp-icon">'+g.icon+'</span><span><strong>'+g.title+'</strong><small>'+g.subtitle+'</small></span><span class="ajs-corp-arrow">›</span></button>').join("") +
+  home.innerHTML = '<div class="ajs-corp-welcome"><span class="eyebrow">ARK JAN SAMRIDDHI FOUNDATION</span><h2>मुख्य मेन्यू</h2><p>अपना कार्य चुनें</p></div><div class="ajs-corp-grid">'+
+    available.map(item => '<button type="button" class="ajs-corp-card" data-corp-tab="'+item.tab+'"><span class="ajs-corp-icon">'+item.icon+'</span><span class="ajs-corp-card-copy"><strong>'+item.title+'</strong><small>'+item.sub+'</small></span><span class="ajs-corp-arrow">›</span></button>').join("")+
     '</div>';
-  const sub = document.createElement("section");
-  sub.id = "ajsCorporateSubMenu";
-  sub.className = "ajs-corp-submenu hidden";
-  content.prepend(sub);
   content.prepend(home);
   const style = document.createElement("style");
   style.id = "ajsCorporateMenuStyles";
   style.textContent = `
     .ajs-legacy-nav-hidden{display:none!important}
-    .ajs-corp-menu,.ajs-corp-submenu{padding:8px 2px 22px}
-    .ajs-corp-welcome{padding:12px 4px 18px}
-    .ajs-corp-welcome h2{margin:7px 0 4px;font-size:1.45rem}
+    .ajs-corp-menu{padding:8px 2px 22px}
+    .ajs-corp-welcome{padding:8px 4px 14px}
+    .ajs-corp-welcome h2{margin:6px 0 3px;font-size:1.35rem}
     .ajs-corp-welcome p{margin:0;color:var(--muted,#718078)}
-    .ajs-corp-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-    .ajs-corp-card{min-height:112px;border:1px solid var(--border,#dce5df);border-radius:16px;background:var(--card,#fff);color:var(--text,#173b30);padding:15px 12px;display:flex;align-items:center;gap:10px;text-align:left;box-shadow:0 4px 14px #173b3010}
-    .ajs-corp-icon{width:42px;height:42px;flex:0 0 42px;border-radius:13px;background:#eaf3ee;color:#174b3a;display:grid;place-items:center;font-size:23px;font-weight:700}
-    .ajs-corp-card strong{display:block;font-size:.88rem;line-height:1.25}
-    .ajs-corp-card small{display:block;color:var(--muted,#718078);font-size:.72rem;margin-top:5px;line-height:1.3}
-    .ajs-corp-arrow{margin-left:auto;font-size:25px;color:#789087}
-    .ajs-corp-subhead{display:flex;align-items:center;gap:10px;margin:6px 0 14px}
-    .ajs-corp-subhead h2{font-size:1.2rem;margin:0}
-    .ajs-corp-back{border:1px solid var(--border,#dce5df);border-radius:10px;background:var(--card,#fff);padding:8px 12px}
-    .ajs-corp-links{display:grid;grid-template-columns:1fr;gap:9px}
-    .ajs-corp-link{display:flex;align-items:center;justify-content:space-between;width:100%;text-align:left;padding:14px;border:1px solid var(--border,#dce5df);border-radius:12px;background:var(--card,#fff);color:var(--text,#173b30);font-weight:600}
-    .ajs-corp-link span:last-child{color:#789087;font-size:20px}
-    @media(max-width:420px){.ajs-corp-grid{gap:9px}.ajs-corp-card{padding:12px 9px;min-height:104px;gap:8px}.ajs-corp-icon{width:36px;height:36px;flex-basis:36px}}
+    .ajs-corp-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+    .ajs-corp-card{min-height:100px;border:1px solid var(--border,#dce5df);border-radius:15px;background:var(--card,#fff);color:var(--text,#173b30);padding:12px 10px;display:flex;align-items:center;gap:9px;text-align:left;box-shadow:0 4px 14px #173b3010;min-width:0}
+    .ajs-corp-icon{width:38px;height:38px;flex:0 0 38px;border-radius:12px;background:#eaf3ee;color:#174b3a;display:grid;place-items:center;font-size:21px;font-weight:700}
+    .ajs-corp-card-copy{min-width:0;flex:1}
+    .ajs-corp-card strong{display:block;font-size:.82rem;line-height:1.25;overflow-wrap:anywhere}
+    .ajs-corp-card small{display:block;color:var(--muted,#718078);font-size:.68rem;margin-top:4px;line-height:1.25}
+    .ajs-corp-arrow{font-size:22px;color:#789087;flex:0 0 auto}
+    .ajs-corp-card:active{transform:scale(.985);background:#f1f7f3}
+    @media(max-width:420px){.ajs-corp-grid{gap:8px}.ajs-corp-card{padding:10px 8px;min-height:94px;gap:7px}.ajs-corp-icon{width:34px;height:34px;flex-basis:34px;font-size:19px}.ajs-corp-card strong{font-size:.76rem}.ajs-corp-card small{font-size:.64rem}}
   `;
   document.head.appendChild(style);
   home.addEventListener("click", event => {
-    const card = event.target.closest("[data-corp-group]");
+    const card = event.target.closest("[data-corp-tab]");
     if (!card) return;
-    const group = groups.find(item => item.id === card.dataset.corpGroup);
-    if (!group) return;
-    // Keep every Collector on the same menu as Akshay Kumar (AJSF-EMP-001).
-    // Menu visibility is standardized by role; permissions/data scope remain enforced separately.
-    const collectorMenuTabs = new Set([
-      "customers", "customer-call", "customer-verification",
-      "loans", "loan-accounts", "loan-register", "schedule", "ledger", "statement",
-      "collector-demand", "payment", "payments", "receipt-requests",
-      "reminder"
-    ]);
-    const available = group.tabs.filter(tab => {
-      const source = sidebar.querySelector('[data-tab="'+tab+'"]');
-      if (canAdmin()) {
-        if (tab === "staff-password") return true;
-        if (tab === "collector-demand") return false;
-        return source && !source.classList.contains("hidden") && getComputedStyle(source).display !== "none";
-      }
-      if (!collectorMenuTabs.has(tab)) return false;
-      if (tab === "collector-demand") return true;
-      return !!source;
-    });
-    sub.innerHTML = '<div class="ajs-corp-subhead"><button type="button" class="ajs-corp-back">← मुख्य मेन्यू</button><h2>'+group.title+'</h2></div><div class="ajs-corp-links">'+
-      available.map(tab => '<button type="button" class="ajs-corp-link" data-corp-tab="'+tab+'"><span>'+labels[tab]+'</span><span>›</span></button>').join("") +
-      '</div>';
-    home.classList.add("hidden");
-    sub.classList.remove("hidden");
-    sub.querySelector(".ajs-corp-back").addEventListener("click", () => {sub.classList.add("hidden");home.classList.remove("hidden");});
-    sub.querySelectorAll("[data-corp-tab]").forEach(button => button.addEventListener("click", () => activateTab(button.dataset.corpTab)));
+    activateTab(card.dataset.corpTab);
   });
 }
 function activateTab(tab) {
