@@ -467,6 +467,8 @@ function renderShell() {
   if (collectorOnly) collectorOnly.classList.toggle("hidden", canAdmin());
   const loanAdminTools = $("loanAdminTools");
   if (loanAdminTools) loanAdminTools.classList.toggle("hidden", !canAdmin());
+  const loanCloseTools = $("loanCloseTools");
+  if (loanCloseTools) loanCloseTools.classList.toggle("hidden", !canAdmin());
   const dashboard = $("dashboardCard");
   dashboard.classList.toggle("collector-mode", !canAdmin());
   dashboard.classList.remove("collector-payment-mode");
@@ -500,14 +502,14 @@ function initAjsfCorporateMenu() {
   sidebar.classList.add("ajs-legacy-nav-hidden");
   const groups = [
     {id:"customers", title:"Customer Management", subtitle:"ग्राहक और सत्यापन", icon:"♙", tabs:["customers","customer-call","customer-verification"]},
-    {id:"loans", title:"Loan Management", subtitle:"लोन और EMI शेड्यूल", icon:"▤", tabs:["loans","schedule","ledger","statement"]},
+    {id:"loans", title:"Loan Management", subtitle:"नया Loan, खाते और हिसाब", icon:"▤", tabs:["loans","loan-close","loan-accounts","loan-register","ledger","schedule","statement"]},
     {id:"collection", title:"Collection & Payments", subtitle:"कलेक्शन, भुगतान और रसीद", icon:"₹", tabs:["collector-demand","payment","payments","receipt-requests","daily-settlement"]},
     {id:"reports", title:"Reports & Communication", subtitle:"रिपोर्ट और ग्राहक संपर्क", icon:"▥", tabs:["reminder"]},
     {id:"staff", title:"Staff & Settings", subtitle:"कर्मचारी और सुरक्षा", icon:"⚙", tabs:["staff-password"]}
   ];
   const labels = {
     customers:"Customer Register", "customer-call":"Customer Call", "customer-verification":"Customer Verification",
-    loans:"Loan Details", schedule:"Repayment Schedule", ledger:"Customer Ledger", statement:"Loan Statement",
+    loans:"नया / Repeat Loan", "loan-close":"पुराना Loan बंद करें", "loan-accounts":"Customer Accounts / ग्राहक खाते", "loan-register":"Loan-wise Register / अलग-अलग Loan", schedule:"Repayment Schedule", ledger:"CUSTOMER DIGITAL KHATA / ग्राहक खाता", statement:"Loan Statement",
     "collector-demand":"Today's Collection Demand", payment:"Payment Entry", payments:"Payment History",
     "receipt-requests":"Receipt Cancellation Requests", "daily-settlement":"Daily Collection Settlement",
     reminder:"WhatsApp / SMS Reminder", "staff-password":"Staff Password Management"
@@ -555,7 +557,7 @@ function initAjsfCorporateMenu() {
     // Menu visibility is standardized by role; permissions/data scope remain enforced separately.
     const collectorMenuTabs = new Set([
       "customers", "customer-call", "customer-verification",
-      "loans", "schedule", "ledger", "statement",
+      "loans", "loan-accounts", "loan-register", "schedule", "ledger", "statement",
       "collector-demand", "payment", "payments", "receipt-requests",
       "reminder"
     ]);
