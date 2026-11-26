@@ -850,6 +850,22 @@ function renderData() {
     if (customers.some(c => c.id === selectedLoanCustomer)) loanFilter.value = selectedLoanCustomer;
   }
   const loanCustomerId = loanFilter?.value || "";
+  const accountRows = operationalCustomers.filter(c => !loanCustomerId || c.id === loanCustomerId).map(c => {
+    const customerLoans = loans.filter(l => l.customer_id === c.id);
+    const customerCollected = customerLoans.reduce((sum,l) => sum + loanFigures(l,totalsByLoan).collected,0);
+    const customerOsp = customerLoans.reduce((sum,l) => sum + loanFigures(l,totalsByLoan).outstanding,0);
+    return `<tr><td>${esc(formatCustomerId(c.customer_code))}</td><td><strong>${esc(c.full_name || "—")}</strong></td><td>${esc(phone(c.contact_number) || "—")}</td><td>${customerLoans.length}</td><td>${money(customerCollected)}</td><td><strong>${money(customerOsp)}</strong></td><td><button type="button" class="khata-open-btn" data-customer-id="${esc(c.id)}">खाता खोलें</button></td></tr>`;
+  }).join("");
+  $("loanCustomerAccounts").innerHTML = accountRows || `<tr><td colspan="7" class="empty">कोई ग्राहक खाता नहीं मिला।</td></tr>`;
+  $("loanCustomerAccounts").querySelectorAll(".khata-open-btn").forEach(button => {
+    button.addEventListener("click", () => {
+      const customerId = button.dataset.customerId;
+      $("ledgerCustomer").value = customerId;
+      if ($("ledgerSearch")) $("ledgerSearch").value = "";
+      activateTab("ledger");
+      loadCustomerLedger();
+    });
+  });
   $("loanRows").innerHTML = loans.filter(l => !loanCustomerId || l.customer_id === loanCustomerId).map(l => {
     const c = customers.find(x => x.id === l.customer_id);
     const f = loanFigures(l, totalsByLoan);
@@ -994,7 +1010,7 @@ async function loadCustomerLedger() {
   const summary = $("ledgerSummary"), rows = $("ledgerRows");
   if (!customerId) {
     summary.textContent = "ग्राहक खोजकर चुनें।";
-    rows.innerHTML = `<tr><td colspan="5" class="empty">कोई ग्राहक चयनित नहीं है।</td></tr>`;
+    rows.innerHTML = `<tr><td colspan="6" class="empty">कोई ग्राहक चयनित नहीं है।</td></tr>`;
     return;
   }
   const customer = customers.find(c => c.id === customerId);
@@ -1006,7 +1022,7 @@ async function loadCustomerLedger() {
     .order("paid_at", {ascending:false});
   if (error) {
     summary.textContent = "Ledger लोड नहीं हुआ: " + error.message;
-    rows.innerHTML = `<tr><td colspan="5" class="empty">डेटा उपलब्ध नहीं है।</td></tr>`;
+    rows.innerHTML = `<tr><td colspan="6" class="empty">डेटा उपलब्ध नहीं है।</td></tr>`;
     return;
   }
   const paymentRows = data || [];
@@ -1023,22 +1039,47 @@ async function loadCustomerLedger() {
     const figures = loanFigures(l,paymentTotalsByLoan);
     return `<tr><td>${esc(l.loan_reference || "—")}</td><td>${money(l.loan_amount)}</td><td>${money(figures.collected)}</td><td><strong>${money(figures.outstanding)}</strong></td></tr>`;
   }).join("") || `<tr><td colspan="4">इस ग्राहक का कोई Loan record उपलब्ध नहीं है।</td></tr>`;
-  const transactionRows = paymentRows.map(p => {
-    const loan = customerLoans.find(l => l.id === p.loan_id);
-    return `<tr><td>${esc(formatDate(p.paid_at))}</td><td>${esc((p.id || p.client_tx_id || "").slice(0,8).toUpperCase())}</td><td>${esc(loan?.loan_reference || "—")}</td><td>${esc((p.payment_mode || "—").toUpperCase().replace("_"," "))}</td><td>${money(p.amount)}</td></tr>`;
-  }).join("") || `<tr><td colspan="5" class="empty">इस ग्राहक का कोई नया payment transaction उपलब्ध नहीं है।</td></tr>`;
+  const khataEvents = [];
+  customerLoans.forEach(l => {
+    const loanPayments = paymentRows.filter(p => p.loan_id === l.id).map(p => ({
+      date: new Date(p.paid_at || p.created_at || 0), loan:l, kind:"payment",
+      amount:Number(p.amount || 0), detail:"Payment Received · " + (p.payment_mode || "Cash").toUpperCase().replace("_"," "),
+      receipt:(p.id || p.client_tx_id || "").slice(0,8).toUpperCase()
+    }));
+    if (l.source_osp != null) {
+      khataEvents.push({date:null,loan:l,kind:"opening",amount:Number(l.source_osp||0),detail:"Imported Opening Outstanding"});
+    } else {
+      khataEvents.push({date:new Date(l.disbursement_date || l.created_at || 0),loan:l,kind:"disbursement",amount:Number(l.loan_amount||0),detail:"Loan Disbursed"});
+      if(Number(l.source_total_collected||0)>0) khataEvents.push({date:null,loan:l,kind:"imported-payment",amount:Number(l.source_total_collected||0),detail:"Previous Collection (Imported)"});
+    }
+    khataEvents.push(...loanPayments);
+  });
+  const runningByLoan = Object.fromEntries(customerLoans.map(l => [l.id,0]));
+  const eventRank = {opening:0,disbursement:1,"imported-payment":2,payment:3};
+  const eventOrder = khataEvents.sort((a,b) =>
+    (eventRank[a.kind] ?? 4)-(eventRank[b.kind] ?? 4) ||
+    (a.date?.getTime()||0)-(b.date?.getTime()||0)
+  );
+  const khataRows = eventOrder.map(event => {
+    if(event.kind==="opening") runningByLoan[event.loan.id] = event.amount;
+    else if(event.kind==="disbursement") runningByLoan[event.loan.id] += event.amount;
+    else runningByLoan[event.loan.id] = Math.max(0,runningByLoan[event.loan.id]-event.amount);
+    const runningTotal = Object.values(runningByLoan).reduce((sum,n)=>sum+n,0);
+    const dateLabel = event.date && !Number.isNaN(event.date.getTime()) ? formatDate(event.date.toISOString()) : "Imported / Opening";
+    return `<tr><td>${esc(dateLabel)}</td><td>${esc(event.detail)}${event.receipt ? " · "+esc(event.receipt) : ""}</td><td>${esc(event.loan.loan_reference||"—")}</td><td>${event.kind==="disbursement"?money(event.amount):"—"}</td><td>${["payment","imported-payment"].includes(event.kind)?money(event.amount):"—"}</td><td><strong>${money(runningTotal)}</strong></td></tr>`;
+  }).join("") || `<tr><td colspan="6" class="empty">इस ग्राहक का कोई Loan या Payment रिकॉर्ड उपलब्ध नहीं है।</td></tr>`;
   summary.innerHTML = `<div id="ledgerPrintArea">
-    <div class="ledger-print-brand"><img src="./assets/ajsf-logo.png" alt="AJSF Logo" width="72" height="72" style="width:72px;height:72px;max-width:72px;max-height:72px;object-fit:contain;flex:0 0 72px"><div><h2>ARK JAN SAMRIDDHI FOUNDATION</h2><p>SAPNE AAPKE SATH HAMARA</p><strong>CUSTOMER PAYMENT LEDGER / भुगतान खाता</strong></div></div>
+    <div class="ledger-print-brand"><img src="./assets/ajsf-logo.png" alt="AJSF Logo" width="72" height="72" style="width:72px;height:72px;max-width:72px;max-height:72px;object-fit:contain;flex:0 0 72px"><div><h2>ARK JAN SAMRIDDHI FOUNDATION</h2><p>SAPNE AAPKE SATH HAMARA</p><strong>CUSTOMER DIGITAL KHATA / ग्राहक खाता</strong></div></div>
     <div class="ledger-print-customer"><span><small>Customer ID</small><b>${esc(formatCustomerId(customer?.customer_code))}</b></span><span><small>Customer Name</small><b>${esc(customer?.full_name || "—")}</b></span><span><small>Center</small><b>${esc(customer?.center_name || "—")}</b></span><span><small>Mobile</small><b>${esc(phone(customer?.contact_number) || "—")}</b></span></div>
     <div class="ledger-print-totals"><span><small>Total Loan Amount</small><b>${money(totalLoanAmount)}</b></span><span><small>All-time Collection</small><b>${money(totalCollected)}</b></span><span><small>Outstanding Balance / कुल बकाया</small><b>${money(totalOutstanding)}</b></span><span><small>Recorded Transactions</small><b>${paymentRows.length.toLocaleString("en-IN")}</b></span></div>
     <h3>Loan-wise Outstanding Balance / लोन अनुसार बाकी राशि</h3>
     <div class="tablewrap ledger-tablewrap"><table id="ledgerLoanBalanceTable"><thead><tr><th>Loan Ref</th><th>Loan Amount</th><th>Total Collected</th><th>Remaining Balance</th></tr></thead><tbody>${loanBalanceRows}</tbody></table></div>
-    <h3>Payment Transaction Register</h3>
-    <p class="small muted">Outstanding Balance में सभी चालू और पुराने Loan का शेष बकाया शामिल है। नीचे सिस्टम में दर्ज वास्तविक भुगतान की तारीख, रसीद, Loan Ref, Mode और राशि दी गई है।</p>
-    <div class="tablewrap ledger-tablewrap"><table id="ledgerPaymentTable"><thead><tr><th>Date</th><th>Receipt / Transaction</th><th>Loan Ref</th><th>Mode</th><th>Amount</th></tr></thead><tbody>${transactionRows}</tbody></table></div>
+    <h3>Khata Transaction History / लेन-देन और चलता बकाया</h3>
+    <p class="small muted">हर Loan का हिसाब अलग रखा गया है। पुराने Excel का aggregate balance “Imported / Opening” के रूप में दिखता है; उसकी कोई अनुमानित तारीख या नकली receipt नहीं बनाई गई है। नीचे Loan Disbursement, दर्ज Payment और हर लेन-देन के बाद कुल बाकी दिखता है।</p>
+    <div class="tablewrap ledger-tablewrap"><table id="ledgerPaymentTable"><thead><tr><th>तारीख</th><th>विवरण</th><th>Loan Ref</th><th>Loan दिया</th><th>Payment जमा</th><th>बाकी बकाया</th></tr></thead><tbody>${khataRows}</tbody></table></div>
     <p class="ledger-generated">Statement Generated: ${new Date().toLocaleString("en-IN")}</p>
   </div>`;
-  rows.innerHTML = transactionRows;
+  rows.innerHTML = khataRows;
 }
 
 const WEEKDAY_INDEX = {Sunday:0,Monday:1,Tuesday:2,Wednesday:3,Thursday:4,Friday:5,Saturday:6};

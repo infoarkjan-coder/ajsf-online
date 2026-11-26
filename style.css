@@ -1048,3 +1048,7 @@ body{background:radial-gradient(ellipse at 50% 0%,#e4f1e9 0%,#f4f8f5 42%,#eef4f0
 .ajs-duty-time span{display:block;color:#796b5d;font-size:12px;font-weight:800;letter-spacing:.04em}
 .ajs-duty-time strong{display:block;margin-top:5px;color:#263f36;font-size:clamp(13px,3.3vw,17px);line-height:1.35;overflow-wrap:anywhere}
 @media(max-width:420px){.ajs-duty-time-grid{gap:8px}.ajs-duty-time{padding:11px 10px}.ajs-duty-time span{font-size:10px}}
+
+/* Customer-wise digital khata register */
+.khata-section-title{margin:22px 0 6px;color:#123f35;font-size:16px}.khata-account-table td{vertical-align:middle}.khata-open-btn{white-space:nowrap;background:#176b4b;padding:9px 13px;font-size:12px}.khata-account-table tbody tr:hover{background:#f4f8f5}
+@media(max-width:600px){.khata-account-table{font-size:12px}.khata-account-table th,.khata-account-table td{padding:9px 7px}}
